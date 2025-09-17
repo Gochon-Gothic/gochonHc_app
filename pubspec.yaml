@@ -1,0 +1,60 @@
+name: gochon_mobile
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_svg: ^2.0.9
+  intl: ^0.19.0
+  http: ^1.1.0
+  dio: ^5.4.0
+  shared_preferences: ^2.2.2
+  provider: ^6.1.5
+  gsheets: ^0.5.0
+  crypto: ^3.0.3
+  liquid_glass_renderer: ^0.1.1-dev.10
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.13.1
+  # 성능 최적화를 위한 추가 린트 규칙
+  # custom_lint: ^0.6.0
+  # dart_code_metrics: ^5.7.6
+
+flutter:
+  uses-material-design: true
+
+  assets:
+    - assets/images/
+    - assets/fonts/
+
+  fonts:
+    - family: SFPro
+      fonts:
+        - asset: assets/fonts/SF-Pro.ttf
+          weight: 400
+        - asset: assets/fonts/SF-Pro.ttf
+          weight: 500
+        - asset: assets/fonts/SF-Pro.ttf
+          weight: 600
+        - asset: assets/fonts/SF-Pro.ttf
+          weight: 700
+        - asset: assets/fonts/SF-Pro.ttf
+          weight: 800
+        - asset: assets/fonts/SF-Pro.ttf
+          weight: 900
+
+
+# 앱 아이콘 생성 설정
+flutter_launcher_icons:
+  ios: true
+  android: true
+  image_path_ios: assets/images/App_Logo.png
+  image_path_android: assets/images/App_Logo.png
+  remove_alpha_ios: true
