@@ -610,12 +610,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
-          // 주간(일~토) 헤더: 표 모드에서는 숨김, 리스트 모드에서만 표시
+          const SizedBox(height: 24),
           if (!_isTableView)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: SizedBox(
+            Transform(
+              transform: Matrix4.translationValues(15, 0, 0),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: SizedBox(
                 height: 90,
                 child: _WeekHeader(
                   controller: _dayController,
@@ -636,12 +637,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       }
                     }
                   },
+                  ),
                 ),
               ),
             ),
-          // 토글(우측 정렬)
           Padding(
-            padding: const EdgeInsets.only(right: 24, top: 6),
+            padding: const EdgeInsets.only(right: 24),
             child: Align(
               alignment: Alignment.centerRight,
               child: GestureDetector(
@@ -660,30 +661,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          // 본문: 표 / 리스트
+          const SizedBox(height: 7),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
             child: _isTableView
                 ? _buildTableView(isDark, textColor)
                 : _buildListView(cardColor, textColor, isDark),
           ),
-          const SizedBox(height: 24),
-          const SizedBox(height: 8),
+          const SizedBox(height: 32),
         ],
       ),
     );
   }
   
-  // 표 보기
   Widget _buildTableView(bool isDark, Color textColor) {
-    // 이미지와 동일한 캡슐형 셀 스타일
-    // todayIndex 사용 안 함 (현재교시 하이라이트 제거)
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
         children: [
-          // 헤더 행: 요일 (동등 폭, 네 외곽만 라운드)
           LayoutBuilder(builder: (context, constraints) {
             const double gap = 8;
             final double itemWidth = (constraints.maxWidth - gap * 4) / 5;
@@ -826,9 +821,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-
                               subject.isEmpty ? '-' : subject,
-
                               style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600, height: 1.28),
                             ),
                           ],
@@ -837,7 +830,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     ),
                   );
                 }),
-                const SizedBox(height: 80), // 하단 여백 추가
               ],
             ),
           );
