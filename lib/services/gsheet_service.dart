@@ -1,8 +1,9 @@
 import 'package:gsheets/gsheets.dart';
 
 class GSheetService {
-  static const String _spreadsheetId =
-      '1Q45kRO9R_SUZoLvB78MZrbTUWnWTU-3MLL5Pfh8RZz4';
+  //git 보안 문제로 일시적 주석 처리
+  //static const String _spreadsheetId =
+  //    '1Q45kRO9R_SUZoLvB78MZrbTUWnWTU-3MLL5Pfh8RZz4';
   static const String _worksheetTitle = '사용자정보';
   static const String _suggestionWorksheetTitle = '건의사항';
 
