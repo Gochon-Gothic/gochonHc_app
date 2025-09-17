@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:ui';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -167,21 +166,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
       // 캐시가 있고 만료되지 않았으면 캐시 사용
       if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
-        try {
-          final data = json.decode(cachedData);
-          if (data['hisTimetable'] != null) {
-            final timetableData = data['hisTimetable'][1]['row'] as List;
-            parseAndSetTimetable(timetableData);
-            if (!mounted) return;
-            setState(() {
-              isLoading = false;
-            });
+        final data = json.decode(cachedData);
+        if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
+          final timetableData = data['hisTimetable'][1]['row'] as List;
+          parseAndSetTimetable(timetableData);
+          if (!mounted) return;
+          setState(() {
+            isLoading = false;
+          });
 
-            // 백그라운드에서 새 데이터 업데이트 (사용자 체감 개선)
-            updateTimetableInBackground();
-            return;
-          }
-        } catch (e) {}
+          // 백그라운드에서 새 데이터 업데이트 (사용자 체감 개선)
+          updateTimetableInBackground();
+          return;
+        }
       }
 
       // API 호출

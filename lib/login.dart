@@ -286,7 +286,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: InkWell(
                             borderRadius: BorderRadius.circular(8),
                             onTap: () {
-                              // TODO: 구글 로그인 처리
                             },
                             child: Container(
                               padding: const EdgeInsets.symmetric(horizontal: 16),

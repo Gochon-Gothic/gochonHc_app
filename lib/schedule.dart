@@ -215,7 +215,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '${month}월 ${e.day}일',
+                            '$month월 ${e.day}일',
                             style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600),
                           ),
                           const SizedBox(height: 6),
