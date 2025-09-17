@@ -680,6 +680,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
   
   // 표 보기
   Widget _buildTableView(bool isDark, Color textColor) {
+    // 이미지와 동일한 캡슐형 셀 스타일
+    // todayIndex 사용 안 함 (현재교시 하이라이트 제거)
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Column(
@@ -827,7 +829,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                             ),
                             const SizedBox(height: 6),
                             Text(
+
                               subject.isEmpty ? '-' : subject,
+
                               style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600, height: 1.28),
                             ),
                           ],
@@ -909,10 +913,12 @@ class _WeekHeader extends StatelessWidget {
                               margin: EdgeInsets.only(right: i == 6 ? 0 : gap),
                               child: Stack(
                                 children: [
+                                  // 선택된 요일에만 작은 리퀴드 글라스 캡슐 (스크롤 동기화)
                                   if (selectedIndex == i && i >= 1 && i <= 5)
                                     AnimatedBuilder(
                                       animation: controller ?? const AlwaysStoppedAnimation(0.0),
                                       builder: (context, _) {
+                                        // 스크롤과 동기화된 페이지 값 계산
                                         double page = (selectedIndex! - 1).toDouble().clamp(0, 4);
                                         if (controller?.positions.isNotEmpty == true) {
                                           final p = controller?.page;
@@ -935,6 +941,7 @@ class _WeekHeader extends StatelessWidget {
                                                 borderRadius: BorderRadius.circular(20),
                                                 child: Container(
                                                   decoration: BoxDecoration(
+                                                    // schedule.dart와 동일한 불투명도 적용
                                                     color: isDark 
                                                         ? const Color.fromRGBO(255, 255, 255, 0.12) 
                                                         : const Color.fromRGBO(0, 0, 0, 0.08),
