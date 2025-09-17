@@ -567,8 +567,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       child: ListView(
         padding: const EdgeInsets.all(0),
         children: [
-          const SizedBox(height: 60),
-          // 상단 타이틀 + 로고
+          const SizedBox(height: 80),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
             child: Row(
@@ -610,7 +609,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
           if (!_isTableView)
             Transform(
               transform: Matrix4.translationValues(15, 0, 0),
