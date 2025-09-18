@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import 'screens/timetable_screen.dart';
-import 'screens/bus_screen.dart';
+import 'screens/bus_search_screen.dart';
 import 'screens/lunch_screen.dart';
 import 'screens/my_screen.dart';
 import 'widgets/glass_navigation_bar.dart';
@@ -38,7 +38,7 @@ class _MainScreenState extends State<MainScreen> {
   static const String eduOfficeCode = 'J10';
   static const String schoolCode = '7531375';
   List<Widget> get _pages => [
-    const BusScreen(),
+    const BusSearchScreen(),
     const TimetableScreen(),
     _MainHomeContent(
       key: _homeKey,

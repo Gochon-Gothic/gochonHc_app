@@ -3,31 +3,36 @@ import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/bus_service.dart';
-import 'bus_station_screen.dart';
+import 'bus_detail_screen.dart';
 
-class BusScreen extends StatefulWidget {
-  const BusScreen({super.key});
+class BusSearchScreen extends StatefulWidget {
+  const BusSearchScreen({super.key});
 
   @override
-  State<BusScreen> createState() => _BusScreenState();
+  State<BusSearchScreen> createState() => _BusSearchScreenState();
 }
 
-class _BusScreenState extends State<BusScreen> {
+class _BusSearchScreenState extends State<BusSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   List<BusStation> searchResults = [];
   bool isSearching = false;
   
   final List<Map<String, String>> popularStations = [
     {'name': '고촌역', 'keyword': '고촌역'},
-    {'name': '장곡•고촌고등학교', 'keyword': '장곡'},
-    {'name': '장곡', 'keyword': '장곡'},
-    {'name': '김포공항', 'keyword': '김포공항'},
+    {'name': '김포공항역', 'keyword': '김포공항'},
     {'name': '김포시청', 'keyword': '김포시청'},
     {'name': '운양역', 'keyword': '운양역'},
     {'name': '사우역', 'keyword': '사우역'},
     {'name': '풍무역', 'keyword': '풍무역'},
     {'name': '구래역', 'keyword': '구래역'},
     {'name': '마산역', 'keyword': '마산역'},
+    {'name': '장곡•고촌고등학교', 'keyword': '장곡'},
+    {'name': '김포시외버스터미널', 'keyword': '터미널'},
+    {'name': '김포대학교', 'keyword': '김포대학교'},
+    {'name': '김포롯데마트', 'keyword': '롯데마트'},
+    {'name': '통진읍사무소', 'keyword': '통진'},
+    {'name': '양촌읍사무소', 'keyword': '양촌'},
+    {'name': '대곶면사무소', 'keyword': '대곶'},
   ];
 
   @override
@@ -74,7 +79,7 @@ class _BusScreenState extends State<BusScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => BusStationScreen(station: station),
+        builder: (context) => BusDetailScreen(station: station),
       ),
     );
   }
@@ -155,8 +160,6 @@ class _BusScreenState extends State<BusScreen> {
           ),
           
           const SizedBox(height: 24),
-          
-          // 검색 결과 또는 인기 정류장
           if (_searchController.text.isNotEmpty && searchResults.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -184,17 +187,38 @@ class _BusScreenState extends State<BusScreen> {
                         color: textColor.withValues(alpha: 0.7),
                       ),
                       title: Text(
-                        station.stationName,
+                        station.baseStationName,
                         style: TextStyle(
                           color: textColor,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      subtitle: Text(
-                        '정류장 번호: ${station.stationNum}',
-                        style: TextStyle(
-                          color: textColor.withValues(alpha: 0.6),
-                        ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Builder(
+                            builder: (context) {
+                              final direction = station.getDirectionFromCoordinate(BusService.getCachedStations());
+                              if (direction.isNotEmpty) {
+                                return Text(
+                                  direction,
+                                  style: TextStyle(
+                                    color: const Color.fromRGBO(255, 197, 30, 1),
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 12,
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                          Text(
+                            '${station.district ?? ''} • 정류장 번호: ${station.stationNum}',
+                            style: TextStyle(
+                              color: textColor.withValues(alpha: 0.6),
+                            ),
+                          ),
+                        ],
                       ),
                       trailing: Icon(
                         Icons.arrow_forward_ios,
@@ -209,9 +233,9 @@ class _BusScreenState extends State<BusScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 24),
               child: Text(
-                '인기 정류장',
+                '즐겨찾기',
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                   color: textColor,
                 ),

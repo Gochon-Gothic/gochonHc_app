@@ -4,19 +4,19 @@ import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/bus_service.dart';
 
-class BusStationScreen extends StatefulWidget {
+class BusDetailScreen extends StatefulWidget {
   final BusStation station;
 
-  const BusStationScreen({
+  const BusDetailScreen({
     super.key,
     required this.station,
   });
 
   @override
-  State<BusStationScreen> createState() => _BusStationScreenState();
+  State<BusDetailScreen> createState() => _BusDetailScreenState();
 }
 
-class _BusStationScreenState extends State<BusStationScreen> {
+class _BusDetailScreenState extends State<BusDetailScreen> {
   List<BusRoute> routes = [];
   BusStationDetail? stationDetail;
   bool isLoading = true;
@@ -69,7 +69,7 @@ class _BusStationScreenState extends State<BusStationScreen> {
         elevation: 0,
         iconTheme: IconThemeData(color: textColor),
         title: Text(
-          widget.station.stationName,
+          widget.station.baseStationName,
           style: TextStyle(
             color: textColor,
             fontSize: 20,
@@ -130,13 +130,34 @@ class _BusStationScreenState extends State<BusStationScreen> {
                               ),
                               const SizedBox(width: 8),
                               Expanded(
-                                child: Text(
-                                  widget.station.stationName,
-                                  style: TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                    color: textColor,
-                                  ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      widget.station.baseStationName,
+                                      style: TextStyle(
+                                        fontSize: 24,
+                                        fontWeight: FontWeight.bold,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                    Builder(
+                                      builder: (context) {
+                                        final direction = widget.station.getDirectionFromCoordinate(BusService.getCachedStations());
+                                        if (direction.isNotEmpty) {
+                                          return Text(
+                                            direction,
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: const Color.fromRGBO(255, 197, 30, 1),
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          );
+                                        }
+                                        return const SizedBox.shrink();
+                                      },
+                                    ),
+                                  ],
                                 ),
                               ),
                             ],
