@@ -6,7 +6,6 @@ class ApiService {
   static ApiService? _instance;
   static Dio? _dio;
 
-  // 싱글톤 패턴
   static ApiService get instance {
     _instance ??= ApiService._internal();
     return _instance!;
@@ -26,11 +25,9 @@ class ApiService {
       ),
     );
 
-    // 캐싱 인터셉터 추가
     _dio!.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) async {
-          // 캐시된 데이터가 있는지 확인
           final cacheKey = _generateCacheKey(
             options.path,
             options.queryParameters,
@@ -39,7 +36,6 @@ class ApiService {
               await PreferenceManager.instance.getTimetableCache();
 
           if (cachedData != null && cachedData.containsKey(cacheKey)) {
-            // 캐시된 데이터 반환
             handler.resolve(
               Response(
                 data: cachedData[cacheKey],
@@ -53,7 +49,6 @@ class ApiService {
           handler.next(options);
         },
         onResponse: (response, handler) async {
-          // 응답 데이터 캐싱
           if (response.statusCode == 200) {
             final cacheKey = _generateCacheKey(
               response.requestOptions.path,
@@ -69,7 +64,6 @@ class ApiService {
           handler.next(response);
         },
         onError: (error, handler) async {
-          // 에러 시 캐시된 데이터 사용
           if (error.type == DioExceptionType.connectionTimeout ||
               error.type == DioExceptionType.receiveTimeout) {
             final cacheKey = _generateCacheKey(
@@ -103,7 +97,6 @@ class ApiService {
     return '$path?$params';
   }
 
-  // 시간표 API 호출
   Future<Response> getTimetable({
     required String apiKey,
     required String eduOfficeCode,
@@ -130,7 +123,6 @@ class ApiService {
 
       return response;
     } on DioException catch (e) {
-      // 에러 로깅
       if (kDebugMode) {
         print('Timetable API Error: ${e.message}');
       }
@@ -138,7 +130,6 @@ class ApiService {
     }
   }
 
-  // 급식 API 호출
   Future<Response> getMeal({
     required String apiKey,
     required String eduOfficeCode,
@@ -168,7 +159,6 @@ class ApiService {
     }
   }
 
-  // 학사일정 API 호출
   Future<Response> getSchoolSchedule({
     required String apiKey,
     required String eduOfficeCode,
@@ -200,7 +190,6 @@ class ApiService {
     }
   }
 
-  // 배치 API 호출 (여러 날짜 범위를 한 번에)
   Future<List<Response>> getBatchTimetables({
     required String apiKey,
     required String eduOfficeCode,

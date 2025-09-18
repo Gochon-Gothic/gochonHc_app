@@ -77,12 +77,9 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       final userInfo = UserInfo(
         email: widget.userEmail,
         name: _nameController.text.trim(),
-        grade: _gradeController.text.trim(),
-        className: _classController.text.trim(),
-        studentNumber: _studentNumberController.text.trim(),
-        selectedSubjects: [], // 선택과목은 나중에 구현
-        hasCompletedInitialSetup: true,
-        agreedToTerms: true,
+        grade: int.tryParse(_gradeController.text.trim()) ?? 1,
+        classNum: int.tryParse(_classController.text.trim()) ?? 1,
+        number: int.tryParse(_studentNumberController.text.trim()) ?? 1,
       );
 
       // 로컬에 사용자 정보 저장

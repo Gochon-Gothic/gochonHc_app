@@ -6,8 +6,8 @@ import 'dart:convert';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'theme_provider.dart';
-import 'theme_colors.dart';
+import '../theme_provider.dart';
+import '../theme_colors.dart';
 
 class LunchScreen extends StatefulWidget {
   const LunchScreen({super.key});
@@ -22,7 +22,6 @@ class _LunchScreenState extends State<LunchScreen> {
   String? error;
   DateTime currentDate = DateTime.now();
 
-  // 여기에 본인 인증키 입력
   static const String apiKey = '44e1ba05c56746c5a09a5fbd5eead0be';
   static const String eduOfficeCode = 'J10';
   static const String schoolCode = '7531375';
@@ -51,7 +50,6 @@ class _LunchScreenState extends State<LunchScreen> {
 
   Set<int> allergySet = {};
 
-  // 급식 혼잡도 변수들
   Map<int, Map<String, dynamic>> congestionMap = {
     1: {'status': '급식줄 현재 여유', 'color': const Color.fromARGB(255, 68, 168, 71)},
     2: {'status': '급식줄 보통', 'color': const Color.fromARGB(255, 225, 170, 3)},
@@ -96,7 +94,6 @@ class _LunchScreenState extends State<LunchScreen> {
       final now = DateTime.now().millisecondsSinceEpoch;
       final cacheExpiry = 259200000;
 
-      // 캐시가 있고 만료되지 않았으면 캐시 사용
       if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
         try {
           final data = json.decode(cachedData);
@@ -106,15 +103,12 @@ class _LunchScreenState extends State<LunchScreen> {
             isLoading = false;
           });
 
-          // 백그라운드에서 새 데이터 업데이트
           _updateMealInBackground(prefs, cacheKey, today);
           return;
         } catch (e) {
-          // 캐시 파싱 실패 시 무시하고 API 호출
         }
       }
 
-      // API 호출
       await _fetchMealFromAPI(prefs, cacheKey, today);
     } catch (e) {
       if (!mounted) return;
@@ -125,7 +119,6 @@ class _LunchScreenState extends State<LunchScreen> {
     }
   }
 
-  // API에서 급식 데이터 가져오기
   Future<void> _fetchMealFromAPI(
     SharedPreferences prefs,
     String cacheKey,
@@ -147,7 +140,6 @@ class _LunchScreenState extends State<LunchScreen> {
 
       final data = json.decode(response.body);
 
-      // 성공 시 캐시에 저장
       await prefs.setString(cacheKey, response.body);
       await prefs.setInt(
         '${cacheKey}_lastUpdate',
@@ -168,7 +160,6 @@ class _LunchScreenState extends State<LunchScreen> {
     }
   }
 
-  // 백그라운드에서 급식 업데이트
   Future<void> _updateMealInBackground(
     SharedPreferences prefs,
     String cacheKey,
@@ -182,14 +173,12 @@ class _LunchScreenState extends State<LunchScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['mealServiceDietInfo'] != null) {
-          // 백그라운드에서 캐시 업데이트
           await prefs.setString(cacheKey, response.body);
           await prefs.setInt(
             '${cacheKey}_lastUpdate',
             DateTime.now().millisecondsSinceEpoch,
           );
 
-          // UI 업데이트
           if (mounted) {
             _parseMealData(data);
             setState(() {});
@@ -197,17 +186,14 @@ class _LunchScreenState extends State<LunchScreen> {
         }
       }
     } catch (e) {
-      // 백그라운드 업데이트 실패는 무시
     }
   }
 
-  // 급식 데이터 파싱
   void _parseMealData(Map<String, dynamic> data) {
     if (data['mealServiceDietInfo'] != null) {
       final row = data['mealServiceDietInfo'][1]['row'][0];
       String rawMenu = row['DDISH_NM'];
 
-      // 알레르기 번호 추출
       final allergyReg = RegExp(r'\((\d+(?:\.\d+)*)\)');
       final matches = allergyReg.allMatches(rawMenu);
       for (final match in matches) {
@@ -220,7 +206,6 @@ class _LunchScreenState extends State<LunchScreen> {
         allergySet.addAll(nums);
       }
 
-      // 메뉴에서 (번호...)와 # (번호...) 모두 제거
       String cleanMenu =
           rawMenu
               .replaceAll(RegExp(r'＃ ?\([\d.]+\)'), '')
@@ -281,7 +266,6 @@ class _LunchScreenState extends State<LunchScreen> {
             ),
           ),
           const SizedBox(height: 5),
-          // 밑줄
           Padding(
             padding: const EdgeInsets.only(left: 24),
             child: Container(width: 190, height: 3, color: textColor),
@@ -315,7 +299,6 @@ class _LunchScreenState extends State<LunchScreen> {
               ],
             ),
           ),
-          // 급식 혼잡도 표시기 (날짜 행 바로 아래)
           Card(
             margin: const EdgeInsets.symmetric(horizontal: 24),
             shape: RoundedRectangleBorder(

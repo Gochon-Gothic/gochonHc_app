@@ -22,7 +22,6 @@ class GlassNavigationBar extends StatelessWidget {
     const double barRadius = 28;
     const double widthFactor = 0.90; // 90%
 
-    // 정렬값은 LayoutBuilder 기반 계산으로 대체됨
 
     return SizedBox(
       height: 110,
@@ -74,7 +73,6 @@ class GlassNavigationBar extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              // Liquid glass layer (유리 표면 + 하이라이트/블렌딩)
                               LiquidGlassLayer(
                                 settings: LiquidGlassSettings(
                                   thickness: 10,
@@ -88,7 +86,6 @@ class GlassNavigationBar extends StatelessWidget {
                                 ),
                                 child: Stack(
                                   children: [
-                                    // 바디: 슈퍼엘립스 형태 바
                                     LiquidGlass.inLayer(
                                       shape: LiquidRoundedSuperellipse(
                                         borderRadius: const Radius.circular(barRadius),
@@ -99,14 +96,13 @@ class GlassNavigationBar extends StatelessWidget {
                                 ),
                               ),
 
-                              // 콘텐츠(아이콘/라벨) - 유리 위에 정상 렌더링
                               Positioned.fill(
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: horizontalPadding),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Expanded(child: _buildNavItem(index: 0, iconPath: 'assets/images/suggest_logo.svg', label: '건의함', isSelected: currentIndex == 0)),
+                                      Expanded(child: _buildNavItem(index: 0, icon: Icons.directions_bus, label: '버스', isSelected: currentIndex == 0, iconSize: 30)),
                                       Expanded(child: _buildNavItem(index: 1, iconPath: 'assets/images/timetable_logo.svg', label: '시간표', isSelected: currentIndex == 1)),
                                       Expanded(child: _buildNavItem(index: 2, iconPath: 'assets/images/home_logo.svg', label: '홈', isSelected: currentIndex == 2)),
                                       Expanded(child: _buildNavItem(index: 3, iconPath: 'assets/images/lunch_logo.svg', label: '급식', isSelected: currentIndex == 3)),
@@ -116,7 +112,6 @@ class GlassNavigationBar extends StatelessWidget {
                                 ),
                               ),
 
-                              // 선택 위치를 표시하는 얇은 라인(윤곽선)만 유지 - 스크롤과 동기화
                               Positioned(
                                 left: leftForCapsule,
                                 top: (barHeight - capsuleHeight) / 2,
@@ -150,9 +145,11 @@ class GlassNavigationBar extends StatelessWidget {
 
   Widget _buildNavItem({
     required int index,
-    required String iconPath,
+    String? iconPath,
+    IconData? icon,
     required String label,
     required bool isSelected,
+    double? iconSize,
   }) {
     return GestureDetector(
       onTap: () => onTap(index),
@@ -178,16 +175,36 @@ class GlassNavigationBar extends StatelessWidget {
                       final Color unselected = isDark
                           ? const Color.fromRGBO(230, 230, 230, 0.75)
                           : const Color.fromRGBO(48, 48, 46, 0.60);
-                      return SvgPicture.asset(
-                        iconPath,
-                        semanticsLabel: label,
-                        colorFilter: ColorFilter.mode(
-                          isSelected
+                      
+                      if (icon != null) {
+                        Widget iconWidget = Icon(
+                          icon,
+                          size: iconSize ?? 25,
+                          color: isSelected
                               ? const Color.fromRGBO(255, 197, 30, 1)
                               : unselected,
-                          BlendMode.srcIn,
-                        ),
-                      );
+                        );
+                        
+                        if (icon == Icons.directions_bus) {
+                          return Transform.translate(
+                            offset: const Offset(-2.4, -3), // 3픽셀 왼쪽, 3픽셀 위로
+                            child: iconWidget,
+                          );
+                        }
+                        
+                        return iconWidget;
+                      } else {
+                        return SvgPicture.asset(
+                          iconPath!,
+                          semanticsLabel: label,
+                          colorFilter: ColorFilter.mode(
+                            isSelected
+                                ? const Color.fromRGBO(255, 197, 30, 1)
+                                : unselected,
+                            BlendMode.srcIn,
+                          ),
+                        );
+                      }
                     }),
                   ),
                   const SizedBox(height: 4),
@@ -219,8 +236,5 @@ class GlassNavigationBar extends StatelessWidget {
     );
   }
 
-  // _buildSuggestIcon removed (SVG 직접 사용)
 }
 
-// 장식용 배경 블롭 (유리 굴절이 눈에 띄도록 아래에 배치)
-// _BackdropBlobs was removed after revert

@@ -17,6 +17,7 @@ dependencies:
   gsheets: ^0.5.0
   crypto: ^3.0.3
   liquid_glass_renderer: ^0.1.1-dev.10
+  xml: ^6.4.2
 
 dev_dependencies:
   flutter_test:
@@ -33,6 +34,7 @@ flutter:
   assets:
     - assets/images/
     - assets/fonts/
+    - assets/data/
 
   fonts:
     - family: SFPro

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'services/user_service.dart';
-import 'theme_colors.dart';
+import '../services/user_service.dart';
+import '../theme_colors.dart';
 import 'package:provider/provider.dart';
-import 'theme_provider.dart';
+import '../theme_provider.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -89,7 +89,6 @@ class _LoginScreenState extends State<LoginScreen> {
           height: double.infinity,
           child: Stack(
             children: [
-              // 로그인하기 제목
               Positioned(
                 top: 60,
                 left: 0,
@@ -107,7 +106,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               
-              // 메인 컨텐츠
               Positioned(
                 top: 210,
                 left: 13,
@@ -117,7 +115,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // 상단 텍스트
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -149,11 +146,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       const SizedBox(height: 24),
                       
-                      // 이메일 입력 및 버튼
                       Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          // 이메일 입력 필드
                           Container(
                             width: 327,
                             height: 40,
@@ -191,7 +186,6 @@ class _LoginScreenState extends State<LoginScreen> {
                           
                           const SizedBox(height: 16),
                           
-                          // Continue 버튼
                           Container(
                             width: 327,
                             height: 40,
@@ -237,7 +231,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       const SizedBox(height: 24),
                       
-                      // 구분선
                       Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -273,7 +266,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       const SizedBox(height: 24),
                       
-                      // Google 로그인 버튼
                       Container(
                         width: 327,
                         height: 40,
@@ -321,7 +313,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       const SizedBox(height: 24),
                       
-                      // 약관 동의 텍스트
                       Text(
                         'By clicking continue, you agree to our Terms of Service and Privacy Policy',
                         textAlign: TextAlign.center,
@@ -336,7 +327,6 @@ class _LoginScreenState extends State<LoginScreen> {
                       
                       const SizedBox(height: 24),
                       
-                      // 로그인하지않고 이용하기 텍스트
                       GestureDetector(
                         onTap: () async {
                           final navigator = Navigator.of(context);
@@ -359,7 +349,6 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       
-                      // 에러 메시지
                       if (error != null) ...[
                         const SizedBox(height: 16),
                         Text(
@@ -376,7 +365,6 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               
-              // 고촌고등학교 텍스트와 로고
               Positioned(
                 bottom: 70,
                 left: 0,

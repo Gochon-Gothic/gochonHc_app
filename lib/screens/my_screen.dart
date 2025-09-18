@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:provider/provider.dart';
-import 'theme_provider.dart';
-import 'theme_colors.dart';
-import 'Info/user_info.dart';
-import 'services/user_service.dart';
+import '../theme_provider.dart';
+import '../theme_colors.dart';
+import '../models/user_info.dart';
+import '../services/user_service.dart';
 
 class MyScreen extends StatefulWidget {
   const MyScreen({super.key});
@@ -106,7 +106,6 @@ class _MyScreenState extends State<MyScreen> {
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
-                                      // 제목
                                       Text(
                                         '설정',
                                         style: TextStyle(
@@ -116,7 +115,6 @@ class _MyScreenState extends State<MyScreen> {
                                         ),
                                       ),
                                       const SizedBox(height: 24),
-                                      // 사용자 정보 편집
                                       if (userInfo != null &&
                                           userInfo!.name != '게스트')
                                         Column(
@@ -163,7 +161,6 @@ class _MyScreenState extends State<MyScreen> {
                                                 text: userInfo!.name ?? '',
                                               ),
                                               onChanged: (value) async {
-                                                // 이름 업데이트
                                                 await UserService.instance
                                                     .updateUserName(value);
                                                 _loadUserInfo(); // UI 새로고침
@@ -172,7 +169,6 @@ class _MyScreenState extends State<MyScreen> {
                                             const SizedBox(height: 20),
                                           ],
                                         ),
-                                      // 다크모드 설정
                                       Row(
                                         mainAxisAlignment:
                                             MainAxisAlignment.spaceBetween,
@@ -196,7 +192,6 @@ class _MyScreenState extends State<MyScreen> {
                                         ],
                                       ),
                                       const SizedBox(height: 20),
-                                      // 추가 설정 옵션들을 위한 공간
                                       Text(
                                         '추가 설정',
                                         style: TextStyle(
@@ -245,7 +240,6 @@ class _MyScreenState extends State<MyScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                // 로그아웃 버튼
                 Card(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
@@ -286,11 +280,9 @@ class _MyScreenState extends State<MyScreen> {
     });
 
     try {
-      // 게스트 모드 확인
       final isGuest = await UserService.instance.isGuestMode();
 
       if (isGuest) {
-        // 게스트 모드인 경우 기본 정보만 설정
         if (!mounted) return;
         setState(() {
           userInfo = UserInfo(
@@ -305,7 +297,6 @@ class _MyScreenState extends State<MyScreen> {
         return;
       }
 
-      // SharedPreferences에서 사용자 정보 불러오기
       final prefs = await SharedPreferences.getInstance();
       final email = prefs.getString('user_email');
       final name = prefs.getString('user_name');
@@ -322,7 +313,6 @@ class _MyScreenState extends State<MyScreen> {
           grade != null &&
           className != null &&
           numberStr != null) {
-        // SharedPreferences에서 직접 정보를 가져와서 사용
         final userGrade = int.tryParse(grade) ?? 1;
         final userClass = int.tryParse(className) ?? 1;
         final userNumber = int.tryParse(numberStr) ?? 1;
@@ -338,7 +328,6 @@ class _MyScreenState extends State<MyScreen> {
           isLoading = false;
         });
       } else if (email != null) {
-        // 이메일만 있는 경우 기본 정보 생성
         setState(() {
           userInfo = UserInfo.fromEmail(email);
           isLoading = false;
@@ -357,7 +346,6 @@ class _MyScreenState extends State<MyScreen> {
     }
   }
 
-  // 로그아웃 확인 다이얼로그
   void _showLogoutDialog() {
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final isDark = themeProvider.isDarkMode;
@@ -396,10 +384,8 @@ class _MyScreenState extends State<MyScreen> {
     });
 
     try {
-      // UserService에서 사용자 정보 정리
       await UserService.instance.clearUserInfo();
 
-      // SharedPreferences에서 이메일 제거
       final prefs = await SharedPreferences.getInstance();
       await prefs.remove('user_email');
 

@@ -5,9 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'theme_colors.dart';
-import 'theme_provider.dart';
-import 'utils/shadows.dart';
+import '../theme_colors.dart';
+import '../theme_provider.dart';
+import '../utils/shadows.dart';
 
 class ScheduleView extends StatefulWidget {
   final VoidCallback onExit;
@@ -58,7 +58,6 @@ class _ScheduleViewState extends State<ScheduleView> {
           final ymd = '${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}';
           map.putIfAbsent(ymd, () => []).add(event);
         }
-        // 간단 필터: 방학/토요휴업일 제외
         final Map<String, List<String>> filtered = {};
         map.forEach((k, v) {
           final f = v.where((e) => !e.contains('겨울방학') && !e.contains('여름방학') && !e.contains('토요휴업일')).toList();
@@ -265,9 +264,7 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 }
 
-// _MonthTabs 제거 (7개 전용 탭으로 대체)
 
-// 7개 가시 영역의 월 탭. 현재 인덱스를 중심으로 좌우 3개월씩 표시
 class _MonthTabsScrollable extends StatelessWidget {
   final PageController controller;
   final ScrollController scrollController;

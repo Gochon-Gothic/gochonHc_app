@@ -1,17 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
-import 'timetable.dart';
-import 'suggest.dart';
-import 'lunch.dart';
-import 'my.dart';
+import 'screens/timetable_screen.dart';
+import 'screens/bus_screen.dart';
+import 'screens/lunch_screen.dart';
+import 'screens/my_screen.dart';
 import 'widgets/glass_navigation_bar.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
-import 'schedule.dart';
+import 'screens/schedule_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'Info/user_info.dart';
+import 'models/user_info.dart';
 import 'package:provider/provider.dart';
 import 'theme_provider.dart';
 import 'theme_colors.dart';
@@ -34,14 +34,11 @@ class _MainScreenState extends State<MainScreen> {
   String? error;
   List<Map<String, dynamic>> schedules = [];
 
-  // API 관련 상수
   static const String apiKey = 'c47f72f8b5a740f9956194fcd2112c27';
-  static const String eduOfficeCode = 'J10'; // 경기교육청
-  static const String schoolCode = '7531375'; // 고촌고등학교
-
-  // const 제거하고 getter로 변경
+  static const String eduOfficeCode = 'J10';
+  static const String schoolCode = '7531375';
   List<Widget> get _pages => [
-    const SuggestScreen(),
+    const BusScreen(),
     const TimetableScreen(),
     _MainHomeContent(
       key: _homeKey,
@@ -57,7 +54,6 @@ class _MainScreenState extends State<MainScreen> {
 
   void _onPageChanged(int index) {
     setState(() {
-      // 홈(2)에서 벗어날 때 홈 내부 상태를 초기화하도록 키 갱신
       if (_selectedIndex == 2 && index != 2) {
         _homeKey = UniqueKey();
       }
@@ -82,11 +78,9 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadUserInfo() async {
     try {
-      // 게스트 모드 확인
       final isGuest = await UserService.instance.isGuestMode();
 
       if (isGuest) {
-        // 게스트 모드인 경우 기본 정보만 설정
         setState(() {
           userInfo = UserInfo(
             email: 'guest@gochon.hs.kr',
@@ -99,7 +93,6 @@ class _MainScreenState extends State<MainScreen> {
         return;
       }
 
-      // SharedPreferences에서 사용자 정보 불러오기
       final prefs = await SharedPreferences.getInstance();
       final email = prefs.getString('user_email');
       final name = prefs.getString('user_name');
@@ -114,7 +107,6 @@ class _MainScreenState extends State<MainScreen> {
           grade != null &&
           className != null &&
           numberStr != null) {
-        // SharedPreferences에서 직접 정보를 가져와서 사용
         final userGrade = int.tryParse(grade) ?? 1;
         final userClass = int.tryParse(className) ?? 1;
         final userNumber = int.tryParse(numberStr) ?? 1;
@@ -129,13 +121,11 @@ class _MainScreenState extends State<MainScreen> {
           );
         });
       } else if (email != null) {
-        // 이메일만 있는 경우 기본 정보 생성
         setState(() {
           userInfo = UserInfo.fromEmail(email);
         });
       }
     } catch (e) {
-      // 에러 발생 시 기본 정보로 설정
       setState(() {
         userInfo = UserInfo(
           email: 'unknown@gochon.hs.kr',
@@ -155,7 +145,6 @@ class _MainScreenState extends State<MainScreen> {
     });
 
     try {
-      // 오늘 날짜부터 30일치 학사일정을 가져옴
       final today = DateTime.now();
       final endDate = today.add(const Duration(days: 30));
 
@@ -179,7 +168,6 @@ class _MainScreenState extends State<MainScreen> {
       final data = json.decode(response.body);
 
       if (data['RESULT'] != null && data['RESULT']['CODE'] == 'INFO-200') {
-        // 데이터가 없는 경우
         setState(() {
           schedules = [];
           isLoading = false;
@@ -193,7 +181,6 @@ class _MainScreenState extends State<MainScreen> {
 
       final rows = data['SchoolSchedule'][1]['row'] as List;
 
-      // '토요휴업일' 제외 후 날짜순으로 정렬하고 최근 3개만 선택
       final filteredRows = rows
           .map((row) => row as Map<String, dynamic>)
           .where((row) {
@@ -217,7 +204,6 @@ class _MainScreenState extends State<MainScreen> {
     }
   }
 
-  // 학사일정 카드 위젯
   @override
   Widget build(BuildContext context) {
     return Consumer<ThemeProvider>(
@@ -241,7 +227,6 @@ class _MainScreenState extends State<MainScreen> {
                   ),
                 ),
                 
-                // 글라스 네비게이션 바
                 Positioned(
                   bottom: 0,
                   left: 0,
@@ -261,7 +246,6 @@ class _MainScreenState extends State<MainScreen> {
   }
 }
 
-// 메인 홈 컨텐츠(기존 메인화면 내용) 분리
 class _MainHomeContent extends StatefulWidget {
   final UserInfo? userInfo;
   final List<Map<String, dynamic>> schedules;
@@ -284,7 +268,6 @@ class _MainHomeContent extends StatefulWidget {
 
 class _MainHomeContentState extends State<_MainHomeContent> {
   bool _showSchedule = false;
-  // 학사일정 카드 위젯
   Widget buildScheduleCard(bool isDark, Color textColor, Color cardColor) {
     if (widget.isLoading) {
       return const Center(
@@ -360,7 +343,6 @@ class _MainHomeContentState extends State<_MainHomeContent> {
     );
   }
 
-  // 공지사항 하드코딩용 리스트 및 위젯
   final List<String> notices = [
     '·2025년도 고촌고등학교 교육공무직원(조리실무사 대체) 채용계획 공고',
     '·2025학년도 5월 8일(목)~5월 9일 (금) 일과시간 변경 안내',
@@ -420,7 +402,6 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const SizedBox(height: 60),
-                  // 상단 로고 및 환영 메시지
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
@@ -451,7 +432,7 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                         ),
                         const Spacer(),
                         Transform.translate(
-                          offset: const Offset(0, 5), // 위로 10픽셀 이동
+                          offset: const Offset(0, 5),
                           child: SizedBox(
                             width: 80,
                             height: 80,
@@ -465,7 +446,6 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                     ),
                   ),
                   const SizedBox(height: 38),
-                  // 메인 이미지
                   Center(
                     child: Container(
                       width: 371,
@@ -493,14 +473,12 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                     ),
                   ),
                   const SizedBox(height: 25),
-                  // 오늘의 교칙 + 공지사항을 하나의 Column으로 묶어서 왼쪽 정렬, 패딩
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 13),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // 공지사항 (내부 가운데 정렬)
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -543,7 +521,6 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                           child: buildNoticeCard(isDark, textColor),
                         ),
                         const SizedBox(height: 15),
-                        // 오늘의 교칙 (내부 가운데 정렬)
                         Column(
                           mainAxisSize: MainAxisSize.min,
                           crossAxisAlignment: CrossAxisAlignment.center,
@@ -612,7 +589,6 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                       ],
                     ),
                   ),
-                  // 공지사항 카드 아래에 학사일정 추가
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 13),
                     child: Column(

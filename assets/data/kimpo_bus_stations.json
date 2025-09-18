@@ -1,0 +1,504 @@
+{
+  "kimpo_bus_stations": [
+    {
+      "stationId": "200000001",
+      "stationName": "고촌역",
+      "stationNum": "22001",
+      "x": 126.7745,
+      "y": 37.6188,
+      "regionName": "김포시",
+      "district": "고촌읍",
+      "type": "지하철역"
+    },
+    {
+      "stationId": "200000002",
+      "stationName": "장곡•고촌고등학교",
+      "stationNum": "22002",
+      "x": 126.7821,
+      "y": 37.6142,
+      "regionName": "김포시",
+      "district": "고촌읍",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000003",
+      "stationName": "장곡",
+      "stationNum": "22003",
+      "x": 126.7801,
+      "y": 37.6125,
+      "regionName": "김포시",
+      "district": "고촌읍",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000004",
+      "stationName": "김포공항역",
+      "stationNum": "22004",
+      "x": 126.8014,
+      "y": 37.5583,
+      "regionName": "서울특별시",
+      "district": "강서구",
+      "type": "지하철역"
+    },
+    {
+      "stationId": "200000005",
+      "stationName": "김포시청",
+      "stationNum": "22005",
+      "x": 126.7156,
+      "y": 37.6155,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000006",
+      "stationName": "운양역",
+      "stationNum": "22006",
+      "x": 126.7245,
+      "y": 37.6341,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "지하철역"
+    },
+    {
+      "stationId": "200000007",
+      "stationName": "사우역",
+      "stationNum": "22007",
+      "x": 126.7562,
+      "y": 37.6440,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "지하철역"
+    },
+    {
+      "stationId": "200000008",
+      "stationName": "풍무역",
+      "stationNum": "22008",
+      "x": 126.7265,
+      "y": 37.6480,
+      "regionName": "김포시",
+      "district": "풍무동",
+      "type": "지하철역"
+    },
+    {
+      "stationId": "200000009",
+      "stationName": "구래역",
+      "stationNum": "22009",
+      "x": 126.7598,
+      "y": 37.6698,
+      "regionName": "김포시",
+      "district": "구래동",
+      "type": "지하철역"
+    },
+    {
+      "stationId": "200000010",
+      "stationName": "마산역",
+      "stationNum": "22010",
+      "x": 126.7845,
+      "y": 37.6834,
+      "regionName": "김포시",
+      "district": "마산동",
+      "type": "지하철역"
+    },
+    {
+      "stationId": "200000011",
+      "stationName": "양촌읍사무소",
+      "stationNum": "22011",
+      "x": 126.8123,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "양촌읍",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000012",
+      "stationName": "대곶면사무소",
+      "stationNum": "22012",
+      "x": 126.6834,
+      "y": 37.6789,
+      "regionName": "김포시",
+      "district": "대곶면",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000013",
+      "stationName": "통진읍사무소",
+      "stationNum": "22013",
+      "x": 126.6456,
+      "y": 37.6345,
+      "regionName": "김포시",
+      "district": "통진읍",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000014",
+      "stationName": "김포한강신도시",
+      "stationNum": "22014",
+      "x": 126.7234,
+      "y": 37.6567,
+      "regionName": "김포시",
+      "district": "장기동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000015",
+      "stationName": "장기동",
+      "stationNum": "22015",
+      "x": 126.7456,
+      "y": 37.6123,
+      "regionName": "김포시",
+      "district": "장기동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000016",
+      "stationName": "김포대학교",
+      "stationNum": "22016",
+      "x": 126.7567,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000017",
+      "stationName": "김포시외버스터미널",
+      "stationNum": "22017",
+      "x": 126.7123,
+      "y": 37.6456,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스터미널"
+    },
+    {
+      "stationId": "200000018",
+      "stationName": "김포롯데마트",
+      "stationNum": "22018",
+      "x": 126.7345,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "김포2동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000019",
+      "stationName": "김포시보건소",
+      "stationNum": "22019",
+      "x": 126.7234,
+      "y": 37.6345,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000020",
+      "stationName": "김포시립도서관",
+      "stationNum": "22020",
+      "x": 126.7456,
+      "y": 37.6567,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000021",
+      "stationName": "김포아트빌리지",
+      "stationNum": "22021",
+      "x": 126.7678,
+      "y": 37.6123,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000022",
+      "stationName": "풍무동행정복지센터",
+      "stationNum": "22022",
+      "x": 126.7234,
+      "y": 37.6456,
+      "regionName": "김포시",
+      "district": "풍무동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000023",
+      "stationName": "사우동행정복지센터",
+      "stationNum": "22023",
+      "x": 126.7567,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000024",
+      "stationName": "운양동행정복지센터",
+      "stationNum": "22024",
+      "x": 126.7345,
+      "y": 37.6345,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000025",
+      "stationName": "김포중학교",
+      "stationNum": "22025",
+      "x": 126.7123,
+      "y": 37.6567,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000026",
+      "stationName": "김포고등학교",
+      "stationNum": "22026",
+      "x": 126.7456,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "김포2동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000027",
+      "stationName": "풍무중학교",
+      "stationNum": "22027",
+      "x": 126.7234,
+      "y": 37.6678,
+      "regionName": "김포시",
+      "district": "풍무동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000028",
+      "stationName": "사우고등학교",
+      "stationNum": "22028",
+      "x": 126.7567,
+      "y": 37.6456,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000029",
+      "stationName": "김포시청소년수련관",
+      "stationNum": "22029",
+      "x": 126.7345,
+      "y": 37.6123,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000030",
+      "stationName": "김포시체육관",
+      "stationNum": "22030",
+      "x": 126.7678,
+      "y": 37.6345,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000031",
+      "stationName": "김포시문화예술회관",
+      "stationNum": "22031",
+      "x": 126.7123,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000032",
+      "stationName": "김포시립박물관",
+      "stationNum": "22032",
+      "x": 126.7456,
+      "y": 37.6567,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000033",
+      "stationName": "김포시장",
+      "stationNum": "22033",
+      "x": 126.7234,
+      "y": 37.6456,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000034",
+      "stationName": "김포시농협",
+      "stationNum": "22034",
+      "x": 126.7567,
+      "y": 37.6123,
+      "regionName": "김포시",
+      "district": "김포2동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000035",
+      "stationName": "김포시신협",
+      "stationNum": "22035",
+      "x": 126.7345,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000036",
+      "stationName": "김포우체국",
+      "stationNum": "22036",
+      "x": 126.7678,
+      "y": 37.6567,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000037",
+      "stationName": "김포경찰서",
+      "stationNum": "22037",
+      "x": 126.7123,
+      "y": 37.6345,
+      "regionName": "김포시",
+      "district": "김포2동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000038",
+      "stationName": "김포소방서",
+      "stationNum": "22038",
+      "x": 126.7456,
+      "y": 37.6678,
+      "regionName": "김포시",
+      "district": "풍무동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000039",
+      "stationName": "김포세무서",
+      "stationNum": "22039",
+      "x": 126.7234,
+      "y": 37.6123,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000040",
+      "stationName": "김포교육지원청",
+      "stationNum": "22040",
+      "x": 126.7567,
+      "y": 37.6456,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000041",
+      "stationName": "김포한강공원",
+      "stationNum": "22041",
+      "x": 126.7345,
+      "y": 37.6789,
+      "regionName": "김포시",
+      "district": "장기동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000042",
+      "stationName": "김포시민회관",
+      "stationNum": "22042",
+      "x": 126.7678,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "김포2동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000043",
+      "stationName": "김포시종합사회복지관",
+      "stationNum": "22043",
+      "x": 126.7123,
+      "y": 37.6567,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000044",
+      "stationName": "김포시보훈회관",
+      "stationNum": "22044",
+      "x": 126.7456,
+      "y": 37.6345,
+      "regionName": "김포시",
+      "district": "풍무동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000045",
+      "stationName": "김포시여성회관",
+      "stationNum": "22045",
+      "x": 126.7234,
+      "y": 37.6678,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000046",
+      "stationName": "김포시청소년문화의집",
+      "stationNum": "22046",
+      "x": 126.7567,
+      "y": 37.6123,
+      "regionName": "김포시",
+      "district": "김포1동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000047",
+      "stationName": "김포시노인복지관",
+      "stationNum": "22047",
+      "x": 126.7345,
+      "y": 37.6456,
+      "regionName": "김포시",
+      "district": "김포2동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000048",
+      "stationName": "김포시장애인복지관",
+      "stationNum": "22048",
+      "x": 126.7678,
+      "y": 37.6789,
+      "regionName": "김포시",
+      "district": "사우동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000049",
+      "stationName": "김포시건강가정지원센터",
+      "stationNum": "22049",
+      "x": 126.7123,
+      "y": 37.6234,
+      "regionName": "김포시",
+      "district": "풍무동",
+      "type": "버스정류장"
+    },
+    {
+      "stationId": "200000050",
+      "stationName": "김포시다문화가족지원센터",
+      "stationNum": "22050",
+      "x": 126.7456,
+      "y": 37.6567,
+      "regionName": "김포시",
+      "district": "운양동",
+      "type": "버스정류장"
+    }
+  ]
+}

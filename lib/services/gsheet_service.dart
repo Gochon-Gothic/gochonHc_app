@@ -4,11 +4,8 @@ class GSheetService {
   static const String _spreadsheetId =
       '1Q45kRO9R_SUZoLvB78MZrbTUWnWTU-3MLL5Pfh8RZz4';
   static const String _worksheetTitle = '사용자정보';
-  static const String _suggestionWorksheetTitle = '건의사항';
-
   static GSheets? _gsheets;
   static Worksheet? _worksheet;
-  static Worksheet? _suggestionWorksheet;
 
   static const String _credentials = r'''
 {
@@ -26,7 +23,6 @@ class GSheetService {
 }
 ''';
 
-  // 초기화
   static Future<void> initialize() async {
     try {
       _gsheets = GSheets(_credentials);
@@ -44,7 +40,6 @@ class GSheetService {
     }
   }
 
-  // 헤더 확인 및 설정
   static Future<void> _ensureHeaders() async {
     if (_worksheet == null) return;
 
@@ -55,11 +50,9 @@ class GSheetService {
         await _worksheet!.values.insertRow(1, headers);
       }
     } catch (e) {
-      // 헤더 설정 실패 시 무시
     }
   }
 
-  // 사용자 정보 저장
   static Future<bool> saveUserInfo({
     required String email,
     required String name,
@@ -94,7 +87,6 @@ class GSheetService {
     }
   }
 
-  // 사용자 정보 조회
   static Future<Map<String, String>?> getUserInfo(String email) async {
     try {
       if (_worksheet == null) {
@@ -125,136 +117,4 @@ class GSheetService {
     }
   }
 
-  // 건의사항 워크시트 초기화
-  static Future<void> _initializeSuggestionWorksheet() async {
-    if (_gsheets == null) {
-      await initialize();
-    }
-
-    final spreadsheet = await _gsheets!.spreadsheet(_spreadsheetId);
-
-    try {
-      _suggestionWorksheet = spreadsheet.worksheetByTitle(
-        _suggestionWorksheetTitle,
-      );
-    } catch (e) {
-      _suggestionWorksheet = await spreadsheet.addWorksheet(
-        _suggestionWorksheetTitle,
-      );
-    }
-
-    // 헤더 설정
-    if (_suggestionWorksheet != null) {
-      try {
-        final firstRow = await _suggestionWorksheet!.values.row(1);
-        if (firstRow.isEmpty) {
-          final headers = ['ID', '날짜', '작성자', '이메일', '제목', '내용'];
-          await _suggestionWorksheet!.values.insertRow(1, headers);
-        }
-      } catch (e) {
-        // 헤더 설정 실패 시 무시
-      }
-    }
-  }
-
-  // 건의사항 저장
-  static Future<String?> saveSuggestion({
-    required String title,
-    required String content,
-    required String authorName,
-    required String authorEmail,
-  }) async {
-    try {
-      if (_suggestionWorksheet == null) {
-        await _initializeSuggestionWorksheet();
-      }
-
-      if (_suggestionWorksheet == null) {
-        return null;
-      }
-
-      final now = DateTime.now();
-      final formattedDate =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      final id = DateTime.now().millisecondsSinceEpoch.toString();
-
-      final newRow = [
-        id,
-        formattedDate,
-        authorName,
-        authorEmail,
-        title,
-        content,
-      ];
-
-      await _suggestionWorksheet!.values.appendRow(newRow);
-      return id;
-    } catch (e) {
-      return null;
-    }
-  }
-
-  // 모든 건의사항 조회
-  static Future<List<Map<String, String>>> getAllSuggestions() async {
-    try {
-      if (_suggestionWorksheet == null) {
-        await _initializeSuggestionWorksheet();
-      }
-
-      if (_suggestionWorksheet == null) {
-        return [];
-      }
-
-      final rows = await _suggestionWorksheet!.values.allRows();
-      if (rows.length < 2) return [];
-
-      final headers = rows[0];
-      final suggestions = <Map<String, String>>[];
-
-      for (int i = rows.length - 1; i >= 1; i--) {
-        final row = rows[i];
-        if (row.isNotEmpty) {
-          final suggestion = <String, String>{};
-
-          for (int j = 0; j < headers.length && j < row.length; j++) {
-            suggestion[headers[j]] = row[j];
-          }
-
-          suggestions.add(suggestion);
-        }
-      }
-
-      return suggestions;
-    } catch (e) {
-      return [];
-    }
-  }
-
-  // 건의사항 삭제
-  static Future<bool> deleteSuggestion(String id) async {
-    try {
-      if (_suggestionWorksheet == null) {
-        await _initializeSuggestionWorksheet();
-      }
-
-      if (_suggestionWorksheet == null) {
-        return false;
-      }
-
-      final rows = await _suggestionWorksheet!.values.allRows();
-      if (rows.length < 2) return false;
-
-      for (int i = 1; i < rows.length; i++) {
-        final row = rows[i];
-        if (row.isNotEmpty && row[0] == id) {
-          await _suggestionWorksheet!.deleteRow(i + 1);
-          return true;
-        }
-      }
-
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
 }
