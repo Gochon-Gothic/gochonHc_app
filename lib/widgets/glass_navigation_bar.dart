@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 
@@ -73,28 +74,39 @@ class GlassNavigationBar extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              LiquidGlassLayer(
-                                settings: LiquidGlassSettings(
-                                  thickness: 10,
-                                  glassColor: isDark
-                                      ? const Color.fromARGB(29, 255, 255, 255)
-                                      : const Color.fromARGB(37, 26, 26, 26),
-                                  lightIntensity: 1.6,
-                                  ambientStrength: 0.85,
-                                  saturation: 0.92,
-                                  lightness: 1.02,
-                                ),
-                                child: Stack(
-                                  children: [
-                                    LiquidGlass.inLayer(
-                                      shape: LiquidRoundedSuperellipse(
-                                        borderRadius: const Radius.circular(barRadius),
+                              // 웹에서는 LiquidGlassLayer 대신 Container 사용
+                              kIsWeb
+                                  ? Container(
+                                      decoration: BoxDecoration(
+                                        color: isDark
+                                            ? const Color.fromARGB(29, 255, 255, 255)
+                                            : const Color.fromARGB(37, 26, 26, 26),
+                                        borderRadius: BorderRadius.circular(barRadius),
                                       ),
                                       child: const SizedBox.expand(),
+                                    )
+                                  : LiquidGlassLayer(
+                                      settings: LiquidGlassSettings(
+                                        thickness: 10,
+                                        glassColor: isDark
+                                            ? const Color.fromARGB(29, 255, 255, 255)
+                                            : const Color.fromARGB(37, 26, 26, 26),
+                                        lightIntensity: 1.6,
+                                        ambientStrength: 0.85,
+                                        saturation: 0.92,
+                                        lightness: 1.02,
+                                      ),
+                                      child: Stack(
+                                        children: [
+                                          LiquidGlass.inLayer(
+                                            shape: LiquidRoundedSuperellipse(
+                                              borderRadius: const Radius.circular(barRadius),
+                                            ),
+                                            child: const SizedBox.expand(),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ],
-                                ),
-                              ),
 
                               Positioned.fill(
                                 child: Padding(

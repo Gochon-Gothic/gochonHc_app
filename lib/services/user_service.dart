@@ -1,6 +1,7 @@
 import 'dart:convert';
 import '../models/user_info.dart';
 import '../utils/preference_manager.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class UserService {
   static UserService? _instance;
@@ -59,6 +60,39 @@ class UserService {
     if (userInfo != null) {
       final updatedUserInfo = userInfo.copyWith(name: name);
       await saveUserInfo(updatedUserInfo);
+    }
+  }
+
+  // Firebase에 사용자 정보 저장
+  Future<void> saveUserToFirebase({
+    required String email,
+    required String name,
+    required int grade,
+    required int classNum,
+    required int number,
+  }) async {
+    try {
+      final firestore = FirebaseFirestore.instance;
+
+      // 사용자 정보를 Map으로 변환
+      final userData = {
+        'email': email,
+        'name': name,
+        'grade': grade,
+        'classNum': classNum,
+        'number': number,
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      // Firestore의 'users' 컬렉션에 문서 저장
+      // 문서 ID는 이메일을 사용 (고유성 보장)
+      await firestore
+          .collection('users')
+          .doc(email)
+          .set(userData, SetOptions(merge: true)); // merge: true로 기존 데이터 보존
+    } catch (e) {
+      throw Exception('Firebase에 사용자 정보 저장 실패: $e');
     }
   }
 }

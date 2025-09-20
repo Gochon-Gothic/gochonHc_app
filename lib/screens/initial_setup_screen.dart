@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/user_info.dart';
 import '../services/user_service.dart';
-import '../services/gsheet_service.dart';
+import '../services/auth_service.dart';
+// import '../services/gsheet_service.dart'; Firebase 대체(25.09.20)
 import '../theme_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -48,17 +49,33 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
 
     try {
       // Google Sheets에 사용자 정보 저장
-      final success = await GSheetService.saveUserInfo(
+      // -> Firebase 대체(25.09.20)
+      // final success = await GSheetService.saveUserInfo(
+      //   email: widget.userEmail,
+      //   name: _nameController.text.trim(),
+      //   grade: _gradeController.text.trim(),
+      //   className: _classController.text.trim(),
+      //   studentNumber: _studentNumberController.text.trim(),
+      //   agreedToTerms: true,
+      // );
+
+      // if (!success) {
+      //   throw Exception('Google Sheets에 저장하는데 실패했습니다.');
+      // }
+
+      // Firebase에 사용자 정보 저장
+      await UserService.instance.saveUserToFirebase(
         email: widget.userEmail,
         name: _nameController.text.trim(),
-        grade: _gradeController.text.trim(),
-        className: _classController.text.trim(),
-        studentNumber: _studentNumberController.text.trim(),
-        agreedToTerms: true,
+        grade: int.tryParse(_gradeController.text.trim()) ?? 1,
+        classNum: int.tryParse(_classController.text.trim()) ?? 1,
+        number: int.tryParse(_studentNumberController.text.trim()) ?? 1,
       );
 
-      if (!success) {
-        throw Exception('Google Sheets에 저장하는데 실패했습니다.');
+      // Firebase Auth 사용자인 경우 셋업 완료 표시
+      final currentUser = AuthService.instance.currentUser;
+      if (currentUser != null) {
+        await AuthService.instance.markUserSetupComplete(currentUser.uid);
       }
 
       // SharedPreferences에 직접 저장
@@ -187,11 +204,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                   ),
-                  style: TextStyle(
-                    color: textColor,
-
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: textColor, fontSize: 16),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '학년을 입력해주세요';
@@ -252,11 +265,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                   ),
-                  style: TextStyle(
-                    color: textColor,
-
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: textColor, fontSize: 16),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '반을 입력해주세요';
@@ -318,11 +327,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                   ),
-                  style: TextStyle(
-                    color: textColor,
-
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: textColor, fontSize: 16),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '번호를 입력해주세요';
@@ -384,11 +389,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                   ),
-                  style: TextStyle(
-                    color: textColor,
-
-                    fontSize: 16,
-                  ),
+                  style: TextStyle(color: textColor, fontSize: 16),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '이름을 입력해주세요';
@@ -452,7 +453,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                               '이용약관 및 개인정보처리방침에 동의합니다',
                               style: TextStyle(
                                 color: textColor,
-            
+
                                 fontSize: 16,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -479,7 +480,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                           '여기에 약관 내용이 들어갑니다.\n사용자가 직접 채울 예정입니다.',
                           style: TextStyle(
                             color: textColor.withValues(alpha: 0.7),
-        
+
                             fontSize: 14,
                             height: 1.4,
                           ),
@@ -516,7 +517,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     '선택과목 기능은 추후 구현 예정입니다.',
                     style: TextStyle(
                       color: textColor.withValues(alpha: 0.6),
-  
+
                       fontSize: 14,
                       fontStyle: FontStyle.italic,
                     ),
@@ -553,7 +554,6 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                             : Text(
                               '설정 완료',
                               style: TextStyle(
-            
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                               ),

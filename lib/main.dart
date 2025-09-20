@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:firebase_core/firebase_core.dart';
 
 import 'screens/timetable_screen.dart';
 import 'screens/bus_search_screen.dart';
@@ -662,7 +663,10 @@ class _MainHomeContentState extends State<_MainHomeContent> {
   }
 }
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  
   runApp(
     ChangeNotifierProvider(
       create: (_) => ThemeProvider(),

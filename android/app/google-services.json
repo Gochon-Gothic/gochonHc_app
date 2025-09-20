@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "38240410420",
+    "project_id": "gochon-app",
+    "storage_bucket": "gochon-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:38240410420:android:6e8f2bea7785968915e361",
+        "android_client_info": {
+          "package_name": "com.example.gochon_mobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "38240410420-upj33b51cvuln16si4nhq3t1f3oesfug.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.gochon_mobile",
+            "certificate_hash": "fb2f074d0b21e9634acfe1c8ba82c76182c88da0"
+          }
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAuvrKkLnCKceB7f-vIsPyPfBesr6Jqg3s"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

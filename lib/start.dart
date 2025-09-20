@@ -1,12 +1,19 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:gochon_mobile/firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'theme_provider.dart';
 import 'screens/login_screen.dart';
+import 'screens/initial_setup_screen.dart';
 import 'main.dart';
 import 'utils/preference_manager.dart';
 
 void main() async {
+  //Firebase 초기 세팅.(async 비동기 요구)
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
   // Flutter 바인딩 초기화
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -71,6 +78,7 @@ void _setDeviceOrientation() {
     ]);
   }
 }
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
@@ -88,6 +96,13 @@ class MyApp extends StatelessWidget {
       routes: {
         '/main': (context) => const MainScreen(),
         '/login': (context) => const LoginScreen(),
+        '/initial_setup': (context) {
+          final args =
+              ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>?;
+          final userEmail = args?['userEmail'] as String? ?? '';
+          return InitialSetupScreen(userEmail: userEmail);
+        },
       },
     );
   }
