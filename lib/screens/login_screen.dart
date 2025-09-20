@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/user_info.dart';
 import '../services/user_service.dart';
 import '../services/auth_service.dart';
 import '../theme_colors.dart';
@@ -16,65 +17,11 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController emailController = TextEditingController();
   bool isLoading = false;
   String? error;
 
-  Future<void> _handleLogin() async {
-    final email = emailController.text.trim();
-    if (email.isEmpty) {
-      setState(() {
-        error = '이메일을 입력해주세요.';
-      });
-      return;
-    }
-
-    if (!email.endsWith('@gochon.hs.kr')) {
-      setState(() {
-        error = '고촌고등학교 이메일(@gochon.hs.kr)을 사용해주세요.';
-      });
-      return;
-    }
-
-    setState(() {
-      isLoading = true;
-      error = null;
-    });
-
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_email', email);
-
-      final hasSetup = prefs.getBool('user_has_setup') ?? false;
-
-      if (mounted) {
-        setState(() {
-          isLoading = false; // 로그인 성공 시 로딩 상태 해제
-        });
-
-        if (hasSetup) {
-          Navigator.pushReplacementNamed(context, '/main');
-        } else {
-          Navigator.pushReplacementNamed(
-            context,
-            '/initial_setup',
-            arguments: {'userEmail': email},
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          error = '로그인 중 오류가 발생했습니다.';
-          isLoading = false;
-        });
-      }
-    }
-  }
 
   Future<void> _handleGoogleSignIn() async {
-    print('Google 로그인 버튼 클릭됨'); // 디버깅용
-    
     setState(() {
       isLoading = true;
       error = null;
@@ -82,40 +29,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       final userCredential = await AuthService.instance.signInWithGoogle();
-      
+
       if (userCredential != null && mounted) {
         final user = userCredential.user!;
-        print('사용자 정보: ${user.email}, ${user.displayName}'); // 디버깅용
-        
-        // 사용자 셋업 여부 확인
-        final hasSetup = await AuthService.instance.hasUserSetup(user.uid);
-        print('셋업 여부: $hasSetup'); // 디버깅용
-        
-        setState(() {
-          isLoading = false;
-        });
 
-        if (hasSetup) {
+        // Firestore에 사용자 문서가 존재하는지 확인
+        final userExists = await AuthService.instance.checkUserExists(user.uid);
+
+        if (userExists) {
+          // Firestore에서 최신 사용자 정보를 가져와 로컬에 저장
+          final userData = await AuthService.instance.getUserFromFirestore(user.uid);
+          if (userData != null) {
+            final userInfo = UserInfo.fromJson(userData);
+            await UserService.instance.saveUserInfo(userInfo);
+          }
           Navigator.pushReplacementNamed(context, '/main');
         } else {
           Navigator.pushReplacementNamed(
             context,
             '/initial_setup',
-            arguments: {'userEmail': user.email},
+            arguments: {'userEmail': user.email, 'uid': user.uid},
           );
         }
       } else {
-        // 사용자가 로그인을 취소한 경우
-        print('사용자가 로그인을 취소했거나 userCredential이 null'); // 디버깅용
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
-      print('Google 로그인 에러: $e'); // 디버깅용
       if (mounted) {
         setState(() {
-          error = 'Google 로그인 중 오류가 발생했습니다: $e';
+          error = e.toString();
           isLoading = false;
         });
       }
@@ -207,133 +151,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         const SizedBox(height: 24),
 
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 327,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color: bgColor,
-                                border: Border.all(
-                                  color: borderColor,
-                                  width: 1,
-                                ),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 16,
-                                vertical: 8,
-                              ),
-                              child: TextField(
-                                controller: emailController,
-                                decoration: InputDecoration(
-                                  hintText: '25-20504@gochon.hs.kr',
-                                  hintStyle: TextStyle(
-                                    color: secondaryTextColor,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.normal,
-                                    height: 1.5,
-                                  ),
-                                  border: InputBorder.none,
-                                  isDense: true,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.normal,
-                                  height: 1.5,
-                                ),
-                              ),
-                            ),
-
-                            const SizedBox(height: 16),
-
-                            Container(
-                              width: 327,
-                              height: 40,
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(8),
-                                color:
-                                    isDark ? Colors.white : AppColors.primary,
-                              ),
-                              child: Material(
-                                color: Colors.transparent,
-                                child: InkWell(
-                                  borderRadius: BorderRadius.circular(8),
-                                  onTap: isLoading ? null : _handleLogin,
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 16,
-                                    ),
-                                    child: Center(
-                                      child:
-                                          isLoading
-                                              ? const SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                      color: Colors.black,
-                                                      strokeWidth: 2,
-                                                    ),
-                                              )
-                                              : Text(
-                                                'Continue',
-                                                textAlign: TextAlign.center,
-                                                style: TextStyle(
-                                                  color:
-                                                      isDark
-                                                          ? Colors.black
-                                                          : Colors.white,
-                                                  fontSize: 14,
-                                                  letterSpacing: 0,
-                                                  fontWeight: FontWeight.w500,
-                                                  height: 1.5,
-                                                ),
-                                              ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 148.5,
-                              height: 1,
-                              decoration: BoxDecoration(color: dividerColor),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'or',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: secondaryTextColor,
-                                fontSize: 14,
-                                letterSpacing: 0,
-                                fontWeight: FontWeight.normal,
-                                height: 1.5,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Container(
-                              width: 148.5,
-                              height: 1,
-                              decoration: BoxDecoration(color: dividerColor),
-                            ),
-                          ],
-                        ),
-
-                        const SizedBox(height: 24),
-
                         Container(
                           width: 327,
                           height: 40,
@@ -394,30 +211,6 @@ class _LoginScreenState extends State<LoginScreen> {
                             letterSpacing: 0,
                             fontWeight: FontWeight.normal,
                             height: 1.5,
-                          ),
-                        ),
-
-                        const SizedBox(height: 24),
-
-                        GestureDetector(
-                          onTap: () async {
-                            final navigator = Navigator.of(context);
-                            await UserService.instance.setGuestMode(true);
-                            if (mounted) {
-                              navigator.pushReplacementNamed('/main');
-                            }
-                          },
-                          child: Text(
-                            '로그인하지않고 이용하기',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              color: secondaryTextColor,
-                              fontSize: 14,
-                              fontWeight: FontWeight.normal,
-                              height: 1.5,
-                              decoration: TextDecoration.underline,
-                              decorationColor: secondaryTextColor,
-                            ),
                           ),
                         ),
 
@@ -484,7 +277,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   void dispose() {
-    emailController.dispose();
     super.dispose();
   }
 }

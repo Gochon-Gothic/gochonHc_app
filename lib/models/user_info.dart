@@ -3,14 +3,14 @@ class UserInfo {
   final int classNum; // 반
   final int number; // 번호
   final String email; // 이메일
-  final String? name; // 사용자 이름 (선택적)
+  final String name; // 사용자 이름
 
   UserInfo({
     required this.grade,
     required this.classNum,
     required this.number,
     required this.email,
-    this.name,
+    required this.name,
   });
 
   static UserInfo? fromEmail(String email) {
@@ -30,6 +30,7 @@ class UserInfo {
         classNum: classNum,
         number: number,
         email: email,
+        name: '', // 이름은 알 수 없으므로 비워둠
       );
     } catch (e) {
       return null;
@@ -37,7 +38,7 @@ class UserInfo {
   }
 
   String get welcomeMessage {
-    if (name != null && name!.isNotEmpty) {
+    if (name.isNotEmpty) {
       return '$grade학년 $classNum반 $number번, $name님 환영합니다';
     } else {
       return '$grade학년 $classNum반 $number번님, 환영합니다';
@@ -57,7 +58,7 @@ class UserInfo {
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
       email: json['email'] ?? '',
-      name: json['name'],
+      name: json['name'] ?? '',
       grade: json['grade'] ?? 1,
       classNum: json['classNum'] ?? 1,
       number: json['number'] ?? 1,

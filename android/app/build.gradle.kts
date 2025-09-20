@@ -7,7 +7,17 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+dependencies {
+  // Firebase BoM (Bill of Materials) → 버전 관리 통합
+  implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
 
+  // Firebase Analytics (버전은 명시하지 않음, BoM이 관리)
+  implementation("com.google.firebase:firebase-analytics")
+
+  // 다른 Firebase SDK도 여기 추가 가능
+  // ex) implementation("com.google.firebase:firebase-auth")
+  //     implementation("com.google.firebase:firebase-firestore")
+}
 android {
     namespace = "com.example.gochon_mobile"
     compileSdk = flutter.compileSdkVersion

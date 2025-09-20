@@ -6,6 +6,8 @@ import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../models/user_info.dart';
 import '../services/user_service.dart';
+import '../services/auth_service.dart'; // AuthService 임포트 추가
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth_pkg; // Firebase User 임포트 추가
 
 class MyScreen extends StatefulWidget {
   const MyScreen({super.key});
@@ -64,7 +66,7 @@ class _MyScreenState extends State<MyScreen> {
           ),
           Text(
             userInfo != null
-                ? '${userInfo!.grade}학년 ${userInfo!.classNum}반 ${userInfo!.number}번'
+                ? '${userInfo?.grade ?? ''}학년 ${userInfo?.classNum ?? ''}반 ${userInfo?.number ?? ''}번'
                 : '정보를 불러오는 중...',
             style: TextStyle(fontSize: 16, color: textColor),
           ),
@@ -158,7 +160,7 @@ class _MyScreenState extends State<MyScreen> {
                                                 color: textColor,
                                               ),
                                               controller: TextEditingController(
-                                                text: userInfo!.name ?? '',
+                                                text: userInfo?.name ?? '',
                                               ),
                                               onChanged: (value) async {
                                                 await UserService.instance
@@ -240,30 +242,65 @@ class _MyScreenState extends State<MyScreen> {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  elevation: 4,
-                  color: cardColor, // 다른 버튼들과 동일한 색상
-                  child: ListTile(
-                    leading: Icon(Icons.logout, color: textColor),
-                    title: Text(
-                      '로그아웃',
-                      style: TextStyle(
-                        color: textColor,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    trailing: Icon(
-                      Icons.arrow_forward_ios,
-                      size: 16,
-                      color: textColor,
-                    ),
-                    onTap: () {
-                      _showLogoutDialog();
-                    },
-                  ),
+                StreamBuilder<firebase_auth_pkg.User?>(
+                  stream: AuthService.instance.authStateChanges,
+                  builder: (context, snapshot) {
+                    if (snapshot.hasData) {
+                      // 로그인된 상태: 로그아웃 버튼 표시
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 4,
+                        color: cardColor,
+                        child: ListTile(
+                          leading: Icon(Icons.logout, color: textColor),
+                          title: Text(
+                            '로그아웃',
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: textColor,
+                          ),
+                          onTap: () {
+                            _showLogoutDialog();
+                          },
+                        ),
+                      );
+                    } else {
+                      // 로그아웃된 상태: 로그인 버튼 표시
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        elevation: 4,
+                        color: cardColor,
+                        child: ListTile(
+                          leading: Icon(Icons.login, color: textColor),
+                          title: Text(
+                            '로그인',
+                            style: TextStyle(
+                              color: textColor,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          trailing: Icon(
+                            Icons.arrow_forward_ios,
+                            size: 16,
+                            color: textColor,
+                          ),
+                          onTap: () {
+                            Navigator.pushReplacementNamed(context, '/login');
+                          },
+                        ),
+                      );
+                    }
+                  },
                 ),
               ],
             ),
@@ -280,60 +317,10 @@ class _MyScreenState extends State<MyScreen> {
     });
 
     try {
-      final isGuest = await UserService.instance.isGuestMode();
-
-      if (isGuest) {
-        if (!mounted) return;
+      final loadedUserInfo = await UserService.instance.getUserInfo();
+      if (mounted) {
         setState(() {
-          userInfo = UserInfo(
-            email: 'guest@gochon.hs.kr',
-            grade: 1,
-            classNum: 1,
-            number: 1,
-            name: '게스트',
-          );
-          isLoading = false;
-        });
-        return;
-      }
-
-      final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString('user_email');
-      final name = prefs.getString('user_name');
-      final grade = prefs.getString('user_grade');
-      final className = prefs.getString('user_class');
-      final numberStr = prefs.getString('user_number');
-      final hasSetup = prefs.getBool('user_has_setup') ?? false;
-
-      if (!mounted) return;
-
-      if (email != null &&
-          hasSetup &&
-          name != null &&
-          grade != null &&
-          className != null &&
-          numberStr != null) {
-        final userGrade = int.tryParse(grade) ?? 1;
-        final userClass = int.tryParse(className) ?? 1;
-        final userNumber = int.tryParse(numberStr) ?? 1;
-
-        setState(() {
-          userInfo = UserInfo(
-            email: email,
-            grade: userGrade,
-            classNum: userClass,
-            number: userNumber,
-            name: name,
-          );
-          isLoading = false;
-        });
-      } else if (email != null) {
-        setState(() {
-          userInfo = UserInfo.fromEmail(email);
-          isLoading = false;
-        });
-      } else {
-        setState(() {
+          userInfo = loadedUserInfo;
           isLoading = false;
         });
       }
@@ -384,16 +371,13 @@ class _MyScreenState extends State<MyScreen> {
     });
 
     try {
-      await UserService.instance.clearUserInfo();
-
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('user_email');
+      await AuthService.instance.signOut(); // Firebase 로그아웃 호출
 
       if (!mounted) return;
       setState(() {
         isLoading = false;
       });
-      Navigator.pushReplacementNamed(context, '/login');
+      // AuthWrapper가 로그인 상태 변화를 감지하여 자동으로 화면 전환을 처리하므로, 여기서 직접 /login으로 이동할 필요 없음
     } catch (e) {
       if (!mounted) return;
       setState(() {

@@ -9,8 +9,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
+  final String uid;
 
-  const InitialSetupScreen({super.key, required this.userEmail});
+  const InitialSetupScreen(
+      {super.key, required this.userEmail, required this.uid});
 
   @override
   State<InitialSetupScreen> createState() => _InitialSetupScreenState();
@@ -48,61 +50,29 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     });
 
     try {
-      // Google Sheets에 사용자 정보 저장
-      // -> Firebase 대체(25.09.20)
-      // final success = await GSheetService.saveUserInfo(
-      //   email: widget.userEmail,
-      //   name: _nameController.text.trim(),
-      //   grade: _gradeController.text.trim(),
-      //   className: _classController.text.trim(),
-      //   studentNumber: _studentNumberController.text.trim(),
-      //   agreedToTerms: true,
-      // );
-
-      // if (!success) {
-      //   throw Exception('Google Sheets에 저장하는데 실패했습니다.');
-      // }
-
-      // Firebase에 사용자 정보 저장
-      await UserService.instance.saveUserToFirebase(
-        email: widget.userEmail,
-        name: _nameController.text.trim(),
-        grade: int.tryParse(_gradeController.text.trim()) ?? 1,
-        classNum: int.tryParse(_classController.text.trim()) ?? 1,
-        number: int.tryParse(_studentNumberController.text.trim()) ?? 1,
-      );
-
-      // Firebase Auth 사용자인 경우 셋업 완료 표시
-      final currentUser = AuthService.instance.currentUser;
-      if (currentUser != null) {
-        await AuthService.instance.markUserSetupComplete(currentUser.uid);
-      }
-
-      // SharedPreferences에 직접 저장
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('user_email', widget.userEmail);
-      await prefs.setString('user_name', _nameController.text.trim());
-      await prefs.setString('user_grade', _gradeController.text.trim());
-      await prefs.setString('user_class', _classController.text.trim());
-      await prefs.setString(
-        'user_number',
-        _studentNumberController.text.trim(),
-      );
-      await prefs.setBool('user_has_setup', true);
-
-      // 사용자 정보 생성
+      // 1. UserInfo 객체 생성
       final userInfo = UserInfo(
         email: widget.userEmail,
         name: _nameController.text.trim(),
-        grade: int.tryParse(_gradeController.text.trim()) ?? 1,
-        classNum: int.tryParse(_classController.text.trim()) ?? 1,
-        number: int.tryParse(_studentNumberController.text.trim()) ?? 1,
+        grade: int.parse(_gradeController.text.trim()),
+        classNum: int.parse(_classController.text.trim()),
+        number: int.parse(_studentNumberController.text.trim()),
       );
 
-      // 로컬에 사용자 정보 저장
+      // 2. Firestore에 사용자 정보 저장
+      await UserService.instance.saveUserToFirebase(
+        uid: widget.uid,
+        email: userInfo.email,
+        name: userInfo.name,
+        grade: userInfo.grade,
+        classNum: userInfo.classNum,
+        number: userInfo.number,
+      );
+
+      // 3. 로컬(SharedPreferences)에 사용자 정보 저장
       await UserService.instance.saveUserInfo(userInfo);
 
-      // 메인 화면으로 이동
+      // 4. 메인 화면으로 이동
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/main');
       }

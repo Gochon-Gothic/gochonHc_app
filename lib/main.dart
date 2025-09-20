@@ -79,63 +79,18 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadUserInfo() async {
     try {
-      final isGuest = await UserService.instance.isGuestMode();
-
-      if (isGuest) {
+      final loadedUserInfo = await UserService.instance.getUserInfo();
+      if (mounted) {
         setState(() {
-          userInfo = UserInfo(
-            email: 'guest@gochon.hs.kr',
-            grade: 1,
-            classNum: 1,
-            number: 1,
-            name: '게스트',
-          );
-        });
-        return;
-      }
-
-      final prefs = await SharedPreferences.getInstance();
-      final email = prefs.getString('user_email');
-      final name = prefs.getString('user_name');
-      final grade = prefs.getString('user_grade');
-      final className = prefs.getString('user_class');
-      final numberStr = prefs.getString('user_number');
-      final hasSetup = prefs.getBool('user_has_setup') ?? false;
-
-      if (email != null &&
-          hasSetup &&
-          name != null &&
-          grade != null &&
-          className != null &&
-          numberStr != null) {
-        final userGrade = int.tryParse(grade) ?? 1;
-        final userClass = int.tryParse(className) ?? 1;
-        final userNumber = int.tryParse(numberStr) ?? 1;
-
-        setState(() {
-          userInfo = UserInfo(
-            email: email,
-            grade: userGrade,
-            classNum: userClass,
-            number: userNumber,
-            name: name,
-          );
-        });
-      } else if (email != null) {
-        setState(() {
-          userInfo = UserInfo.fromEmail(email);
+          userInfo = loadedUserInfo;
         });
       }
     } catch (e) {
-      setState(() {
-        userInfo = UserInfo(
-          email: 'unknown@gochon.hs.kr',
-          grade: 1,
-          classNum: 1,
-          number: 1,
-          name: '사용자',
-        );
-      });
+      if (mounted) {
+        setState(() {
+          error = '사용자 정보를 불러오는데 실패했습니다: $e';
+        });
+      }
     }
   }
 
