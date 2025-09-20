@@ -81,9 +81,7 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('AuthService.signInWithGoogle() 호출 시작'); // 디버깅용
       final userCredential = await AuthService.instance.signInWithGoogle();
-      print('AuthService.signInWithGoogle() 완료: $userCredential'); // 디버깅용
       
       if (userCredential != null && mounted) {
         final user = userCredential.user!;

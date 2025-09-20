@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../services/bus_service.dart';
+import '../theme_provider.dart';
+import '../theme_colors.dart';
 
 class BusDetailScreen extends StatefulWidget {
   final BusStation station;
@@ -52,20 +55,13 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     }
   }
 
-  void _navigateToRouteDetail(BusRoute route) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${route.routeName}번 버스 상세 정보 (구현 예정)'),
-        duration: const Duration(seconds: 2),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final bgColor = isDark ? AppColors.darkBackground : const Color.fromARGB(255, 240, 240, 240);
 
     return Scaffold(
-      backgroundColor: const Color.fromARGB(255, 204, 204, 204),
+      backgroundColor: bgColor,
       extendBodyBehindAppBar: true,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -76,7 +72,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                     children: [
                       Text(
                         error!,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.red,
                           fontSize: 16,
                         ),
@@ -90,226 +86,276 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                     ],
                   ),
                 )
-              : Stack(
+              : Column(
                   children: [
-                    // 지도 배경 (현재는 플레이스홀더)
-                    _buildMapBackground(),
-                    
                     // 상단 역 정보 패널
                     _buildTopStationPanel(),
-                    
-                    // 하단 버스 도착 정보 패널
-                    _buildBottomSchedulePanel(),
+                    const SizedBox(height: 15),
+                    Expanded(
+                      child: _buildBusList(),
+                    ),
+                    // 하단 역 정보 패널
+                    _buildBottomStationPanel(),
                   ],
                 ),
     );
   }
-
-  Widget _buildMapBackground() {
-    return Container(
-      width: double.infinity,
-      height: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Colors.grey[900]!,
-            Colors.black,
-            Colors.grey[800]!,
-          ],
-        ),
-      ),
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.map_outlined,
-              size: 80,
-              color: Colors.grey[600],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '지도 API 연동 예정',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildTopStationPanel() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final direction = widget.station.getDirectionFromCoordinate(BusService.getCachedStations());
+    final panelColor = isDark ? AppColors.darkCard : const Color.fromARGB(255, 204, 204, 204);
+    final textColor = isDark ? AppColors.darkText : Colors.black87;
+    final subTextColor = isDark ? AppColors.darkText.withOpacity(0.7) : Colors.black54;
     
-    return Positioned(
-      top: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        padding: EdgeInsets.only(
-          top: MediaQuery.of(context).padding.top ,
-          left: 20,
-          right: 20,
-          bottom: 10,
+    return Container(
+      padding: EdgeInsets.only(
+        top: MediaQuery.of(context).padding.top,
+        left: 20,
+        right: 20,
+        bottom: 10,
+      ),
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: const BorderRadius.only(
+          bottomRight: Radius.circular(33),
+          bottomLeft: Radius.circular(33),
         ),
-        decoration: const BoxDecoration(
-          color: Color.fromARGB(255, 204, 204, 204),
-          borderRadius: BorderRadius.only(
-            bottomRight: Radius.circular(33),
-            bottomLeft: Radius.circular(33),
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 뒤로가기 버튼과 역 정보
-            Row(
-              children: [
-                GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Container(
-                    padding: const EdgeInsets.all(8),
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // 뒤로가기 버튼과 역 정보
+          Row(
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                    child: Icon(
                       Icons.arrow_back_ios,
-                      color: Colors.black87,
+                      color: textColor,
                       size: 25,
                     ),
-                  ),
                 ),
-                const SizedBox(width: 7),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+              ),
+              const SizedBox(width: 7),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                       Text(
                         widget.station.baseStationName,
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: textColor,
                         ),
                       ),
                       if (direction.isNotEmpty) ...[
                         Text(
                           '$direction 방면',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 18,
-                            color: Color.fromARGB(255, 0, 0, 0),
+                            color: subTextColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
                         const SizedBox(height: 4),
                       ],
-                    ],
-                  ),
+                  ],
                 ),
-              ],
-            ),
-          ],
-        ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _buildBottomSchedulePanel() {
-    return Positioned(
-      bottom: 0,
-      left: 0,
-      right: 0,
-      child: Container(
-        margin: const EdgeInsets.all(20),
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: const Color.fromARGB(255, 204, 204, 204),
-          borderRadius: BorderRadius.circular(35),
+  Widget _buildBusList() {
+    if (routes.isEmpty) {
+      return const Center(
+        child: Text(
+          '경유하는 버스가 없습니다',
+          style: TextStyle(
+            color: Colors.grey,
+            fontSize: 16,
+          ),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              " ${widget.station.baseStationName}",
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.w800,
-                color: Colors.black87,
-              ),
-            ),
-            const SizedBox(height: 10),
-            
-            // 버스 도착 정보
-            if (routes.isEmpty)
-              Container(
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 15),
+      itemCount: routes.length,
+      itemBuilder: (context, index) {
+        final route = routes[index];
+        return _buildBusItem(route);
+      },
+    );
+  }
+
+  Widget _buildBusItem(BusRoute route) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final cardColor = isDark ? AppColors.darkCard : Colors.white;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 15),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: cardColor,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(isDark ? 0.3 : 0.1),
+            blurRadius: 3,
+            offset: const Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                '${route.routeName}번',
+                style: TextStyle(
+                  color: _getRouteTypeColor(route.routeTypeName),
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
                 ),
-                child: const Center(
-                  child: Text(
-                    '경유하는 버스가 없습니다',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 16,
+              ),
+              const Spacer(),
+              // 알림 버튼
+              GestureDetector(
+                onTap: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('${route.routeName}번 버스 알림 설정 (구현 예정)'),
+                      duration: const Duration(seconds: 2),
                     ),
+                  );
+                },
+                child: Icon(
+                  Icons.notifications_outlined,
+                  color: isDark ? Colors.grey[400] : Colors.grey,
+                  size: 20,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 5),
+          // 도착 정보 (임시 데이터)
+          _buildArrivalInfo(route),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildArrivalInfo(BusRoute route) {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final textColor = isDark ? AppColors.darkText : Colors.black87;
+    final arrivalTimes = _getMockArrivalTimes(route.routeName);
+    if (arrivalTimes.isEmpty) {
+      return Text(
+        '도착정보 없음',
+        style: TextStyle(
+          fontSize: 14,
+          color: isDark ? Colors.grey[400] : Colors.grey,
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: arrivalTimes.map((arrival) => Padding(
+        padding: const EdgeInsets.only(bottom: 4),
+        child: Text(
+          arrival,
+          style: TextStyle(
+            fontSize: 14,
+            color: textColor,
+          ),
+        ),
+      )).toList(),
+    );
+  }
+
+  List<String> _getMockArrivalTimes(String routeName) {
+    // 임시 도착 시간 데이터
+    switch (routeName) {
+      case '388':
+        return ['7분 39초 4번째전 여유', '도착정보 없음'];
+      case '60':
+        return ['21분 17번째전 여유', '도착정보 없음'];
+      case '60-3':
+        return ['25분 14번째전 여유', '54분 34번째전 여유'];
+      case '96':
+        return ['6분 42초 4번째전 여유', '37분 26번째전 여유'];
+      case '1002':
+        return ['도착정보 없음'];
+      default:
+        return ['3분 24초 남음'];
+    }
+  }
+
+  Widget _buildBottomStationPanel() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
+    final panelColor = isDark ? AppColors.darkCard : Colors.grey[300];
+    final textColor = isDark ? AppColors.darkText : Colors.black87;
+    final subTextColor = isDark ? AppColors.darkText.withOpacity(0.7) : Colors.black54;
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 30,left: 15,right: 15),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: panelColor,
+        borderRadius: BorderRadius.circular(25),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.station.baseStationName,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
                   ),
                 ),
-              )
-            else
-              ...routes.map((route) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: () => _navigateToRouteDetail(route),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
-                          child: Row(
-                            children: [
-                              // 버스 번호
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 5),
-                                decoration: BoxDecoration(
-                                  color: _getRouteTypeColor(route.routeTypeName),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: Text(
-                                  '${route.routeName}번',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 10),                  
-                              // 도착 시간 (임시 데이터)
-                              Text(
-                                '3분 24초 남음',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  )),
-          ],
-        ),
+                const SizedBox(height: 4),
+                Text(
+                  '${widget.station.getDirectionFromCoordinate(BusService.getCachedStations()).isNotEmpty ? widget.station.getDirectionFromCoordinate(BusService.getCachedStations()) : "김포시"} 방면',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: subTextColor,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          GestureDetector(
+            onTap: _loadStationInfo,
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Icon(
+                Icons.refresh,
+                color: isDark ? Colors.grey[400] : Colors.grey,
+                size: 20,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -327,7 +373,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
       case '마을버스':
         return Colors.purple;
       default:
-        return Colors.grey;
+        return Colors.teal; // 기본 색상
     }
   }
 }

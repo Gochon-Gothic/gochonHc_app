@@ -95,21 +95,33 @@ class BusService {
     return [
       BusRoute(
         routeId: '200000001',
-        routeName: '1000',
+        routeName: '388',
         routeTypeName: '간선버스',
         regionName: '김포시',
       ),
       BusRoute(
         routeId: '200000002',
-        routeName: '8000',
-        routeTypeName: '광역버스',
-        regionName: '경기도',
+        routeName: '60',
+        routeTypeName: '간선버스',
+        regionName: '김포시',
       ),
       BusRoute(
         routeId: '200000003',
-        routeName: '88',
+        routeName: '60-3',
         routeTypeName: '지선버스',
         regionName: '김포시',
+      ),
+      BusRoute(
+        routeId: '200000004',
+        routeName: '96',
+        routeTypeName: '지선버스',
+        regionName: '김포시',
+      ),
+      BusRoute(
+        routeId: '200000005',
+        routeName: '1002',
+        routeTypeName: '광역버스',
+        regionName: '경기도',
       ),
     ];
   }
