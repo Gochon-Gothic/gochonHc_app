@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 class BusService {
   static const String _baseUrl = 'https://apis.data.go.kr/6410000/busstationservice';
   static const String _arrivalBaseUrl = 'https://apis.data.go.kr/6410000/busarrivalservice';
+  static const String _routeBaseUrl = 'https://apis.data.go.kr/6410000/busrouteservice';
   static const String _serviceKey = '5603d0071b09c37c4dc6aeb25a4d08e409b4ddc2f2791e15bc113cddf228e540';
   
   static List<BusStation>? _cachedStations;
@@ -163,10 +164,17 @@ class BusService {
       print('도착 정보 응답 상태 코드: ${response.statusCode}');
       
       if (response.statusCode == 200) {
-        final data = json.decode(response.body);
+        // 응답이 XML인지 JSON인지 확인
+        final responseBody = response.body.trim();
+        print('응답 본문 (처음 100자): ${responseBody.substring(0, responseBody.length > 100 ? 100 : responseBody.length)}');
         
-        print('도착 정보 응답 구조: ${data.keys}');
-        print('응답 본문: ${response.body}');
+        if (responseBody.startsWith('<')) {
+          print('XML 응답 감지됨. 현재는 XML 파싱을 지원하지 않습니다.');
+          return [];
+        }
+        
+        try {
+          final data = json.decode(responseBody);
         
         // 응답 구조 확인 및 파싱
         if (data['response'] != null) {
@@ -209,7 +217,12 @@ class BusService {
             return [];
           }
         } else {
-          print('예상치 못한 응답 구조: ${response.body}');
+          print('예상치 못한 응답 구조: $responseBody');
+          return [];
+        }
+        } catch (jsonError) {
+          print('JSON 파싱 오류: $jsonError');
+          print('응답 본문: $responseBody');
           return [];
         }
       } else {
@@ -316,6 +329,85 @@ class BusService {
     } else {
       return lngDiff > 0 ? '동쪽 방향' : '서쪽 방향';
     }
+  }
+
+  // 버스 노선의 모든 정류장 목록 조회
+  static Future<List<BusRouteStation>> getRouteStations(String routeId) async {
+    try {
+      final url = '$_routeBaseUrl/v2/getBusRouteStationListv2?serviceKey=$_serviceKey&routeId=$routeId&format=json';
+      
+      print('버스 노선 정류장 조회 API 호출: $url');
+      print('노선 ID: $routeId');
+      
+      final response = await http.get(Uri.parse(url));
+      
+      print('응답 상태 코드: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        if (data['response'] != null && data['response']['msgHeader'] != null) {
+          if (data['response']['msgHeader']['resultCode'] == 0) {
+            final msgBody = data['response']['msgBody'];
+            if (msgBody != null && msgBody['busRouteStationList'] != null) {
+              final stationList = msgBody['busRouteStationList'];
+              
+              if (stationList is List) {
+                print('성공! 조회된 정류장 수: ${stationList.length}');
+                return stationList.map((station) => BusRouteStation.fromJson(Map<String, dynamic>.from(station))).toList();
+              } else if (stationList is Map) {
+                print('성공! 단일 정류장 조회');
+                return [BusRouteStation.fromJson(Map<String, dynamic>.from(stationList))];
+              }
+            } else {
+              print('정류장 데이터가 없습니다.');
+              return [];
+            }
+          } else {
+            print('API 오류: ${data['response']['msgHeader']['resultMessage']}');
+          }
+        }
+      } else {
+        print('HTTP 오류: ${response.statusCode}');
+        print('응답 본문: ${response.body}');
+      }
+    } catch (e) {
+      print('버스 노선 정류장 조회 API 에러: $e');
+    }
+    
+    return [];
+  }
+
+  // 버스 노선 기본 정보 조회
+  static Future<BusRouteInfo?> getRouteInfo(String routeId) async {
+    try {
+      final url = '$_routeBaseUrl/v2/getBusRouteInfoItemv2?serviceKey=$_serviceKey&routeId=$routeId&format=json';
+      
+      print('버스 노선 정보 조회 API 호출: $url');
+      
+      final response = await http.get(Uri.parse(url));
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        
+        if (data['response'] != null && data['response']['msgHeader'] != null) {
+          if (data['response']['msgHeader']['resultCode'] == 0) {
+            final msgBody = data['response']['msgBody'];
+            if (msgBody != null && msgBody['busRouteInfoItem'] != null) {
+              final routeInfo = msgBody['busRouteInfoItem'];
+              print('성공! 버스 노선 정보 조회');
+              return BusRouteInfo.fromJson(Map<String, dynamic>.from(routeInfo));
+            }
+          } else {
+            print('API 오류: ${data['response']['msgHeader']['resultMessage']}');
+          }
+        }
+      }
+    } catch (e) {
+      print('버스 노선 정보 조회 API 에러: $e');
+    }
+    
+    return null;
   }
 }
 
@@ -457,6 +549,7 @@ class BusRoute {
   final String routeName;
   final String routeTypeName;
   final String regionName;
+  final String routeStartName;
   final String routeDestName;
   final int routeDestId;
   final int routeTypeCd;
@@ -467,6 +560,7 @@ class BusRoute {
     required this.routeName,
     required this.routeTypeName,
     required this.regionName,
+    required this.routeStartName,
     required this.routeDestName,
     required this.routeDestId,
     required this.routeTypeCd,
@@ -479,6 +573,7 @@ class BusRoute {
       routeName: json['routeName']?.toString() ?? '',
       routeTypeName: json['routeTypeName']?.toString() ?? '',
       regionName: json['regionName']?.toString() ?? '',
+      routeStartName: json['routeStartName']?.toString() ?? '',
       routeDestName: json['routeDestName']?.toString() ?? '',
       routeDestId: json['routeDestId'] ?? 0,
       routeTypeCd: json['routeTypeCd'] ?? 0,
@@ -659,4 +754,145 @@ class BusArrival {
 
   bool get isLowPlate1 => lowPlate1 == 1;
   bool get isLowPlate2 => lowPlate2 == 1;
+}
+
+// 버스 노선의 정류장 정보
+class BusRouteStation {
+  final String stationId;
+  final String stationName;
+  final int stationSeq;
+  final int turnSeq;
+  final String turnYn;
+  final String centerYn;
+  final int districtCd;
+  final String mobileNo;
+  final String regionName;
+  final double x;
+  final double y;
+  final String adminName;
+
+  BusRouteStation({
+    required this.stationId,
+    required this.stationName,
+    required this.stationSeq,
+    required this.turnSeq,
+    required this.turnYn,
+    required this.centerYn,
+    required this.districtCd,
+    required this.mobileNo,
+    required this.regionName,
+    required this.x,
+    required this.y,
+    required this.adminName,
+  });
+
+  factory BusRouteStation.fromJson(Map<String, dynamic> json) {
+    return BusRouteStation(
+      stationId: json['stationId']?.toString() ?? '',
+      stationName: json['stationName']?.toString() ?? '',
+      stationSeq: json['stationSeq'] ?? 0,
+      turnSeq: json['turnSeq'] ?? 0,
+      turnYn: json['turnYn']?.toString() ?? '',
+      centerYn: json['centerYn']?.toString() ?? '',
+      districtCd: json['districtCd'] ?? 0,
+      mobileNo: json['mobileNo']?.toString() ?? '',
+      regionName: json['regionName']?.toString() ?? '',
+      x: double.tryParse(json['x']?.toString() ?? '0') ?? 0.0,
+      y: double.tryParse(json['y']?.toString() ?? '0') ?? 0.0,
+      adminName: json['adminName']?.toString() ?? '',
+    );
+  }
+}
+
+// 버스 노선 기본 정보
+class BusRouteInfo {
+  final String routeId;
+  final String routeName;
+  final String routeTypeName;
+  final String regionName;
+  final String routeDestName;
+  final String routeStartName;
+  final int routeTypeCd;
+  final String startStationId;
+  final String endStationId;
+  final String firstBusTm;
+  final String lastBusTm;
+  final String term;
+  final String adminName;
+  final String companyName;
+  final String companyTel;
+  final String garageName;
+  final String garageTel;
+  final String startMobileNo;
+  final String endMobileNo;
+  final String startStationName;
+  final String endStationName;
+  final String turnStNm;
+  final String turnStID;
+  final String upFirstTime;
+  final String upLastTime;
+  final String downFirstTime;
+  final String downLastTime;
+
+  BusRouteInfo({
+    required this.routeId,
+    required this.routeName,
+    required this.routeTypeName,
+    required this.regionName,
+    required this.routeDestName,
+    required this.routeStartName,
+    required this.routeTypeCd,
+    required this.startStationId,
+    required this.endStationId,
+    required this.firstBusTm,
+    required this.lastBusTm,
+    required this.term,
+    required this.adminName,
+    required this.companyName,
+    required this.companyTel,
+    required this.garageName,
+    required this.garageTel,
+    required this.startMobileNo,
+    required this.endMobileNo,
+    required this.startStationName,
+    required this.endStationName,
+    required this.turnStNm,
+    required this.turnStID,
+    required this.upFirstTime,
+    required this.upLastTime,
+    required this.downFirstTime,
+    required this.downLastTime,
+  });
+
+  factory BusRouteInfo.fromJson(Map<String, dynamic> json) {
+    return BusRouteInfo(
+      routeId: json['routeId']?.toString() ?? '',
+      routeName: json['routeName']?.toString() ?? '',
+      routeTypeName: json['routeTypeName']?.toString() ?? '',
+      regionName: json['regionName']?.toString() ?? '',
+      routeDestName: json['endStationName']?.toString() ?? '',
+      routeStartName: json['startStationName']?.toString() ?? '',
+      routeTypeCd: json['routeTypeCd'] ?? 0,
+      startStationId: json['startStationId']?.toString() ?? '',
+      endStationId: json['endStationId']?.toString() ?? '',
+      firstBusTm: json['upFirstTime']?.toString() ?? '',
+      lastBusTm: json['upLastTime']?.toString() ?? '',
+      term: json['peekAlloc']?.toString() ?? '',
+      adminName: json['adminName']?.toString() ?? '',
+      companyName: json['companyName']?.toString() ?? '',
+      companyTel: json['companyTel']?.toString() ?? '',
+      garageName: json['garageName']?.toString() ?? '',
+      garageTel: json['garageTel']?.toString() ?? '',
+      startMobileNo: json['startMobileNo']?.toString() ?? '',
+      endMobileNo: json['endMobileNo']?.toString() ?? '',
+      startStationName: json['startStationName']?.toString() ?? '',
+      endStationName: json['endStationName']?.toString() ?? '',
+      turnStNm: json['turnStNm']?.toString() ?? '',
+      turnStID: json['turnStID']?.toString() ?? '',
+      upFirstTime: json['upFirstTime']?.toString() ?? '',
+      upLastTime: json['upLastTime']?.toString() ?? '',
+      downFirstTime: json['downFirstTime']?.toString() ?? '',
+      downLastTime: json['downLastTime']?.toString() ?? '',
+    );
+  }
 }

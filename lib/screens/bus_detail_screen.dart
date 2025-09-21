@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/bus_service.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
+import 'bus_route_detail_screen.dart';
 
 class BusDetailScreen extends StatefulWidget {
   final BusStation station;
@@ -205,64 +206,77 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final cardColor = isDark ? AppColors.darkCard : Colors.white;
     
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cardColor,
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(isDark ? 0.3 : 0.1),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => BusRouteDetailScreen(
+              route: route,
+              currentStation: widget.station,
+            ),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Text(
-                '${route.routeName}번',
-                style: TextStyle(
-                  color: _getRouteTypeColor(route.routeTypeName),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
+        );
+      },
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 15),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.grey.withOpacity(isDark ? 0.3 : 0.1),
+              blurRadius: 3,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  '${route.routeName}번',
+                  style: TextStyle(
+                    color: _getRouteTypeColor(route.routeTypeName),
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                '→ ${route.routeDestName}',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                const SizedBox(width: 8),
+                Text(
+                  '→ ${route.routeDestName}',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: isDark ? Colors.grey[400] : Colors.grey[600],
+                  ),
                 ),
-              ),
-              const Spacer(),
-              // 알림 버튼
-              GestureDetector(
-                onTap: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('${route.routeName}번 버스 알림 설정 (구현 예정)'),
-                      duration: const Duration(seconds: 2),
-                    ),
-                  );
-                },
-                child: Icon(
-                  Icons.notifications_outlined,
-                  color: isDark ? Colors.grey[400] : Colors.grey,
-                  size: 20,
+                const Spacer(),
+                // 알림 버튼
+                GestureDetector(
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text('${route.routeName}번 버스 알림 설정 (구현 예정)'),
+                        duration: const Duration(seconds: 2),
+                      ),
+                    );
+                  },
+                  child: Icon(
+                    Icons.notifications_outlined,
+                    color: isDark ? Colors.grey[400] : Colors.grey,
+                    size: 20,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 5),
-          // 도착 정보 (임시 데이터)
-          _buildArrivalInfo(route),
-        ],
+              ],
+            ),
+            const SizedBox(height: 5),
+            // 도착 정보 (임시 데이터)
+            _buildArrivalInfo(route),
+          ],
+        ),
       ),
     );
   }
