@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:io';
 
 import '../models/user_info.dart';
 import '../services/user_service.dart';
@@ -28,10 +28,12 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
+      print('로그인 버튼 클릭됨');
       final userCredential = await AuthService.instance.signInWithGoogle();
 
       if (userCredential != null && mounted) {
         final user = userCredential.user!;
+        print('로그인 성공: ${user.email}');
 
         // Firestore에 사용자 문서가 존재하는지 확인
         final userExists = await AuthService.instance.checkUserExists(user.uid);
@@ -52,14 +54,61 @@ class _LoginScreenState extends State<LoginScreen> {
           );
         }
       } else {
+        print('로그인 취소됨');
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
+      print('로그인 화면에서 에러 발생: $e');
       if (mounted) {
         setState(() {
           error = e.toString();
+          isLoading = false;
+        });
+      }
+    }
+  }
+
+  // 시뮬레이터용 임시 로그인 (개발용)
+  Future<void> _handleSimulatorLogin() async {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+
+    try {
+      print('시뮬레이터 로그인 시작...');
+      
+      // 시뮬레이터용 가짜 사용자 정보
+      final fakeUser = {
+        'email': 'test@gochon.hs.kr',
+        'uid': 'simulator_test_user',
+        'name': '테스트 사용자',
+        'grade': 1,
+        'class': 1,
+        'number': 1,
+      };
+
+      // 로컬에 사용자 정보 저장
+      final userInfo = UserInfo(
+        email: fakeUser['email'] as String,
+        name: fakeUser['name'] as String,
+        grade: fakeUser['grade'] as int,
+        classNum: fakeUser['class'] as int,
+        number: fakeUser['number'] as int,
+      );
+      
+      await UserService.instance.saveUserInfo(userInfo);
+      
+      // 메인 화면으로 이동
+      Navigator.pushReplacementNamed(context, '/main');
+      
+    } catch (e) {
+      print('시뮬레이터 로그인 에러: $e');
+      if (mounted) {
+        setState(() {
+          error = '시뮬레이터 로그인 실패: $e';
           isLoading = false;
         });
       }
@@ -74,9 +123,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final secondaryTextColor =
         isDark ? AppColors.darkSecondaryText : AppColors.lightSecondaryText;
-    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
-    final dividerColor =
-        isDark ? AppColors.darkDivider : AppColors.lightDivider;
 
     return Scaffold(
       resizeToAvoidBottomInset: false,
@@ -201,6 +247,53 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
 
                         const SizedBox(height: 24),
+
+                        // 시뮬레이터용 임시 로그인 버튼 (개발용)
+                        if (Platform.isIOS) ...[
+                          Container(
+                            width: 327,
+                            height: 40,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(8),
+                              color: isDark ? Colors.orange : Colors.orangeAccent,
+                            ),
+                            child: Material(
+                              color: Colors.transparent,
+                              child: InkWell(
+                                borderRadius: BorderRadius.circular(8),
+                                onTap: isLoading ? null : _handleSimulatorLogin,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 16,
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.phone_android,
+                                        color: Colors.white,
+                                        size: 20,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        '시뮬레이터 로그인 (개발용)',
+                                        textAlign: TextAlign.center,
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 14,
+                                          letterSpacing: 0,
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                        ],
 
                         Text(
                           'By clicking continue, you agree to our Terms of Service and Privacy Policy',

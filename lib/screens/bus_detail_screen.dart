@@ -18,6 +18,7 @@ class BusDetailScreen extends StatefulWidget {
 
 class _BusDetailScreenState extends State<BusDetailScreen> {
   List<BusRoute> routes = [];
+  List<BusArrival> arrivals = [];
   BusStationDetail? stationDetail;
   bool isLoading = true;
   String? error;
@@ -36,11 +37,13 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
 
     try {
       final routesData = await BusService.getStationRoutes(widget.station.stationId);
+      final arrivalsData = await BusService.getBusArrivals(widget.station.stationId);
       final detailData = await BusService.getStationDetail(widget.station.stationId);
 
       if (mounted) {
         setState(() {
           routes = routesData;
+          arrivals = arrivalsData;
           stationDetail = detailData;
           isLoading = false;
         });
@@ -229,6 +232,14 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              const SizedBox(width: 8),
+              Text(
+                '→ ${route.routeDestName}',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: isDark ? Colors.grey[400] : Colors.grey[600],
+                ),
+              ),
               const Spacer(),
               // 알림 버튼
               GestureDetector(
@@ -259,8 +270,31 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
   Widget _buildArrivalInfo(BusRoute route) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textColor = isDark ? AppColors.darkText : Colors.black87;
-    final arrivalTimes = _getMockArrivalTimes(route.routeName);
-    if (arrivalTimes.isEmpty) {
+    
+    // 해당 노선의 도착 정보 찾기
+    final arrival = arrivals.firstWhere(
+      (arrival) => arrival.routeId == route.routeId,
+      orElse: () => BusArrival(
+        routeId: '',
+        routeName: '',
+        routeTypeName: '',
+        predictTime1: 0,
+        predictTime2: 0,
+        locationNo1: 0,
+        locationNo2: 0,
+        plateNo1: '',
+        plateNo2: '',
+        stateCd1: 0,
+        stateCd2: 0,
+        crowded1: 0,
+        crowded2: 0,
+        lowPlate1: 0,
+        lowPlate2: 0,
+        flag: '',
+      ),
+    );
+
+    if (arrival.routeId.isEmpty) {
       return Text(
         '도착정보 없음',
         style: TextStyle(
@@ -272,34 +306,80 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: arrivalTimes.map((arrival) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Text(
-          arrival,
-          style: TextStyle(
-            fontSize: 14,
-            color: textColor,
-          ),
+      children: [
+        // 첫 번째 버스
+        Row(
+          children: [
+            Text(
+              arrival.arrivalTime1,
+              style: TextStyle(
+                fontSize: 14,
+                color: textColor,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            if (arrival.predictTime1 > 0) ...[
+              const SizedBox(width: 8),
+              Text(
+                arrival.crowdedText1,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _getCrowdedColor(arrival.crowded1),
+                ),
+              ),
+              if (arrival.isLowPlate1) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.accessible,
+                  size: 12,
+                  color: Colors.blue,
+                ),
+              ],
+            ],
+          ],
         ),
-      )).toList(),
+        // 두 번째 버스
+        if (arrival.predictTime2 > 0) ...[
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              Text(
+                arrival.arrivalTime2,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(
+                arrival.crowdedText2,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _getCrowdedColor(arrival.crowded2),
+                ),
+              ),
+              if (arrival.isLowPlate2) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  Icons.accessible,
+                  size: 12,
+                  color: Colors.blue,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ],
     );
   }
 
-  List<String> _getMockArrivalTimes(String routeName) {
-    // 임시 도착 시간 데이터
-    switch (routeName) {
-      case '388':
-        return ['7분 39초 4번째전 여유', '도착정보 없음'];
-      case '60':
-        return ['21분 17번째전 여유', '도착정보 없음'];
-      case '60-3':
-        return ['25분 14번째전 여유', '54분 34번째전 여유'];
-      case '96':
-        return ['6분 42초 4번째전 여유', '37분 26번째전 여유'];
-      case '1002':
-        return ['도착정보 없음'];
-      default:
-        return ['3분 24초 남음'];
+  Color _getCrowdedColor(int crowded) {
+    switch (crowded) {
+      case 1: return Colors.green; // 여유
+      case 2: return Colors.orange; // 보통
+      case 3: return Colors.red; // 혼잡
+      default: return Colors.grey; // 정보없음
     }
   }
 
