@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/bus_service.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
+import '../utils/preference_manager.dart';
 import 'bus_route_detail_screen.dart';
 
 class BusDetailScreen extends StatefulWidget {
@@ -23,11 +24,61 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
   BusStationDetail? stationDetail;
   bool isLoading = true;
   String? error;
+  bool isFavorite = false;
+  bool favoriteChanged = false;
 
   @override
   void initState() {
     super.initState();
     _loadStationInfo();
+    _checkFavoriteStatus();
+  }
+
+  Future<void> _checkFavoriteStatus() async {
+    final favoriteStatus = await PreferenceManager.instance.isFavoriteStation(widget.station.stationId);
+    if (mounted) {
+      setState(() {
+        isFavorite = favoriteStatus;
+      });
+    }
+  }
+
+  Future<void> _toggleFavorite() async {
+    if (isFavorite) {
+      await PreferenceManager.instance.removeFavoriteStation(widget.station.stationId);
+      if (mounted) {
+        setState(() {
+          isFavorite = false;
+          favoriteChanged = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.station.baseStationName}을(를) 즐겨찾기에서 제거했습니다'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      final stationData = {
+        'stationId': widget.station.stationId,
+        'stationName': widget.station.baseStationName,
+        'stationNum': widget.station.stationNum,
+        'district': widget.station.district,
+      };
+      await PreferenceManager.instance.addFavoriteStation(stationData);
+      if (mounted) {
+        setState(() {
+          isFavorite = true;
+          favoriteChanged = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.station.baseStationName}을(를) 즐겨찾기에 추가했습니다'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadStationInfo() async {
@@ -64,9 +115,14 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final bgColor = isDark ? AppColors.darkBackground : const Color.fromARGB(255, 240, 240, 240);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      extendBodyBehindAppBar: true,
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.of(context).pop(favoriteChanged);
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        extendBodyBehindAppBar: true,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null
@@ -92,16 +148,15 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                 )
               : Column(
                   children: [
-                    // 상단 역 정보 패널
                     _buildTopStationPanel(),
                     const SizedBox(height: 15),
                     Expanded(
                       child: _buildBusList(),
                     ),
-                    // 하단 역 정보 패널
                     _buildBottomStationPanel(),
                   ],
                 ),
+              ),
     );
   }
   Widget _buildTopStationPanel() {
@@ -128,11 +183,10 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 뒤로가기 버튼과 역 정보
           Row(
             children: [
               GestureDetector(
-                onTap: () => Navigator.of(context).pop(),
+                onTap: () => Navigator.of(context).pop(favoriteChanged),
                 child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
@@ -167,9 +221,23 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        const SizedBox(height: 2),
                       ],
                   ],
+                ),
+              ),
+              GestureDetector(
+                onTap: _toggleFavorite,
+                child: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(
+                    isFavorite ? Icons.star : Icons.star_border,
+                    color: isFavorite ? const Color.fromRGBO(255, 197, 30, 1) : textColor.withValues(alpha: 0.6),
+                    size: 28,
+                  ),
                 ),
               ),
             ],
@@ -219,8 +287,8 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.only(bottom: 15),
-        padding: const EdgeInsets.all(12),
+        margin: const EdgeInsets.only(bottom: 13),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 20),
         decoration: BoxDecoration(
           color: cardColor,
           borderRadius: BorderRadius.circular(18),
@@ -254,7 +322,6 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                   ),
                 ),
                 const Spacer(),
-                // 알림 버튼
                 GestureDetector(
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -273,7 +340,6 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
               ],
             ),
             const SizedBox(height: 5),
-            // 도착 정보 (임시 데이터)
             _buildArrivalInfo(route),
           ],
         ),
@@ -285,7 +351,6 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final textColor = isDark ? AppColors.darkText : Colors.black87;
     
-    // 해당 노선의 도착 정보 찾기
     final arrival = arrivals.firstWhere(
       (arrival) => arrival.routeId == route.routeId,
       orElse: () => BusArrival(
@@ -321,7 +386,6 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 첫 번째 버스
         Row(
           children: [
             Text(
@@ -352,7 +416,6 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
             ],
           ],
         ),
-        // 두 번째 버스
         if (arrival.predictTime2 > 0) ...[
           const SizedBox(height: 4),
           Row(
@@ -390,10 +453,10 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
 
   Color _getCrowdedColor(int crowded) {
     switch (crowded) {
-      case 1: return Colors.green; // 여유
-      case 2: return Colors.orange; // 보통
-      case 3: return Colors.red; // 혼잡
-      default: return Colors.grey; // 정보없음
+      case 1: return Colors.green;
+      case 2: return Colors.orange;
+      case 3: return Colors.red;
+      default: return Colors.grey;
     }
   }
 
@@ -404,11 +467,10 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     final subTextColor = isDark ? AppColors.darkText.withOpacity(0.7) : Colors.black54;
     
     return Container(
-      margin: const EdgeInsets.only(bottom: 30,left: 15,right: 15),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 0,left: 0,right: 0),
+      padding: const EdgeInsets.fromLTRB(25, 12, 25, 25),
       decoration: BoxDecoration(
         color: panelColor,
-        borderRadius: BorderRadius.circular(25),
       ),
       child: Row(
         children: [
@@ -467,7 +529,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
       case '마을버스':
         return Colors.purple;
       default:
-        return Colors.teal; // 기본 색상
+        return Colors.teal;
     }
   }
 }

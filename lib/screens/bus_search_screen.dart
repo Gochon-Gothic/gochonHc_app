@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/bus_service.dart';
+import '../utils/preference_manager.dart';
 import 'bus_detail_screen.dart';
 
 class BusSearchScreen extends StatefulWidget {
@@ -12,33 +13,89 @@ class BusSearchScreen extends StatefulWidget {
   State<BusSearchScreen> createState() => _BusSearchScreenState();
 }
 
-class _BusSearchScreenState extends State<BusSearchScreen> {
+class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   final TextEditingController _searchController = TextEditingController();
   List<BusStation> searchResults = [];
   bool isSearching = false;
+  List<Map<String, dynamic>> favoriteStations = [];
+  Map<String, bool> stationFavoriteStatus = {};
   
-  final List<Map<String, String>> popularStations = [
-    {'name': '고촌역', 'keyword': '고촌역'},
-    {'name': '김포공항역', 'keyword': '김포공항'},
-    {'name': '김포시청', 'keyword': '김포시청'},
-    {'name': '운양역', 'keyword': '운양역'},
-    {'name': '사우역', 'keyword': '사우역'},
-    {'name': '풍무역', 'keyword': '풍무역'},
-    {'name': '구래역', 'keyword': '구래역'},
-    {'name': '마산역', 'keyword': '마산역'},
-    {'name': '장곡•고촌고등학교', 'keyword': '장곡'},
-    {'name': '김포시외버스터미널', 'keyword': '터미널'},
-    {'name': '김포대학교', 'keyword': '김포대학교'},
-    {'name': '김포롯데마트', 'keyword': '롯데마트'},
-    {'name': '통진읍사무소', 'keyword': '통진'},
-    {'name': '양촌읍사무소', 'keyword': '양촌'},
-    {'name': '대곶면사무소', 'keyword': '대곶'},
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _loadFavoriteStations();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _loadFavoriteStations();
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadFavoriteStations() async {
+    final favorites = await PreferenceManager.instance.getFavoriteStations();
+    if (mounted) {
+      setState(() {
+        favoriteStations = favorites;
+        stationFavoriteStatus = {
+          for (var station in favorites) station['stationId']: true
+        };
+      });
+    }
+  }
+
+  Map<String, dynamic> _busStationToMap(BusStation station) {
+    return {
+      'stationId': station.stationId,
+      'stationName': station.baseStationName,
+      'stationNum': station.stationNum,
+      'district': station.district,
+    };
+  }
+
+  Future<bool> _isStationFavorite(String stationId) async {
+    return await PreferenceManager.instance.isFavoriteStation(stationId);
+  }
+
+  Future<void> _toggleFavoriteStation(Map<String, dynamic> station) async {
+    final stationId = station['stationId'];
+    final isCurrentlyFavorite = stationFavoriteStatus[stationId] ?? false;
+    
+    if (isCurrentlyFavorite) {
+      await PreferenceManager.instance.removeFavoriteStation(stationId);
+      if (mounted) {
+        setState(() {
+          stationFavoriteStatus[stationId] = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${station['stationName']}을(를) 즐겨찾기에서 제거했습니다'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } else {
+      await PreferenceManager.instance.addFavoriteStation(station);
+      if (mounted) {
+        setState(() {
+          stationFavoriteStatus[stationId] = true;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${station['stationName']}을(를) 즐겨찾기에 추가했습니다'),
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _searchStations(String keyword) async {
@@ -61,6 +118,12 @@ class _BusSearchScreenState extends State<BusSearchScreen> {
           searchResults = results;
           isSearching = false;
         });
+        
+        for (var station in results) {
+          if (!stationFavoriteStatus.containsKey(station.stationId)) {
+            stationFavoriteStatus[station.stationId] = await _isStationFavorite(station.stationId);
+          }
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -75,17 +138,40 @@ class _BusSearchScreenState extends State<BusSearchScreen> {
     }
   }
 
-  void _navigateToStation(BusStation station) {
-    Navigator.push(
+  void _navigateToStation(BusStation station) async {
+    final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => BusDetailScreen(station: station),
       ),
     );
+    
+    if (result == true) _loadFavoriteStations();
+  }
+
+  void _navigateToFavoriteStation(Map<String, dynamic> favoriteStation) async {
+    final station = BusStation(
+      stationId: favoriteStation['stationId'],
+      stationName: favoriteStation['stationName'],
+      stationNum: favoriteStation['stationNum'],
+      x: 0.0,
+      y: 0.0,
+      district: favoriteStation['district'],
+    );
+    
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BusDetailScreen(station: station),
+      ),
+    );
+    
+    if (result == true) _loadFavoriteStations();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final bgColor = isDark ? AppColors.darkBackground : AppColors.lightBackground;
     final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
@@ -109,8 +195,6 @@ class _BusSearchScreenState extends State<BusSearchScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          
-          // 검색창
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16),
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -172,7 +256,7 @@ class _BusSearchScreenState extends State<BusSearchScreen> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
             ...searchResults.take(10).map((station) => Container(
                   margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   child: Card(
@@ -182,9 +266,24 @@ class _BusSearchScreenState extends State<BusSearchScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: ListTile(
-                      leading: Icon(
-                        Icons.directions_bus,
-                        color: textColor.withValues(alpha: 0.7),
+                      leading: GestureDetector(
+                        onTap: () => _toggleFavoriteStation(_busStationToMap(station)),
+                        child: Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(20),
+                            color: Colors.transparent,
+                          ),
+                          child: Icon(
+                            (stationFavoriteStatus[station.stationId] ?? false) 
+                                ? Icons.star 
+                                : Icons.star_border,
+                            color: (stationFavoriteStatus[station.stationId] ?? false)
+                                ? const Color.fromRGBO(255, 197, 30, 1)
+                                : textColor.withValues(alpha: 0.6),
+                            size: 24,
+                          ),
+                        ),
                       ),
                       title: Text(
                         station.baseStationName,
@@ -213,8 +312,9 @@ class _BusSearchScreenState extends State<BusSearchScreen> {
                             },
                           ),
                           Text(
-                            '${station.district ?? ''} • 정류장 번호: ${station.stationNum}',
+                            '정류장 번호: ${station.stationNum}',
                             style: TextStyle(
+                              fontSize: 12,
                               color: textColor.withValues(alpha: 0.6),
                             ),
                           ),
@@ -242,43 +342,94 @@ class _BusSearchScreenState extends State<BusSearchScreen> {
               ),
             ),
             const SizedBox(height: 16),
-            ...popularStations.map((station) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Card(
-                    color: cardColor,
-                    elevation: 2,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+            if (favoriteStations.isEmpty) ...[
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16),
+                padding: const EdgeInsets.all(32),
+                decoration: BoxDecoration(
+                  color: cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.star_border,
+                      size: 48,
+                      color: textColor.withValues(alpha: 0.5),
                     ),
-                    child: ListTile(
-                      leading: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: const Color.fromRGBO(255, 197, 30, 0.2),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Icon(
-                          Icons.star,
-                          color: const Color.fromRGBO(255, 197, 30, 1),
-                          size: 20,
-                        ),
+                    const SizedBox(height: 16),
+                    Text(
+                      '즐겨찾기 역이 없습니다',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: textColor.withValues(alpha: 0.6),
                       ),
-                      title: Text(
-                        station['name']!,
-                        style: TextStyle(
-                          color: textColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      trailing: Icon(
-                        Icons.arrow_forward_ios,
-                        color: textColor.withValues(alpha: 0.4),
-                        size: 16,
-                      ),
-                      onTap: () => _searchStations(station['keyword']!),
+                      textAlign: TextAlign.center,
                     ),
-                  ),
-                )),
+                    const SizedBox(height: 8),
+                    Text(
+                      '역을 검색하고 별 아이콘을 눌러 즐겨찾기에 추가하세요',
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: textColor.withValues(alpha: 0.5),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              ),
+            ] else ...[
+              ...favoriteStations.map((station) => Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                    child: Card(
+                      color: cardColor,
+                      elevation: 2,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: ListTile(
+                        leading: GestureDetector(
+                          onTap: () => _toggleFavoriteStation(station),
+                          child: Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(20),
+                              color: Colors.transparent,
+                            ),
+                            child: Icon(
+                              (stationFavoriteStatus[station['stationId']] ?? true) 
+                                  ? Icons.star 
+                                  : Icons.star_border,
+                              color: (stationFavoriteStatus[station['stationId']] ?? true)
+                                  ? const Color.fromRGBO(255, 197, 30, 1)
+                                  : textColor.withValues(alpha: 0.6),
+                              size: 24,
+                            ),
+                          ),
+                        ),
+                        title: Text(
+                          station['stationName'] ?? '',
+                          style: TextStyle(
+                            color: textColor,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Text(
+                          '정류장 번호: ${station['stationNum'] ?? ''}',
+                          style: TextStyle(
+                            color: textColor.withValues(alpha: 0.6),
+                          ),
+                        ),
+                        trailing: Icon(
+                          Icons.arrow_forward_ios,
+                          color: textColor.withValues(alpha: 0.4),
+                          size: 16,
+                        ),
+                        onTap: () => _navigateToFavoriteStation(station),
+                      ),
+                    ),
+                  )),
+            ],
           ] else if (_searchController.text.isNotEmpty && searchResults.isEmpty && !isSearching) ...[
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),

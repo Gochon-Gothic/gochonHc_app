@@ -739,7 +739,7 @@ class BusArrival {
       case 1: return '여유';
       case 2: return '보통';
       case 3: return '혼잡';
-      default: return '정보없음';
+      default: return '';
     }
   }
 
@@ -748,7 +748,7 @@ class BusArrival {
       case 1: return '여유';
       case 2: return '보통';
       case 3: return '혼잡';
-      default: return '정보없음';
+      default: return '';
     }
   }
 

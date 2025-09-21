@@ -98,6 +98,60 @@ class PreferenceManager {
     );
   }
 
+  static const String _favoriteStationsKey = 'favorite_stations';
+
+  Future<List<Map<String, dynamic>>> getFavoriteStations() async {
+    await initialize();
+    final String? favoriteStationsJson = _prefs!.getString(_favoriteStationsKey);
+    if (favoriteStationsJson == null || favoriteStationsJson.isEmpty) {
+      return [];
+    }
+    try {
+      final List<Map<String, dynamic>> decoded = favoriteStationsJson.split('|||').map((item) {
+        final parts = item.split(':::');
+        return <String, dynamic>{
+          'stationId': parts[0],
+          'stationName': parts[1],
+          'stationNum': parts[2],
+          'district': parts.length > 3 ? parts[3] : '',
+        };
+      }).toList();
+      return decoded;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<void> addFavoriteStation(Map<String, dynamic> station) async {
+    await initialize();
+    final List<Map<String, dynamic>> favorites = await getFavoriteStations();
+    
+    final bool exists = favorites.any((fav) => fav['stationId'] == station['stationId']);
+    if (!exists) {
+      favorites.add(station);
+      final String favoritesJson = favorites.map((fav) => 
+        '${fav['stationId']}:::${fav['stationName']}:::${fav['stationNum']}:::${fav['district'] ?? ''}'
+      ).join('|||');
+      await _prefs!.setString(_favoriteStationsKey, favoritesJson);
+    }
+  }
+
+  Future<void> removeFavoriteStation(String stationId) async {
+    await initialize();
+    final List<Map<String, dynamic>> favorites = await getFavoriteStations();
+    favorites.removeWhere((fav) => fav['stationId'] == stationId);
+    final String favoritesJson = favorites.map((fav) => 
+      '${fav['stationId']}:::${fav['stationName']}:::${fav['stationNum']}:::${fav['district'] ?? ''}'
+    ).join('|||');
+    await _prefs!.setString(_favoriteStationsKey, favoritesJson);
+  }
+
+  Future<bool> isFavoriteStation(String stationId) async {
+    await initialize();
+    final List<Map<String, dynamic>> favorites = await getFavoriteStations();
+    return favorites.any((fav) => fav['stationId'] == stationId);
+  }
+
   Future<void> clearCache() async {
     await initialize();
     await _prefs!.remove(_timetableCacheKey);

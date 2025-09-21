@@ -72,16 +72,6 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
               (station) => station.stationName == widget.currentStation.stationName,
             );
           }
-          
-          print('현재 역 매칭 결과:');
-          print('- 현재 역 ID: ${widget.currentStation.stationId}');
-          print('- 현재 역 이름: ${widget.currentStation.stationName}');
-          print('- 현재 역 번호: ${widget.currentStation.stationNum}');
-          print('- 매칭된 인덱스: $currentStationIndex');
-          if (currentStationIndex != null && currentStationIndex! >= 0) {
-            print('- 매칭된 정류장: ${stations[currentStationIndex!].stationName}');
-          }
-          
           // 현재 역이 화면 중앙에 오도록 스크롤
           if (currentStationIndex != null && currentStationIndex! >= 0) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -117,7 +107,7 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    final bgColor = isDark ? AppColors.darkBackground : Colors.white;
+    final bgColor = isDark ? const Color.fromARGB(255, 21, 21, 21) : const Color(0xFFF5F5F5);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -126,7 +116,7 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
         onPressed: () {
           _loadRouteData();
         },
-        backgroundColor: Colors.grey[800],
+        backgroundColor: Colors.grey[850],
         child: const Icon(
           Icons.refresh,
           color: Colors.white,
@@ -171,9 +161,10 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
   }
 
   Widget _buildHeader() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     return Container(
       decoration: BoxDecoration(
-        color: Colors.grey[600],
+        color: isDark ? Colors.grey[850] : Colors.grey[600],
       ),
       child: SafeArea(
         child: Column(
@@ -247,29 +238,24 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
 
 
   Widget _buildSearchBar() {
+    final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isDark ? Colors.grey[850] : Colors.white,
         borderRadius: BorderRadius.circular(8),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.2),
-            blurRadius: 4,
+            blurRadius: 1,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: TextField(
         decoration: InputDecoration(
-          hintText: 'Q ${widget.route.routeName} 정류장 검색',
+          hintText: '${widget.route.routeName}번 버스 정류장 검색',
           prefixIcon: const Icon(Icons.search, color: Colors.grey),
-          suffixIcon: TextButton(
-            onPressed: () {
-              // 내주변 정류장 기능
-            },
-            child: const Text('내주변 정류장'),
-          ),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
         ),
