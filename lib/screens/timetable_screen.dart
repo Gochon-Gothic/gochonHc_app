@@ -244,7 +244,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['hisTimetable'] != null) {
-          // 백그라운드에서 캐시 업데이트
           await prefs.setString(cacheKey, response.body);
           await prefs.setInt(
             '${cacheKey}_lastUpdate',
@@ -253,8 +252,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 .add(const Duration(hours: 9))
                 .millisecondsSinceEpoch,
           );
-
-          // UI 업데이트 (사용자에게 알림)
           if (mounted) {
             final timetableData = data['hisTimetable'][1]['row'] as List;
             parseAndSetTimetable(timetableData);
@@ -263,8 +260,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
         }
       }
     } catch (e) {
-      // 백그라운드 업데이트 실패는 무시 (사용자에게 영향 없음)
-      // 백그라운드 업데이트 실패는 무시
     }
   }
 
@@ -289,8 +284,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
         }
       }
     }
-
-    // 모의고사 날짜의 모든 과목을 '모고'로 변경
     for (var item in timetableData) {
       final date = item['ALL_TI_YMD'].toString();
       if (isMockExamDay[date] == true) {
@@ -527,7 +520,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      '오늘의 시간표',
+                      '나의 시간표',
                       style: TextStyle(
                         color: textColor,
                         fontSize: 39,
@@ -930,8 +923,6 @@ class _PeriodInfo {
   final TimeOfDay end;
   const _PeriodInfo({required this.periodIndex, required this.label, required this.start, required this.end});
 }
-
-// 커스텀 페인터: 네 모서리만 둥글고 내부 경계는 직선
 class _OuterCornersPainter extends CustomPainter {
   final Color fill;
   final double radius;
@@ -955,8 +946,6 @@ class _OuterCornersPainter extends CustomPainter {
     return oldDelegate.fill != fill || oldDelegate.radius != radius;
   }
 }
-
-// 특정 코너만 둥글게 그리는 페인터
 class _CornerPainter extends CustomPainter {
   final Color fill;
   final double radius;
