@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
+import '../services/user_service.dart';
 
 
 class TimetableScreen extends StatefulWidget {
@@ -20,8 +21,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
   List<List<String>> timetable = List.generate(5, (_) => List.filled(7, ''));
   bool isLoading = true;
   String? error;
-  String selectedGrade = '1';
-  String selectedClass = '1';
+  String? selectedGrade;
+  String? selectedClass;
   DateTime currentWeekStart = DateTime.now().toUtc().add(
     const Duration(hours: 9),
   );
@@ -30,8 +31,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
   int? _selectedListDayIndex; // 리스트 모드에서 선택된 요일(0:월~4:금)
   final Map<String, String> _shortenCache = {}; // 과목 축약 캐시
   final PageController _dayController = PageController();
-
-  // 현재 날짜에 따라 적절한 주의 시작일 계산
   DateTime getCurrentWeekStart() {
     // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
@@ -45,7 +44,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
       return now.subtract(Duration(days: weekday - 1));
     }
   }
-
   // 학년/반은 API 요청에만 사용. 최대 반/학년 정보는 사용하지 않음(레이아웃 단순화)
 
   @override
@@ -69,26 +67,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Future<void> _initMyClassAndLoad() async {
-    final prefs = await SharedPreferences.getInstance();
-    final userEmail = prefs.getString('user_email');
-    if (userEmail != null) {
-      final gradeClass = userEmail.split('@')[0].split('-')[1];
-      String grade = gradeClass[0];
-      String ban =
-          (gradeClass.length > 2 && gradeClass[1] == '0')
-              ? gradeClass[2]
-              : gradeClass.substring(1, 3);
+    final userInfo = await UserService.instance.getUserInfo();
+    if (userInfo != null) {
       if (mounted) {
         setState(() {
-          selectedGrade = grade;
-          selectedClass = ban;
+          selectedGrade = userInfo.grade.toString();
+          selectedClass = userInfo.classNum.toString();
+        });
+        loadTimetable();
+      }
+    } else {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+          error = '사용자 정보를 찾을 수 없습니다. 초기 설정을 완료해주세요.';
         });
       }
     }
-    loadTimetable();
   }
-
-  // 요일별 교시 수 반환
   int getPeriodCount(int dayIndex) {
     switch (dayIndex) {
       case 0: // 월
@@ -98,27 +94,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
         return 6;
     }
   }
-
-  // 교과시간 관련 로직 제거됨
-
-  // 날짜 범위 문자열 생성
   String getDateRange() {
     final weekStart = currentWeekStart;
-    final weekEnd = weekStart.add(const Duration(days: 4)); // 금요일까지
-
+    final weekEnd = weekStart.add(const Duration(days: 4)); 
     final formatter = DateFormat('yyyyMMdd');
     return '${formatter.format(weekStart)}:${formatter.format(weekEnd)}';
   }
-
-  // 주간 날짜(일~토) 계산. currentWeekStart(월) 기준으로 반환
   List<DateTime> getWeekDates() {
     final monday = currentWeekStart;
     final sunday = monday.subtract(const Duration(days: 1));
     return List.generate(7, (i) => sunday.add(Duration(days: i)));
   }
-
-  // 주 이동 유틸(미사용)
-
   void _toggleView() {
     setState(() {
       _isTableView = !_isTableView;
@@ -136,23 +122,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Future<void> loadTimetable() async {
     try {
       if (!mounted) return;
+      
       setState(() {
         isLoading = true;
         error = null;
       });
 
       final prefs = await SharedPreferences.getInstance();
-      final userEmail = prefs.getString('user_email');
-      if (userEmail == null) {
-        if (!mounted) return;
-        setState(() {
-          error = '로그인이 필요합니다.';
-          isLoading = false;
-        });
-        return;
-      }
-
-      // 캐시 키 생성 (학년/반/날짜범위로 고유 키 생성)
       final cacheKey =
           'timetable_${selectedGrade}_${selectedClass}_${getDateRange()}';
       final cachedData = prefs.getString(cacheKey);
@@ -162,9 +138,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               .toUtc()
               .add(const Duration(hours: 9))
               .millisecondsSinceEpoch;
-      final cacheExpiry = 7200000; // 2시간 만료 (시간표는 갑작스러운 변경 가능성)
-
-      // 캐시가 있고 만료되지 않았으면 캐시 사용
+      final cacheExpiry = 720000; 
       if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
         final data = json.decode(cachedData);
         if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
@@ -174,31 +148,23 @@ class _TimetableScreenState extends State<TimetableScreen> {
           setState(() {
             isLoading = false;
           });
-
-          // 백그라운드에서 새 데이터 업데이트 (사용자 체감 개선)
           updateTimetableInBackground();
           return;
         }
       }
-
-      // API 호출
       await fetchTimetableFromAPI(prefs, cacheKey);
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        error = e.toString();
         isLoading = false;
       });
     }
   }
-
-  // API에서 시간표 데이터 가져오기
   Future<void> fetchTimetableFromAPI(
     SharedPreferences prefs,
     String cacheKey,
   ) async {
     try {
-      // API 키와 학교 정보
       const apiKey = '2cf24c119b434f93b2f916280097454a';
       const eduOfficeCode = 'J10';
       const schoolCode = '7531375';
@@ -212,7 +178,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (response.statusCode != 200) {
         if (!mounted) return;
         setState(() {
-          error = '시간표를 불러오는데 실패했습니다.';
           isLoading = false;
         });
         return;
@@ -222,13 +187,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (data['hisTimetable'] == null) {
         if (!mounted) return;
         setState(() {
-          error = '시간표 데이터가 없습니다.';
           isLoading = false;
         });
         return;
       }
-
-      // 성공 시 캐시에 저장
       await prefs.setString(cacheKey, response.body);
       await prefs.setInt(
         '${cacheKey}_lastUpdate',
@@ -238,7 +200,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
             .millisecondsSinceEpoch,
       );
 
-      final timetableData = data['hisTimetable'][1]['row'] as List;
+      final timetableData = data['hisTimetable'][3]['row'] as List;
       parseAndSetTimetable(timetableData);
 
       if (!mounted) return;
@@ -246,7 +208,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
         isLoading = false;
       });
     } catch (e) {
-      // API 호출 실패 시 캐시 fallback
       final cachedData = prefs.getString(cacheKey);
       if (cachedData != null) {
         try {
@@ -254,27 +215,16 @@ class _TimetableScreenState extends State<TimetableScreen> {
           if (data['hisTimetable'] != null) {
             final timetableData = data['hisTimetable'][1]['row'] as List;
             parseAndSetTimetable(timetableData);
-            if (!mounted) return;
-            setState(() {
-              error = '네트워크 오류가 발생했습니다.';
-              isLoading = false;
-            });
-            return;
           }
-        } catch (e) {
-          // 캐시 fallback도 실패
-        }
+        } catch (_) {}
       }
 
       if (!mounted) return;
       setState(() {
-        error = '시간표를 불러오는데 실패했습니다.';
         isLoading = false;
       });
     }
   }
-
-  // 백그라운드에서 시간표 업데이트 (사용자 체감 개선)
   Future<void> updateTimetableInBackground() async {
     try {
       final prefs = await SharedPreferences.getInstance();
