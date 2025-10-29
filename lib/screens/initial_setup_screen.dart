@@ -2,10 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../models/user_info.dart';
 import '../services/user_service.dart';
-import '../services/auth_service.dart';
 // import '../services/gsheet_service.dart'; Firebase 대체(25.09.20)
 import '../theme_colors.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
@@ -24,7 +22,6 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final _gradeController = TextEditingController();
   final _classController = TextEditingController();
   final _studentNumberController = TextEditingController();
-  bool _agreedToTerms = false;
   bool _isLoading = false;
 
   @override
@@ -38,12 +35,6 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
 
   Future<void> _completeSetup() async {
     if (!_formKey.currentState!.validate()) return;
-    if (!_agreedToTerms) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('약관에 동의해주세요.')));
-      return;
-    }
 
     setState(() {
       _isLoading = true;
@@ -306,7 +297,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     if (studentNum == null ||
                         studentNum < 1 ||
                         studentNum > 40) {
-                      return '번호는 1부터 40까지의 숫자여야 합니다';
+                      return '번호는 1부터 45까지의 숫자여야 합니다';
                     }
                     return null;
                   },
@@ -371,92 +362,12 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   },
                 ),
                 const SizedBox(height: 8),
-                // 경고 메시지
                 Text(
                   '*부적절한 이름을 사용할 경우, 제제가 부과될 수 있습니다*',
                   style: TextStyle(
                     color: AppColors.primary.withValues(alpha: 0.7),
-
                     fontSize: 12,
                     fontStyle: FontStyle.italic,
-                  ),
-                ),
-                const SizedBox(height: 30),
-
-                // 약관 동의
-                Text(
-                  '약관 동의',
-                  style: TextStyle(
-                    color: textColor,
-
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _agreedToTerms,
-                            onChanged: (value) {
-                              setState(() {
-                                _agreedToTerms = value ?? false;
-                              });
-                            },
-                            activeColor: AppColors.primary,
-                          ),
-                          Expanded(
-                            child: Text(
-                              '이용약관 및 개인정보처리방침에 동의합니다',
-                              style: TextStyle(
-                                color: textColor,
-
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        width: double.infinity,
-                        height: 100,
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: bgColor,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color:
-                                isDark
-                                    ? AppColors.darkBorder
-                                    : AppColors.lightBorder,
-                          ),
-                        ),
-                        child: Text(
-                          '여기에 약관 내용이 들어갑니다.\n사용자가 직접 채울 예정입니다.',
-                          style: TextStyle(
-                            color: textColor.withValues(alpha: 0.7),
-
-                            fontSize: 14,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
                   ),
                 ),
                 const SizedBox(height: 30),
@@ -504,8 +415,8 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _completeSetup,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.primary,
-                      foregroundColor: Colors.white,
+                      backgroundColor: isDark ? AppColors.lightBackground : AppColors.primary,
+                      foregroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),

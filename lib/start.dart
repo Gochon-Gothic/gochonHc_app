@@ -13,7 +13,6 @@ import 'main.dart';
 import 'utils/preference_manager.dart';
 
 void main() async {
-  //Firebase 초기 세팅.(async 비동기 요구)
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
@@ -108,8 +107,6 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-
-// 앱 시작 시 로그인 상태를 확인하고 적절한 화면으로 보내주는 위젯
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -128,7 +125,6 @@ class AuthWrapper extends StatelessWidget {
         // 로그인된 사용자가 있는지 확인
         if (snapshot.hasData) {
           final user = snapshot.data!;
-          // 로그인 됨 -> Firestore에 정보가 있는지 확인
           return FutureBuilder<bool>(
             future: UserService.instance.doesUserExist(user.uid),
             builder: (context, userSnapshot) {
@@ -139,7 +135,6 @@ class AuthWrapper extends StatelessWidget {
               }
 
               if (userSnapshot.hasData && userSnapshot.data!) {
-                // 정보 있음 -> 메인 화면
                 return const MainScreen();
               } else {
                 // 정보 없음 -> 초기 설정 화면
@@ -151,7 +146,6 @@ class AuthWrapper extends StatelessWidget {
             },
           );
         } else {
-          // 로그인 안 됨 -> 로그인 화면
           return const LoginScreen();
         }
       },
