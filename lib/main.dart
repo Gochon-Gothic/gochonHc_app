@@ -11,7 +11,6 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'screens/schedule_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'models/user_info.dart';
 import 'package:provider/provider.dart';
 import 'theme_provider.dart';
