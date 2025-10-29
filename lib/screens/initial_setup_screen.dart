@@ -142,7 +142,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   controller: _gradeController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: '학년을 입력하세요 (예: 1, 2, 3)',
+                    hintText: '학년을 입력하세요(숫자만)',
                     hintStyle: TextStyle(
                       color: textColor.withValues(alpha: 0.5),
                     ),
@@ -203,7 +203,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   controller: _classController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
-                    hintText: '반을 입력하세요 (예: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10)',
+                    hintText: '반을 입력하세요(숫자만)',
                     hintStyle: TextStyle(
                       color: textColor.withValues(alpha: 0.5),
                     ),
@@ -241,8 +241,8 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       return '반을 입력해주세요';
                     }
                     final classNum = int.tryParse(value.trim());
-                    if (classNum == null || classNum < 1 || classNum > 10) {
-                      return '반은 1부터 10까지의 숫자여야 합니다';
+                    if (classNum == null || classNum < 1 || classNum > 11) {
+                      return '반은 1부터 11까지의 숫자여야 합니다';
                     }
                     return null;
                   },
@@ -265,7 +265,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     hintText:
-                        '번호를 입력하세요 (예: 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40)',
+                        '번호를 입력하세요(숫자만)',
                     hintStyle: TextStyle(
                       color: textColor.withValues(alpha: 0.5),
                     ),
