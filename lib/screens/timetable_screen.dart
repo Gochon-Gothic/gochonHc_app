@@ -816,19 +816,22 @@ class _WeekHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labels = const ['일', '월', '화', '수', '목', '금', '토'];
+    const double gap = 8;
+    const double capsuleWidth = 44;
+    const double capsuleHeight = 60;
+    
     return Column(
       children: [
         SizedBox(
           height: 80,
-          child: Stack(
-            children: [
-              // 요일 텍스트 + 터치버튼(요일+날짜 전체가 버튼)
-              Positioned.fill(
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    const double gap = 8;
-                    final double itemWidth = (constraints.maxWidth - gap * 6) / 7;
-                    return Padding(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final double itemWidth = (constraints.maxWidth - gap * 6) / 7;
+              
+              return Stack(
+                children: [
+                  Positioned.fill(
+                    child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 0),
                       child: Row(
                         children: List.generate(7, (i) {
@@ -842,73 +845,59 @@ class _WeekHeader extends StatelessWidget {
                             child: Container(
                               width: itemWidth,
                               margin: EdgeInsets.only(right: i == 6 ? 0 : gap),
-                              child: Stack(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  // 선택된 요일에만 작은 리퀴드 글라스 캡슐 (스크롤 동기화)
-                                  if (selectedIndex == i && i >= 1 && i <= 5)
-                                    AnimatedBuilder(
-                                      animation: controller ?? const AlwaysStoppedAnimation(0.0),
-                                      builder: (context, _) {
-                                        // 스크롤과 동기화된 페이지 값 계산
-                                        double page = (selectedIndex! - 1).toDouble().clamp(0, 4);
-                                        if (controller?.positions.isNotEmpty == true) {
-                                          final p = controller?.page;
-                                          if (p != null) {
-                                            page = p.clamp(0, 4);
-                                          }
-                                        }
-                                        
-                                        // 현재 요일과 스크롤 페이지 차이로 투명도 계산
-                                        final double currentDayIndex = (i - 1).toDouble().clamp(0, 4);
-                                        final double opacity = 1.0 - (page - currentDayIndex).abs().clamp(0.0, 1.0);
-                                        
-                                        return Positioned.fill(
-                                          child: Opacity(
-                                            opacity: opacity,
-                                            child: Container(
-                                              transform: Matrix4.translationValues(-17.13, 0, 0),
-                                              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 12), // 왼쪽 정렬 보정
-                                              child: ClipRRect(
-                                                borderRadius: BorderRadius.circular(20),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    // schedule.dart와 동일한 불투명도 적용
-                                                    color: isDark 
-                                                        ? const Color.fromRGBO(255, 255, 255, 0.12) 
-                                                        : const Color.fromRGBO(0, 0, 0, 0.08),
-                                                    borderRadius: BorderRadius.circular(20),
-                                                    border: Border.all(
-                                                      color: const Color.fromRGBO(255, 255, 255, 0.35), 
-                                                      width: 1
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  // 요일과 날짜 텍스트
-                                  Column(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Text(labels[i], style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.w600)),
-                                      const SizedBox(height: 6),
-                                      Text('${d.day}', style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w500)),
-                                    ],
-                                  ),
+                                  Text(labels[i], style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.w600)),
+                                  const SizedBox(height: 6),
+                                  Text('${d.day}', style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w500)),
                                 ],
                               ),
                             ),
                           );
                         }),
                       ),
-                    );
-                  },
-                ),
-              ),
-            ],
+                    ),
+                  ),
+                  AnimatedBuilder(
+                    animation: controller ?? const AlwaysStoppedAnimation(0.0),
+                    builder: (context, _) {
+                      double page = 0.0;
+                      if (controller != null && controller!.positions.isNotEmpty) {
+                        final p = controller!.page;
+                        if (p != null) {
+                          page = p.clamp(0, 4);
+                        }
+                      }
+                      
+                      final double dayIndex = page + 1;
+                      final double centerX = (itemWidth * 0.5) + dayIndex * (itemWidth + gap);
+                      final double leftForCapsule = centerX - (capsuleWidth / 2);
+                      final Color capsuleFill = isDark 
+                          ? const Color.fromRGBO(255, 255, 255, 0.12) 
+                          : const Color.fromRGBO(0, 0, 0, 0.08);
+
+                      return Positioned(
+                        left: leftForCapsule,
+                        top: (80 - capsuleHeight) / 2,
+                        width: capsuleWidth,
+                        height: capsuleHeight,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: capsuleFill,
+                            borderRadius: BorderRadius.circular(25),
+                            border: Border.all(
+                              color: const Color.fromRGBO(255, 255, 255, 0.35),
+                              width: 1,
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              );
+            },
           ),
         ),
       ],
