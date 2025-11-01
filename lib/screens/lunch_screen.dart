@@ -56,7 +56,7 @@ class _LunchScreenState extends State<LunchScreen> {
     3: {'status': '급식줄 혼잡함', 'color': const Color.fromARGB(255, 237, 64, 64)},
   };
 
-  int congestionLevel = 1; // 기본값
+  int congestionLevel = 1;
 
   @override
   void initState() {
@@ -75,6 +75,33 @@ class _LunchScreenState extends State<LunchScreen> {
       date = date.add(Duration(days: forward ? 1 : -1));
     }
     return date;
+  }
+
+  String _buildApiUrl(String date) {
+    return 'https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=$apiKey&Type=json&pIndex=1&pSize=1&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&MLSV_YMD=$date';
+  }
+
+  Future<void> _saveCache(SharedPreferences prefs, String cacheKey, String responseBody) async {
+    await prefs.setString(cacheKey, responseBody);
+    await prefs.setInt(
+      '${cacheKey}_lastUpdate',
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
+  void _handleError(String message) {
+    if (!mounted) return;
+    setState(() {
+      error = message;
+      isLoading = false;
+    });
+  }
+
+  void _setLoadingComplete() {
+    if (!mounted) return;
+    setState(() {
+      isLoading = false;
+    });
   }
 
   Future<void> fetchMeal() async {
@@ -125,38 +152,20 @@ class _LunchScreenState extends State<LunchScreen> {
     String today,
   ) async {
     try {
-      final url =
-          'https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=$apiKey&Type=json&pIndex=1&pSize=1&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&MLSV_YMD=$today';
-
+      final url = _buildApiUrl(today);
       final response = await http.get(Uri.parse(url));
+      
       if (response.statusCode != 200) {
-        if (!mounted) return;
-        setState(() {
-          error = '급식을 불러오는데 실패했습니다.';
-          isLoading = false;
-        });
+        _handleError('급식을 불러오는데 실패했습니다.');
         return;
       }
 
       final data = json.decode(response.body);
-
-      await prefs.setString(cacheKey, response.body);
-      await prefs.setInt(
-        '${cacheKey}_lastUpdate',
-        DateTime.now().millisecondsSinceEpoch,
-      );
-
+      await _saveCache(prefs, cacheKey, response.body);
       _parseMealData(data);
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-      });
+      _setLoadingComplete();
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        error = '급식을 불러오는데 실패했습니다.';
-        isLoading = false;
-      });
+      _handleError('급식을 불러오는데 실패했습니다.');
     }
   }
 
@@ -166,19 +175,13 @@ class _LunchScreenState extends State<LunchScreen> {
     String today,
   ) async {
     try {
-      final url =
-          'https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=$apiKey&Type=json&pIndex=1&pSize=1&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&MLSV_YMD=$today';
-
+      final url = _buildApiUrl(today);
       final response = await http.get(Uri.parse(url));
+      
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         if (data['mealServiceDietInfo'] != null) {
-          await prefs.setString(cacheKey, response.body);
-          await prefs.setInt(
-            '${cacheKey}_lastUpdate',
-            DateTime.now().millisecondsSinceEpoch,
-          );
-
+          await _saveCache(prefs, cacheKey, response.body);
           if (mounted) {
             _parseMealData(data);
             setState(() {});
@@ -189,6 +192,42 @@ class _LunchScreenState extends State<LunchScreen> {
     }
   }
 
+  String _cleanMenuName(String menuName) {
+    menuName = menuName.replaceAll(RegExp(r'\([\d.]+\)'), '');
+    menuName = menuName.replaceAll(RegExp(r'\*+\d*'), '');
+    menuName = menuName.replaceAll(RegExp(r'\d+$'), '');
+    
+    String cleaned = '';
+    bool inParentheses = false;
+    String parenthesesContent = '';
+    
+    for (int i = 0; i < menuName.length; i++) {
+      final char = menuName[i];
+      
+      if (char == '(') {
+        inParentheses = true;
+        parenthesesContent = '';
+        cleaned += char;
+      } else if (char == ')') {
+        if (inParentheses) {
+          if (RegExp(r'^[\uAC00-\uD7A3\s]*$').hasMatch(parenthesesContent)) {
+            cleaned += parenthesesContent + char;
+          }
+          inParentheses = false;
+          parenthesesContent = '';
+        }
+      } else if (inParentheses) {
+        parenthesesContent += char;
+      } else {
+        if (RegExp(r'[\uAC00-\uD7A3\s]').hasMatch(char)) {
+          cleaned += char;
+        }
+      }
+    }
+    
+    return cleaned.trim();
+  }
+
   void _parseMealData(Map<String, dynamic> data) {
     if (data['mealServiceDietInfo'] != null) {
       final row = data['mealServiceDietInfo'][1]['row'][0];
@@ -197,23 +236,29 @@ class _LunchScreenState extends State<LunchScreen> {
       final allergyReg = RegExp(r'\((\d+(?:\.\d+)*)\)');
       final matches = allergyReg.allMatches(rawMenu);
       for (final match in matches) {
-        final nums =
-            match
-                .group(1)!
-                .split('.')
-                .map((e) => int.tryParse(e))
-                .whereType<int>();
+        final nums = match
+            .group(1)!
+            .split('.')
+            .map((e) => int.tryParse(e))
+            .whereType<int>();
         allergySet.addAll(nums);
       }
 
-      String cleanMenu =
-          rawMenu
-              .replaceAll(RegExp(r'＃ ?\([\d.]+\)'), '')
-              .replaceAll(RegExp(r'\([\d.]+\)'), '')
-              .replaceAll('<br/>', '\n')
-              .replaceAll('＃', '')
-              .replaceAll('\n\n', '\n')
-              .trim();
+      String cleaned = rawMenu
+          .replaceAll(RegExp(r'＃ ?\([\d.]+\)'), '')
+          .replaceAll('<br/>', '\n')
+          .replaceAll('<br />', '\n')
+          .replaceAll('＃', '')
+          .replaceAll('\n\n', '\n')
+          .trim();
+
+      final menuLines = cleaned.split('\n');
+      final cleanMenuLines = menuLines
+          .map((line) => _cleanMenuName(line))
+          .where((line) => line.isNotEmpty)
+          .toList();
+
+      final cleanMenu = cleanMenuLines.join('\n').trim();
 
       if (mounted) {
         setState(() {
