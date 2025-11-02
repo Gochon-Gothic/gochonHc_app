@@ -1,4 +1,4 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' hide UserInfo;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -11,6 +11,7 @@ import 'screens/login_screen.dart';
 import 'screens/initial_setup_screen.dart';
 import 'main.dart';
 import 'utils/preference_manager.dart';
+import 'models/user_info.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -107,6 +108,22 @@ class MyApp extends StatelessWidget {
     );
   }
 }
+// Firestore에서 사용자 정보를 가져와 로컬에 저장하는 헬퍼 함수
+Future<void> _syncUserInfo(String uid) async {
+  try {
+    final userData = await AuthService.instance.getUserFromFirestore(uid);
+    if (userData != null) {
+      final userInfo = UserInfo.fromJson(userData);
+      await UserService.instance.saveUserInfo(userInfo);
+      print('AuthWrapper: 사용자 정보 동기화 완료 - ${userInfo.name}');
+    } else {
+      print('AuthWrapper: Firestore에서 사용자 정보를 찾을 수 없음');
+    }
+  } catch (e) {
+    print('AuthWrapper: 사용자 정보 동기화 실패: $e');
+  }
+}
+
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -135,7 +152,17 @@ class AuthWrapper extends StatelessWidget {
               }
 
               if (userSnapshot.hasData && userSnapshot.data!) {
-                return const MainScreen();
+                return FutureBuilder<void>(
+                  future: _syncUserInfo(user.uid),
+                  builder: (context, syncSnapshot) {
+                    if (syncSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Scaffold(
+                        body: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    return const MainScreen();
+                  },
+                );
               } else {
                 // 정보 없음 -> 초기 설정 화면
                 return InitialSetupScreen(

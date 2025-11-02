@@ -554,11 +554,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
           const SizedBox(height: 20),
           if (!_isTableView)
-            Transform(
-              transform: Matrix4.translationValues(15, 0, 0),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: SizedBox(
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              child: SizedBox(
                 height: 90,
                 child: _WeekHeader(
                   controller: _dayController,
@@ -579,7 +577,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       }
                     }
                   },
-                  ),
                 ),
               ),
             ),
@@ -815,10 +812,17 @@ class _WeekHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final labels = const ['일', '월', '화', '수', '목', '금', '토'];
-    const double gap = 8;
-    const double capsuleWidth = 44;
-    const double capsuleHeight = 60;
+    const labels = ['일', '월', '화', '수', '목', '금', '토'];
+    const itemWidth = 44.0;
+    const sidePadding = 13.0;
+    const capsuleWidth = 44.0;
+    const capsuleHeight = 60.0;
+    
+    Color getDayColor(int index) {
+      if (index == 0) return const Color.fromRGBO(236, 69, 69, 1);
+      if (index == 6) return const Color.fromARGB(255, 203, 204, 208);
+      return textColor;
+    }
     
     return Column(
       children: [
@@ -826,54 +830,59 @@ class _WeekHeader extends StatelessWidget {
           height: 80,
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final double itemWidth = (constraints.maxWidth - gap * 6) / 7;
+              final totalItemWidth = 7 * itemWidth;
+              final gapBetweenDays = (constraints.maxWidth - totalItemWidth - (2 * sidePadding)) / 6;
+              final startX = sidePadding;
+              
+              final positions = List.generate(7, (i) {
+                return startX + i * (itemWidth + gapBetweenDays);
+              });
               
               return Stack(
                 children: [
-                  Positioned.fill(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 0),
-                      child: Row(
-                        children: List.generate(7, (i) {
-                          Color c = textColor;
-                          if (i == 0) c = const Color.fromRGBO(236, 69, 69, 1);
-                          if (i == 6) c = const Color.fromARGB(255, 203, 204, 208);
-                          final d = dates[i];
-                          
-                          return GestureDetector(
-                            onTap: () => onTapDay?.call(i),
-                            child: Container(
-                              width: itemWidth,
-                              margin: EdgeInsets.only(right: i == 6 ? 0 : gap),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Text(labels[i], style: TextStyle(color: c, fontSize: 15, fontWeight: FontWeight.w600)),
-                                  const SizedBox(height: 6),
-                                  Text('${d.day}', style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w500)),
-                                ],
-                              ),
+                  ...List.generate(7, (i) {
+                    return Positioned(
+                      left: positions[i],
+                      top: 0,
+                      width: itemWidth,
+                      height: 80,
+                      child: GestureDetector(
+                        onTap: () => onTapDay?.call(i),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              labels[i],
+                              style: TextStyle(color: getDayColor(i), fontSize: 15, fontWeight: FontWeight.w600),
                             ),
-                          );
-                        }),
+                            const SizedBox(height: 6),
+                            Text(
+                              '${dates[i].day}',
+                              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  }),
                   AnimatedBuilder(
                     animation: controller ?? const AlwaysStoppedAnimation(0.0),
                     builder: (context, _) {
                       double page = 0.0;
-                      if (controller != null && controller!.positions.isNotEmpty) {
-                        final p = controller!.page;
-                        if (p != null) {
-                          page = p.clamp(0, 4);
-                        }
+                      if (controller?.positions.isNotEmpty == true) {
+                        page = (controller!.page ?? 0.0).clamp(0, 4);
                       }
                       
-                      final double dayIndex = page + 1;
-                      final double centerX = (itemWidth * 0.5) + dayIndex * (itemWidth + gap);
+                      final dayIndexDouble = page + 1.0;
+                      final int lowerIndex = dayIndexDouble.floor().clamp(1, 5);
+                      final int upperIndex = (dayIndexDouble.ceil()).clamp(1, 5);
+                      final double t = dayIndexDouble - lowerIndex;
+                      
+                      final double lowerX = positions[lowerIndex] + (itemWidth / 2);
+                      final double upperX = positions[upperIndex] + (itemWidth / 2);
+                      final double centerX = lowerX + (upperX - lowerX) * t;
                       final double leftForCapsule = centerX - (capsuleWidth / 2);
-                      final Color capsuleFill = isDark 
+                      final capsuleFill = isDark 
                           ? const Color.fromRGBO(255, 255, 255, 0.12) 
                           : const Color.fromRGBO(0, 0, 0, 0.08);
 

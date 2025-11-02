@@ -44,13 +44,17 @@ class _LoginScreenState extends State<LoginScreen> {
             final userInfo = UserInfo.fromJson(userData);
             await UserService.instance.saveUserInfo(userInfo);
           }
-          Navigator.pushReplacementNamed(context, '/main');
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/main');
+          }
         } else {
-          Navigator.pushReplacementNamed(
-            context,
-            '/initial_setup',
-            arguments: {'userEmail': user.email, 'uid': user.uid},
-          );
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context,
+              '/initial_setup',
+              arguments: {'userEmail': user.email, 'uid': user.uid},
+            );
+          }
         }
       } else {
         print('로그인 취소됨');

@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'theme_provider.dart';
 import 'theme_colors.dart';
 import 'services/user_service.dart';
+import 'services/auth_service.dart';
  
 
 class MainScreen extends StatefulWidget {
@@ -78,16 +79,35 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadUserInfo() async {
     try {
-      final loadedUserInfo = await UserService.instance.getUserInfo();
+      // 먼저 로컬에서 사용자 정보를 가져옴
+      var loadedUserInfo = await UserService.instance.getUserInfo();
+      
+      // 로컬에 정보가 없으면 Firestore에서 직접 가져옴
+      if (loadedUserInfo == null) {
+        final currentUser = AuthService.instance.currentUser;
+        if (currentUser != null) {
+          final userData = await AuthService.instance.getUserFromFirestore(currentUser.uid);
+          if (userData != null) {
+            loadedUserInfo = UserInfo.fromJson(userData);
+            // 로컬에도 저장
+            await UserService.instance.saveUserInfo(loadedUserInfo);
+            print('MainScreen: Firestore에서 사용자 정보 로드 및 저장 완료');
+          }
+        }
+      }
+      
       if (mounted) {
         setState(() {
           userInfo = loadedUserInfo;
+          isLoading = false;
         });
       }
     } catch (e) {
+      print('MainScreen: 사용자 정보 로드 실패: $e');
       if (mounted) {
         setState(() {
           error = '사용자 정보를 불러오는데 실패했습니다: $e';
+          isLoading = false;
         });
       }
     }
