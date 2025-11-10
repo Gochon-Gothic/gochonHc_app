@@ -124,6 +124,36 @@ Future<void> _syncUserInfo(String uid) async {
   }
 }
 
+// 사용자 설정 상태 확인
+Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
+  try {
+    final userData = await AuthService.instance.getUserFromFirestore(uid);
+    if (userData != null) {
+      final userInfo = UserInfo.fromJson(userData);
+      final hasElectiveSetup = userData['hasElectiveSetup'] == true;
+      
+      return {
+        'hasSetup': true,
+        'userInfo': userInfo,
+        'hasElectiveSetup': hasElectiveSetup,
+      };
+    } else {
+      return {
+        'hasSetup': false,
+        'userInfo': null,
+        'hasElectiveSetup': false,
+      };
+    }
+  } catch (e) {
+    print('사용자 설정 확인 실패: $e');
+    return {
+      'hasSetup': false,
+      'userInfo': null,
+      'hasElectiveSetup': false,
+    };
+  }
+}
+
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});
 
@@ -152,15 +182,51 @@ class AuthWrapper extends StatelessWidget {
               }
 
               if (userSnapshot.hasData && userSnapshot.data!) {
-                return FutureBuilder<void>(
-                  future: _syncUserInfo(user.uid),
-                  builder: (context, syncSnapshot) {
-                    if (syncSnapshot.connectionState == ConnectionState.waiting) {
+                return FutureBuilder<Map<String, dynamic>>(
+                  future: _checkUserSetup(user.uid),
+                  builder: (context, setupSnapshot) {
+                    if (setupSnapshot.connectionState == ConnectionState.waiting) {
                       return const Scaffold(
                         body: Center(child: CircularProgressIndicator()),
                       );
                     }
-                    return const MainScreen();
+                    
+                    final setupInfo = setupSnapshot.data;
+                    if (setupInfo == null) {
+                      return const Scaffold(
+                        body: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    
+                    final hasSetup = setupInfo['hasSetup'] as bool;
+                    final userInfo = setupInfo['userInfo'] as UserInfo?;
+                    final hasElectiveSetup = setupInfo['hasElectiveSetup'] as bool;
+                    
+                    if (!hasSetup || userInfo == null) {
+                      return InitialSetupScreen(
+                        userEmail: user.email ?? '',
+                        uid: user.uid,
+                      );
+                    }
+                    
+                    if (userInfo.grade > 1 && !hasElectiveSetup) {
+                      return InitialSetupScreen(
+                        userEmail: user.email ?? '',
+                        uid: user.uid,
+                      );
+                    }
+                    
+                    return FutureBuilder<void>(
+                      future: _syncUserInfo(user.uid),
+                      builder: (context, syncSnapshot) {
+                        if (syncSnapshot.connectionState == ConnectionState.waiting) {
+                          return const Scaffold(
+                            body: Center(child: CircularProgressIndicator()),
+                          );
+                        }
+                        return const MainScreen();
+                      },
+                    );
                   },
                 );
               } else {

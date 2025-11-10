@@ -113,4 +113,59 @@ class UserService {
       return false;
     }
   }
+
+  // 선택과목 정보를 Firestore에 저장
+  Future<void> saveElectiveSubjects(String uid, Map<String, String> electiveSubjects) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update({
+        'electiveSubjects': electiveSubjects,
+        'updatedAt': FieldValue.serverTimestamp(),
+        'hasElectiveSetup': true,
+      });
+    } catch (e) {
+      throw Exception('선택과목 저장 실패: $e');
+    }
+  }
+
+  // 선택과목 정보를 Firestore에서 가져오기
+  Future<Map<String, String>?> getElectiveSubjects(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      
+      if (doc.exists && doc.data() != null) {
+        final data = doc.data()!;
+        if (data['electiveSubjects'] != null) {
+          return Map<String, String>.from(data['electiveSubjects'] as Map);
+        }
+      }
+      return null;
+    } catch (e) {
+      print('Error getting elective subjects: $e');
+      return null;
+    }
+  }
+
+  // 선택과목 설정이 완료되었는지 확인
+  Future<bool> hasElectiveSetup(String uid) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get();
+      
+      if (doc.exists && doc.data() != null) {
+        return doc.data()!['hasElectiveSetup'] == true;
+      }
+      return false;
+    } catch (e) {
+      print('Error checking elective setup: $e');
+      return false;
+    }
+  }
 }

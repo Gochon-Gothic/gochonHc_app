@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 import '../models/user_info.dart';
 import '../services/user_service.dart';
 import '../theme_colors.dart';
+import 'elective_setup_screen.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
@@ -58,13 +62,29 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
         classNum: userInfo.classNum,
         number: userInfo.number,
       );
-
-      // 3. 로컬(SharedPreferences)에 사용자 정보 저장
       await UserService.instance.saveUserInfo(userInfo);
+      _preloadTimetables(userInfo.grade, userInfo.classNum);
 
-      // 4. 메인 화면으로 이동
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/main');
+      // 5. 학년에 따라 분기
+      if (userInfo.grade == 1) {
+        // 1학년: 바로 메인 화면으로
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/main');
+        }
+      } else {
+        // 2-3학년: 선택과목 선택 페이지로
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(
+              builder: (context) => ElectiveSetupScreen(
+                userEmail: widget.userEmail,
+                uid: widget.uid,
+                grade: userInfo.grade,
+                classNum: userInfo.classNum,
+              ),
+            ),
+          );
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -79,6 +99,71 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
         });
       }
     }
+  }
+
+  void _preloadTimetables(int grade, int classNum) {
+    // 비동기로 백그라운드에서 실행 (await 하지 않음)
+    Future.microtask(() async {
+      try {
+        const apiKey = '2cf24c119b434f93b2f916280097454a';
+        const eduOfficeCode = 'J10';
+        const schoolCode = '7531375';
+
+        final now = DateTime.now().toUtc().add(const Duration(hours: 9));
+        final weekday = now.weekday;
+
+        // 이번주 월요일 계산
+        DateTime thisWeekStart;
+        if (weekday >= 6) {
+          thisWeekStart = now.add(Duration(days: 8 - weekday));
+        } else {
+          thisWeekStart = now.subtract(Duration(days: weekday - 1));
+        }
+
+        // 다음주 월요일 계산
+        final nextWeekStart = thisWeekStart.add(const Duration(days: 7));
+
+        final formatter = DateFormat('yyyyMMdd');
+        final thisWeekEnd = thisWeekStart.add(const Duration(days: 4));
+        final nextWeekEnd = nextWeekStart.add(const Duration(days: 4));
+
+        // timetable_screen.dart와 동일한 방식으로 API 호출
+        // 이번주 시간표 프리로딩
+        try {
+          final thisWeekUrl = Uri.parse(
+            'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=${grade.toString()}&CLASS_NM=${classNum.toString()}&TI_FROM_YMD=${formatter.format(thisWeekStart)}&TI_TO_YMD=${formatter.format(thisWeekEnd)}',
+          );
+          final thisWeekResponse = await http.get(thisWeekUrl);
+          if (thisWeekResponse.statusCode == 200) {
+            final data = json.decode(thisWeekResponse.body);
+            if (data['hisTimetable'] != null) {
+              // 캐시는 ApiService의 인터셉터가 처리하므로 여기서는 별도로 저장하지 않음
+              print('이번주 시간표 프리로딩 완료');
+            }
+          }
+        } catch (e) {
+          print('이번주 시간표 프리로딩 실패: $e');
+        }
+
+        // 다음주 시간표 프리로딩
+        try {
+          final nextWeekUrl = Uri.parse(
+            'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=${grade.toString()}&CLASS_NM=${classNum.toString()}&TI_FROM_YMD=${formatter.format(nextWeekStart)}&TI_TO_YMD=${formatter.format(nextWeekEnd)}',
+          );
+          final nextWeekResponse = await http.get(nextWeekUrl);
+          if (nextWeekResponse.statusCode == 200) {
+            final data = json.decode(nextWeekResponse.body);
+            if (data['hisTimetable'] != null) {
+              print('다음주 시간표 프리로딩 완료');
+            }
+          }
+        } catch (e) {
+          print('다음주 시간표 프리로딩 실패: $e');
+        }
+      } catch (e) {
+        print('시간표 프리로딩 실패: $e');
+      }
+    });
   }
 
   @override
@@ -369,42 +454,6 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     fontStyle: FontStyle.italic,
                   ),
                 ),
-                const SizedBox(height: 30),
-
-                // 선택과목 정보 (나중에 구현)
-                Text(
-                  '선택과목 정보',
-                  style: TextStyle(
-                    color: textColor,
-
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color:
-                          isDark ? AppColors.darkBorder : AppColors.lightBorder,
-                    ),
-                  ),
-                  child: Text(
-                    '선택과목 기능은 추후 구현 예정입니다.',
-                    style: TextStyle(
-                      color: textColor.withValues(alpha: 0.6),
-
-                      fontSize: 14,
-                      fontStyle: FontStyle.italic,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-
                 const SizedBox(height: 30),
 
                 // 완료 버튼

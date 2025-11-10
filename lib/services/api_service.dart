@@ -19,9 +19,9 @@ class ApiService {
     _dio = Dio(
       BaseOptions(
         baseUrl: 'https://open.neis.go.kr/hub/',
-        connectTimeout: const Duration(seconds: 5),
-        receiveTimeout: const Duration(seconds: 5),
-        sendTimeout: const Duration(seconds: 5),
+        connectTimeout: const Duration(seconds: 10),
+        receiveTimeout: const Duration(seconds: 15),
+        sendTimeout: const Duration(seconds: 10),
       ),
     );
 
