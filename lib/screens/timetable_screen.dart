@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/user_service.dart';
+import '../services/auth_service.dart';
 
 
 class TimetableScreen extends StatefulWidget {
@@ -31,6 +32,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   int? _selectedListDayIndex; // 리스트 모드에서 선택된 요일(0:월~4:금)
   final Map<String, String> _shortenCache = {}; // 과목 축약 캐시
   final PageController _dayController = PageController();
+  Map<String, String>? _electiveSubjects; // 선택과목 데이터
   DateTime getCurrentWeekStart() {
     // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
@@ -74,6 +76,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
           selectedGrade = userInfo.grade.toString();
           selectedClass = userInfo.classNum.toString();
         });
+        // 선택과목 데이터 불러오기
+        final currentUser = AuthService.instance.currentUser;
+        if (currentUser != null) {
+          _electiveSubjects = await UserService.instance.getElectiveSubjects(currentUser.uid);
+        }
         loadTimetable();
       }
     } else {
@@ -138,7 +145,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               .toUtc()
               .add(const Duration(hours: 9))
               .millisecondsSinceEpoch;
-      final cacheExpiry = 720000; 
+      final cacheExpiry = 3600000; // 1시간 (밀리초) 
       if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
         final data = json.decode(cachedData);
         if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
@@ -270,6 +277,35 @@ class _TimetableScreenState extends State<TimetableScreen> {
     // 날짜별로 모의고사 여부 체크를 위한 Map
     final Map<String, bool> isMockExamDay = {};
 
+    // 선택과목 세트 정의 (elective_setup_screen.dart와 동일)
+    const set1 = ['지구과학Ⅰ', '물리학Ⅰ', '화학Ⅰ', '생명과학Ⅰ', '경제', '한국지리', '세계사', '윤리와 사상', '정치와 법'];
+    const set2 = ['음악 연주', '미술 창작'];
+    const set3 = ['일본어Ⅰ', '프로그래밍', '중국어Ⅰ'];
+    const set4 = ['기하', '고전 읽기', '영어권 문화'];
+    final allSets = [set1, set2, set3, set4];
+
+    // 과목이 어느 세트에 속하는지 확인하는 함수
+    int? getSetNumber(String subject) {
+      for (int i = 0; i < allSets.length; i++) {
+        if (allSets[i].any((s) => subject.contains(s))) {
+          return i + 1; // 세트 번호는 1부터 시작
+        }
+      }
+      return null;
+    }
+
+    // 세트 내의 정확한 과목명 반환
+    String cleanSubject(String subject, int setNumber) {
+      final set = [null, set1, set2, set3, set4][setNumber];
+      if (set != null) {
+        return set.firstWhere(
+          (s) => s.isNotEmpty && subject.contains(s),
+          orElse: () => subject,
+        );
+      }
+      return subject;
+    }
+
     for (var item in timetableData) {
       final date = item['ALL_TI_YMD'].toString();
       final day = DateTime.parse(date).weekday - 1; // 0: 월요일
@@ -280,7 +316,21 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (day >= 0 && day < 5) {
         final period = int.parse(item['PERIO']) - 1;
         if (period >= 0 && period < 7) {
-          newTimetable[day][period] = item['ITRT_CNTNT'];
+          String subject = item['ITRT_CNTNT'];
+          
+          // 선택과목 적용: 해당 과목이 선택과목에 있으면 교체
+          if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+            final setNum = getSetNumber(subject);
+            if (setNum != null) {
+              final clean = cleanSubject(subject, setNum);
+              final key = '$setNum-$clean';
+              if (_electiveSubjects!.containsKey(key)) {
+                subject = _electiveSubjects![key]!;
+              }
+            }
+          }
+          
+          newTimetable[day][period] = subject;
         }
       }
     }

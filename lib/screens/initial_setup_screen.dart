@@ -11,9 +11,14 @@ import 'elective_setup_screen.dart';
 class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
   final String uid;
+  final UserInfo? existingUserInfo; // 수정 모드를 위한 기존 사용자 정보
 
-  const InitialSetupScreen(
-      {super.key, required this.userEmail, required this.uid});
+  const InitialSetupScreen({
+    super.key,
+    required this.userEmail,
+    required this.uid,
+    this.existingUserInfo,
+  });
 
   @override
   State<InitialSetupScreen> createState() => _InitialSetupScreenState();
@@ -26,6 +31,18 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final _classController = TextEditingController();
   final _studentNumberController = TextEditingController();
   bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 수정 모드인 경우 기존 정보로 컨트롤러 초기화
+    if (widget.existingUserInfo != null) {
+      _nameController.text = widget.existingUserInfo!.name;
+      _gradeController.text = widget.existingUserInfo!.grade.toString();
+      _classController.text = widget.existingUserInfo!.classNum.toString();
+      _studentNumberController.text = widget.existingUserInfo!.number.toString();
+    }
+  }
 
   @override
   void dispose() {
@@ -65,11 +82,15 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       await UserService.instance.saveUserInfo(userInfo);
       _preloadTimetables(userInfo.grade, userInfo.classNum);
 
-      // 5. 학년에 따라 분기
+      // 학년에 따라 분기
       if (userInfo.grade == 1) {
-        // 1학년: 바로 메인 화면으로
+        // 1학년: 바로 메인 화면으로 또는 설정 화면으로
         if (mounted) {
-          Navigator.of(context).pushReplacementNamed('/main');
+          if (widget.existingUserInfo != null) {
+            Navigator.of(context).pop(); // 수정 모드: 설정 화면으로 돌아가기
+          } else {
+            Navigator.of(context).pushReplacementNamed('/main');
+          }
         }
       } else {
         // 2-3학년: 선택과목 선택 페이지로
@@ -81,6 +102,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 uid: widget.uid,
                 grade: userInfo.grade,
                 classNum: userInfo.classNum,
+                isEditMode: widget.existingUserInfo != null, // 수정 모드 플래그 전달
               ),
             ),
           );
@@ -190,12 +212,11 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 환영 메시지
+                // 환영 메시지 또는 수정 제목
                 Text(
-                  '환영합니다',
+                  widget.existingUserInfo != null ? '인적사항 수정' : '환영합니다',
                   style: TextStyle(
                     color: textColor,
-
                     fontSize: 50,
                     fontWeight: FontWeight.bold,
                   ),
@@ -481,7 +502,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                               ),
                             )
                             : Text(
-                              '설정 완료',
+                              widget.existingUserInfo != null ? '수정 완료' : '설정 완료',
                               style: TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,

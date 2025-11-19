@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class PreferenceManager {
@@ -55,7 +56,11 @@ class PreferenceManager {
       if (now - cacheTime < 3600000) {
         final cacheData = _prefs!.getString(_timetableCacheKey);
         if (cacheData != null) {
-          return Map<String, dynamic>.from(cacheData as Map<String, dynamic>);
+          try {
+            return Map<String, dynamic>.from(jsonDecode(cacheData) as Map<String, dynamic>);
+          } catch (e) {
+            return null;
+          }
         }
       }
     }
@@ -64,7 +69,7 @@ class PreferenceManager {
 
   Future<void> setTimetableCache(Map<String, dynamic> data) async {
     await initialize();
-    await _prefs!.setString(_timetableCacheKey, data.toString());
+    await _prefs!.setString(_timetableCacheKey, jsonEncode(data));
     await _prefs!.setInt(
       _timetableCacheTimeKey,
       DateTime.now().millisecondsSinceEpoch,
@@ -82,7 +87,11 @@ class PreferenceManager {
       if (now - cacheTime < 259200000) {
         final cacheData = _prefs!.getString(_mealCacheKey);
         if (cacheData != null) {
-          return Map<String, dynamic>.from(cacheData as Map<String, dynamic>);
+          try {
+            return Map<String, dynamic>.from(jsonDecode(cacheData) as Map<String, dynamic>);
+          } catch (e) {
+            return null;
+          }
         }
       }
     }
@@ -91,7 +100,7 @@ class PreferenceManager {
 
   Future<void> setMealCache(Map<String, dynamic> data) async {
     await initialize();
-    await _prefs!.setString(_mealCacheKey, data.toString());
+    await _prefs!.setString(_mealCacheKey, jsonEncode(data));
     await _prefs!.setInt(
       _mealCacheTimeKey,
       DateTime.now().millisecondsSinceEpoch,

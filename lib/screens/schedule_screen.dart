@@ -155,7 +155,6 @@ class _ScheduleViewState extends State<ScheduleView> {
                         controller: _monthController,
                         onPageChanged: (i) {
                           int deltaYear = 0;
-                          // 컨트롤러의 이전 인덱스와 비교할 수 없어 현재-기준으로 판단
                           if (_currentMonthIndex == 11 && i == 0) deltaYear = 1;
                           if (_currentMonthIndex == 0 && i == 11) deltaYear = -1;
                           setState(() {

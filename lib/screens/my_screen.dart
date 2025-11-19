@@ -4,8 +4,9 @@ import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../models/user_info.dart';
 import '../services/user_service.dart';
-import '../services/auth_service.dart'; // AuthService 임포트 추가
-import 'package:firebase_auth/firebase_auth.dart' as firebase_auth_pkg; // Firebase User 임포트 추가
+import '../services/auth_service.dart'; 
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth_pkg; 
+import 'initial_setup_screen.dart';
 
 class MyScreen extends StatefulWidget {
   const MyScreen({super.key});
@@ -165,6 +166,47 @@ class _MyScreenState extends State<MyScreen> {
                                                     .updateUserName(value);
                                                 _loadUserInfo(); // UI 새로고침
                                               },
+                                            ),
+                                            const SizedBox(height: 20),
+                                            // 인적사항 수정하기 버튼
+                                            SizedBox(
+                                              width: double.infinity,
+                                              child: ElevatedButton(
+                                                onPressed: () {
+                                                  Navigator.pop(context); // 설정 모달 닫기
+                                                  final currentUser = AuthService.instance.currentUser;
+                                                  if (currentUser != null && userInfo != null) {
+                                                    Navigator.push(
+                                                      context,
+                                                      MaterialPageRoute(
+                                                        builder: (context) => InitialSetupScreen(
+                                                          userEmail: currentUser.email ?? '',
+                                                          uid: currentUser.uid,
+                                                          existingUserInfo: userInfo,
+                                                        ),
+                                                      ),
+                                                    ).then((_) {
+                                                      // 수정 후 돌아왔을 때 사용자 정보 새로고침
+                                                      _loadUserInfo();
+                                                    });
+                                                  }
+                                                },
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor: AppColors.primary,
+                                                  foregroundColor: Colors.white,
+                                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  '인적사항 수정하기',
+                                                  style: TextStyle(
+                                                    fontSize: 16,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
+                                                ),
+                                              ),
                                             ),
                                             const SizedBox(height: 20),
                                           ],
