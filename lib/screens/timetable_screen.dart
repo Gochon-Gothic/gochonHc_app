@@ -126,6 +126,28 @@ class _TimetableScreenState extends State<TimetableScreen> {
     }
   }
 
+  // 현재 표시 중인 주가 다음주인지 확인
+  bool _isNextWeek() {
+    final thisWeekStart = getCurrentWeekStart();
+    return currentWeekStart.isAfter(thisWeekStart);
+  }
+
+  // 다음주로 이동
+  void _goToNextWeek() {
+    setState(() {
+      currentWeekStart = currentWeekStart.add(const Duration(days: 7));
+    });
+    loadTimetable();
+  }
+
+  // 이전주로 이동
+  void _goToPreviousWeek() {
+    setState(() {
+      currentWeekStart = currentWeekStart.subtract(const Duration(days: 7));
+    });
+    loadTimetable();
+  }
+
   Future<void> loadTimetable() async {
     try {
       if (!mounted) return;
@@ -578,22 +600,82 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         height: 1,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${DateFormat('MM/dd').format(currentWeekStart)}~${DateFormat('MM/dd').format(currentWeekStart.add(const Duration(days: 4)))}',
-                      style: TextStyle(
-                        color: textColor.withValues(alpha: 0.6),
-                        fontSize: 16,
-                        fontWeight: FontWeight.w600,
-                        height: 1,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // 왼쪽 화살표 (다음주일 때만 표시)
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SizeTransition(
+                                sizeFactor: animation,
+                                axis: Axis.horizontal,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: _isNextWeek()
+                              ? Padding(
+                                  key: const ValueKey('left_arrow'),
+                                  padding: const EdgeInsets.only(right: 0),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.arrow_back_ios, size: 16),
+                                    color: textColor.withValues(alpha: 0.6),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: _goToPreviousWeek,
+                                  ),
+                                )
+                              : const SizedBox.shrink(key: ValueKey('left_empty')),
+                        ),
+                        // 날짜 텍스트
+                        Text(
+                          '${DateFormat('MM/dd').format(currentWeekStart)}~${DateFormat('MM/dd').format(currentWeekStart.add(const Duration(days: 4)))}',
+                          style: TextStyle(
+                            color: textColor.withValues(alpha: 0.6),
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                            height: 1,
+                          ),
+                        ),
+                        // 오른쪽 화살표 (이번주일 때만 표시)
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SizeTransition(
+                                sizeFactor: animation,
+                                axis: Axis.horizontal,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: !_isNextWeek()
+                              ? Padding(
+                                  key: const ValueKey('right_arrow'),
+                                  padding: const EdgeInsets.only(left: 0),
+                                  child: IconButton(
+                                    icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                                    color: textColor.withValues(alpha: 0.6),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: _goToNextWeek,
+                                  ),
+                                )
+                              : const SizedBox.shrink(key: ValueKey('right_empty')),
+                        ),
+                      ],
                     ),
                   ],
                 ),
                 const Spacer(),
                 SizedBox(
-                  width: 60,
-                  height: 60,
+                  width: 70,
+                  height: 70,
                   child: SvgPicture.asset(
                     'assets/images/gochon_logo.svg',
                     semanticsLabel: 'Gochon Logo',
@@ -602,7 +684,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 20),
           if (!_isTableView)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 12),
