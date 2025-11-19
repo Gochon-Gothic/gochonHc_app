@@ -38,7 +38,7 @@ class _MyScreenState extends State<MyScreen> {
       color: bgColor,
       child: Column(
         children: [
-          const SizedBox(height: 32),
+          const SizedBox(height: 80),
           Text(
             '마이',
             style: TextStyle(
@@ -48,7 +48,7 @@ class _MyScreenState extends State<MyScreen> {
 
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           CircleAvatar(
             radius: 40,
             backgroundColor: cardColor,

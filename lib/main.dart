@@ -376,7 +376,7 @@ class _MainHomeContentState extends State<_MainHomeContent> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 60),
+                  const SizedBox(height: 80),
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24),
                     child: Row(
@@ -494,71 +494,6 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                             ],
                           ),
                           child: buildNoticeCard(isDark, textColor),
-                        ),
-                        const SizedBox(height: 15),
-                        Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          children: [
-                            Text(
-                              '오늘의 교칙',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: textColor,
-                                fontSize: 22,
-                                letterSpacing: 0,
-                                fontWeight: FontWeight.bold,
-                                height: 1,
-                              ),
-                            ),
-                            const SizedBox(height: 7),
-                            Container(width: 98, height: 2, color: textColor),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Container(
-                          width: double.infinity,
-                          constraints: const BoxConstraints(minHeight: 103),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
-                            color: cardColor,
-                            boxShadow: [
-                              BoxShadow(
-                                color: isDark
-                                    ? Colors.black.withValues(alpha: 0.5)
-                                    : const Color.fromRGBO(21, 21, 21, 0.5),
-                                offset: const Offset(0, 0),
-                                blurRadius: 8,
-                              ),
-                            ],
-                          ),
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '제6조[학생의 의무]',
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 20,
-                                  letterSpacing: 0,
-                                  fontWeight: FontWeight.w500,
-                                  height: 1,
-                                ),
-                              ),
-                              const SizedBox(height: 16),
-                              Text(
-                                '① 학생과 관련된 학교의 교칙과 규정을 준수할 의무\n-학교생활인권 규정중 발췌-',
-                                style: TextStyle(
-                                  color: textColor,
-                                  fontSize: 16,
-                                  letterSpacing: 0,
-                                  fontWeight: FontWeight.w400,
-                                  height: 1,
-                                ),
-                              ),
-                            ],
-                          ),
                         ),
                         const SizedBox(height: 15),
                       ],

@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 
@@ -50,14 +51,6 @@ class _LunchScreenState extends State<LunchScreen> {
 
   Set<int> allergySet = {};
 
-  Map<int, Map<String, dynamic>> congestionMap = {
-    1: {'status': '급식줄 현재 여유', 'color': const Color.fromARGB(255, 68, 168, 71)},
-    2: {'status': '급식줄 보통', 'color': const Color.fromARGB(255, 225, 170, 3)},
-    3: {'status': '급식줄 혼잡함', 'color': const Color.fromARGB(255, 237, 64, 64)},
-  };
-
-  int congestionLevel = 1;
-
   @override
   void initState() {
     super.initState();
@@ -89,19 +82,9 @@ class _LunchScreenState extends State<LunchScreen> {
     );
   }
 
-  void _handleError(String message) {
+  void _setStateSafe(VoidCallback fn) {
     if (!mounted) return;
-    setState(() {
-      error = message;
-      isLoading = false;
-    });
-  }
-
-  void _setLoadingComplete() {
-    if (!mounted) return;
-    setState(() {
-      isLoading = false;
-    });
+    setState(fn);
   }
 
   Future<void> fetchMeal() async {
@@ -125,21 +108,19 @@ class _LunchScreenState extends State<LunchScreen> {
         try {
           final data = json.decode(cachedData);
           _parseMealData(data);
-          if (!mounted) return;
-          setState(() {
+          _setStateSafe(() {
             isLoading = false;
           });
-
           _updateMealInBackground(prefs, cacheKey, today);
           return;
         } catch (e) {
+          // 캐시 파싱 실패 시 API에서 다시 가져오기
         }
       }
 
       await _fetchMealFromAPI(prefs, cacheKey, today);
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
+      _setStateSafe(() {
         error = '급식을 불러오는데 실패했습니다.';
         isLoading = false;
       });
@@ -156,16 +137,24 @@ class _LunchScreenState extends State<LunchScreen> {
       final response = await http.get(Uri.parse(url));
       
       if (response.statusCode != 200) {
-        _handleError('급식을 불러오는데 실패했습니다.');
+        _setStateSafe(() {
+          error = '급식을 불러오는데 실패했습니다.';
+          isLoading = false;
+        });
         return;
       }
 
       final data = json.decode(response.body);
       await _saveCache(prefs, cacheKey, response.body);
       _parseMealData(data);
-      _setLoadingComplete();
+      _setStateSafe(() {
+        isLoading = false;
+      });
     } catch (e) {
-      _handleError('급식을 불러오는데 실패했습니다.');
+      _setStateSafe(() {
+        error = '급식을 불러오는데 실패했습니다.';
+        isLoading = false;
+      });
     }
   }
 
@@ -182,13 +171,13 @@ class _LunchScreenState extends State<LunchScreen> {
         final data = json.decode(response.body);
         if (data['mealServiceDietInfo'] != null) {
           await _saveCache(prefs, cacheKey, response.body);
-          if (mounted) {
+          _setStateSafe(() {
             _parseMealData(data);
-            setState(() {});
-          }
+          });
         }
       }
     } catch (e) {
+      // 백그라운드 업데이트 실패는 무시
     }
   }
 
@@ -260,27 +249,63 @@ class _LunchScreenState extends State<LunchScreen> {
 
       final cleanMenu = cleanMenuLines.join('\n').trim();
 
-      if (mounted) {
-        setState(() {
-          menu = cleanMenu;
-        });
-      }
+      _setStateSafe(() {
+        menu = cleanMenu;
+      });
     } else {
-      if (mounted) {
-        setState(() {
-          error = '오늘은 급식이 제공되지 않습니다.';
-        });
-      }
+      _setStateSafe(() {
+        error = '급식 정보가 존재하지 않습니다';
+      });
     }
   }
 
   void _changeDate(int diff) {
     DateTime newDate = currentDate.add(Duration(days: diff));
     newDate = _skipWeekend(newDate, forward: diff > 0);
-    setState(() {
+    _setStateSafe(() {
       currentDate = newDate;
     });
     fetchMeal();
+  }
+
+  Widget _buildAllergyCard(Color cardColor, Color textColor, bool isDark) {
+    final allergyList = (allergySet.toList()..sort())
+        .map((n) => allergyMap[n])
+        .whereType<String>()
+        .join(', ');
+
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 24),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+      ),
+      elevation: 2,
+      color: cardColor,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(
+              Icons.warning_amber_rounded,
+              color: isDark ? textColor : Colors.red,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                '알레르기 정보: $allergyList',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: textColor,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -291,31 +316,38 @@ class _LunchScreenState extends State<LunchScreen> {
     final cardColor = isDark ? AppColors.darkCard : AppColors.lightCard;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
     final todayStr = DateFormat('yyyy년 M월 d일 (E)', 'ko').format(currentDate);
-    final todayStr2 = DateFormat('M월 d일', 'ko').format(currentDate);
+    final todayStrShort = DateFormat('M월 d일', 'ko').format(currentDate);
     return Container(
       color: bgColor,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 60),
+          const SizedBox(height: 80),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Text(
-              '오늘의 급식',
-              style: TextStyle(
-                fontSize: 40,
-                fontWeight: FontWeight.bold,
-                color: textColor,
-
-              ),
+            child: Row(
+              children: [
+                Text(
+                  '오늘의 급식',
+                  style: TextStyle(
+                    fontSize: 40,
+                    fontWeight: FontWeight.bold,
+                    color: textColor,
+                  ),
+                ),
+                const Spacer(),
+                SizedBox(
+                  width: 60,
+                  height: 60,
+                  child: SvgPicture.asset(
+                    'assets/images/gochon_logo.svg',
+                    semanticsLabel: 'Gochon Logo',
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(height: 5),
-          Padding(
-            padding: const EdgeInsets.only(left: 24),
-            child: Container(width: 190, height: 3, color: textColor),
-          ),
-          const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
             child: Row(
@@ -342,28 +374,6 @@ class _LunchScreenState extends State<LunchScreen> {
                   onPressed: () => _changeDate(1),
                 ),
               ],
-            ),
-          ),
-          Card(
-            margin: const EdgeInsets.symmetric(horizontal: 24),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            elevation: 2,
-            color: congestionMap[congestionLevel]!['color'],
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(16),
-              child: Center(
-                child: Text(
-                  congestionMap[congestionLevel]!['status'],
-                  style: const TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
             ),
           ),
           Expanded(
@@ -407,7 +417,7 @@ class _LunchScreenState extends State<LunchScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '$todayStr2 급식',
+                                  '$todayStrShort 급식',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
@@ -428,38 +438,7 @@ class _LunchScreenState extends State<LunchScreen> {
                           ),
                         ),
                         if (allergySet.isNotEmpty)
-                          Card(
-                            margin: const EdgeInsets.symmetric(horizontal: 24),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            elevation: 2,
-                            color: cardColor,
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(16),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Icon(
-                                    Icons.warning_amber_rounded,
-                                    color: isDark ? textColor : Colors.red,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      '알레르기 정보: ${(allergySet.toList()..sort()).map((n) => allergyMap[n]).whereType<String>().join(', ')}',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color: textColor,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
+                          _buildAllergyCard(cardColor, textColor, isDark),
                       ],
                     ),
           ),

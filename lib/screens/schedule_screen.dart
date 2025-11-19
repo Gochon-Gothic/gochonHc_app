@@ -481,8 +481,11 @@ class _MonthGrid extends StatelessWidget {
         GestureDetector(
           onTap: () => onDaySelected(d),
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             mainAxisAlignment: MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              const SizedBox(height: 6),
               Container(
                 width: 32,
                 height: 32,
@@ -529,9 +532,10 @@ class _MonthGrid extends StatelessWidget {
             crossAxisCount: 7,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 1,
+            mainAxisSpacing: 4,
             crossAxisSpacing: 0,
-            childAspectRatio: 0.75,
+            childAspectRatio: 0.85,
+            padding: const EdgeInsets.only(top: 4, bottom: 8),
             children: cells,
           ),
         ],
