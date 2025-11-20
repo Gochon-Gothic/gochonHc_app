@@ -640,10 +640,16 @@ class _MonthGrid extends StatelessWidget {
         final double gridWidth = constraints.maxWidth;
         const int columns = 7;
         const double crossAxisSpacing = 0;
-        const double mainAxisSpacing = 1;
-        const double aspect = 0.75;
+        const double mainAxisSpacing = 4; // GridView의 mainAxisSpacing과 일치
+        const double aspect = 0.85; // GridView의 childAspectRatio와 일치
+        const double gridTopPadding = 4; // GridView의 padding top과 일치
         final double cellWidth = (gridWidth - (columns - 1) * crossAxisSpacing) / columns;
         final double cellHeight = cellWidth / aspect;
+
+        // 날짜 아래 일정이 시작되는 위치 계산 (셀 내부 오프셋만)
+        // 날짜 위쪽 여백(6) + 날짜 컨테이너 높이(32) + 날짜와 캡슐 사이 여백(2) = 40
+        // 실제 측정값에 맞게 조정
+        const double dateTopOffset = 6 + 32 + 2;
 
         final firstDay = range.days.first;
         final lastDay = range.days.last;
@@ -659,7 +665,7 @@ class _MonthGrid extends StatelessWidget {
           final int startCol = (row == firstRow) ? firstCol : 0;
           final int endCol = (row == lastRow) ? lastCol : columns - 1;
           final double left = startCol * (cellWidth + crossAxisSpacing);
-          final double top = row * (cellHeight + mainAxisSpacing) + 93; // 숫자(32)+간격(2)
+          final double top = gridTopPadding + row * (cellHeight + mainAxisSpacing) + dateTopOffset;
           final double width = (endCol - startCol + 1) * cellWidth + (endCol - startCol) * crossAxisSpacing;
 
           bars.add(Positioned(
