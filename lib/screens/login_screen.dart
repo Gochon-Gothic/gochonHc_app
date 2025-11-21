@@ -72,10 +72,8 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-
-  // TODO: Apple 로그인 기능 구현
+//애플 로인
   Future<void> _handleAppleSignIn() async {
-    // Apple 로그인 기능은 이후에 구현 예정
     print('Apple 로그인 버튼 클릭됨 (구현 예정)');
   }
 
@@ -134,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              '학교 구글 계정을 통해 로그인',
+                              '소셜 계정을 이용해 로그인',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: textColor,
@@ -146,7 +144,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Login by using school google account',
+                              'Login by using social account',
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 color: textColor,
@@ -209,10 +207,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-
-                        // 버튼 높이의 1/2 간격 (40 / 2 = 20)
                         const SizedBox(height: 20),
-
                         Container(
                           width: 327,
                           height: 40,
@@ -232,21 +227,20 @@ class _LoginScreenState extends State<LoginScreen> {
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
-                                    // TODO: Apple 로고 SVG 추가 필요
-                                    // SizedBox(
-                                    //   width: 20,
-                                    //   height: 20,
-                                    //   child: SvgPicture.asset(
-                                    //     'assets/images/apple_logo.svg',
-                                    //     semanticsLabel: 'Apple Logo',
-                                    //   ),
-                                    // ),
-                                    // const SizedBox(width: 8),
+                                    SizedBox(
+                                      width: 20,
+                                      height: 20,
+                                      child: SvgPicture.asset(
+                                        'assets/images/apple.svg',
+                                        semanticsLabel: 'Apple Logo',
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
                                     Text(
                                       'Continue with Apple',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
-                                        color: Colors.white,
+                                        color: isDark ? Colors.black : Colors.white,
                                         fontSize: 14,
                                         letterSpacing: 0,
                                         fontWeight: FontWeight.w500,

@@ -197,34 +197,39 @@ class _ScheduleViewState extends State<ScheduleView> {
                   boxShadow: AppShadows.card(isDark),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                child: ListView.builder(
-                  controller: _listController,
-                  padding: EdgeInsets.zero,
-                  primary: false,
-                  physics: const ClampingScrollPhysics(),
-                  itemCount: monthlyEvents.length,
-                  itemBuilder: (context, idx) {
-                    final e = monthlyEvents[idx];
-                    final key = _dayItemKeys.putIfAbsent(e.day, () => GlobalKey());
-                    return Container(
-                      key: key,
-                      margin: const EdgeInsets.only(bottom: 10),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$month월 ${e.day}일',
-                            style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            e.events.join(', '),
-                            style: TextStyle(color: textColor, fontSize: 14, height: 1.5),
-                          ),
-                        ],
-                      ),
-                    );
+                child: NotificationListener<ScrollNotification>(
+                  onNotification: (notification) {
+                    return true;
                   },
+                  child: ListView.builder(
+                    controller: _listController,
+                    padding: EdgeInsets.zero,
+                    primary: false,
+                    physics: const ClampingScrollPhysics(),
+                    itemCount: monthlyEvents.length,
+                    itemBuilder: (context, idx) {
+                      final e = monthlyEvents[idx];
+                      final key = _dayItemKeys.putIfAbsent(e.day, () => GlobalKey());
+                      return Container(
+                        key: key,
+                        margin: const EdgeInsets.only(bottom: 10),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '$month월 ${e.day}일',
+                              style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              e.events.join(', '),
+                              style: TextStyle(color: textColor, fontSize: 14, height: 1.5),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
@@ -251,15 +256,21 @@ class _ScheduleViewState extends State<ScheduleView> {
   }
 
   void _scrollToDay(int day) {
-    final key = _dayItemKeys[day];
-    if (key?.currentContext != null) {
-      Scrollable.ensureVisible(
-        key!.currentContext!,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.ease,
-        alignment: 0.1,
-      );
-    }
+    if (!_listController.hasClients) return;
+    
+    final month = _currentMonthIndex + 1;
+    final monthlyEvents = _collectMonthlyEvents(_year, month);
+    final index = monthlyEvents.indexWhere((e) => e.day == day);
+    
+    if (index == -1) return;
+    const double itemHeight = 51.0;
+    final double targetOffset = index * itemHeight;
+    
+    _listController.animateTo(
+      targetOffset.clamp(0.0, _listController.position.maxScrollExtent),
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.ease,
+    );
   }
 }
 
@@ -363,7 +374,6 @@ class _MonthTabsScrollable extends StatelessWidget {
                   if (controller.positions.isNotEmpty) {
                     final p = controller.page;
                     if (p != null) {
-                      // 스크롤 중에도 실시간으로 page 따라가게 함
                       page = p.clamp(0, 11);
                     }
                   }
