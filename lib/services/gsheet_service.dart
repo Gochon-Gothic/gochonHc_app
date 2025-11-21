@@ -1,4 +1,5 @@
 import 'package:gsheets/gsheets.dart';
+import 'package:flutter/services.dart';
 import '../models/notice.dart';
 
 class GSheetService {
@@ -99,21 +100,18 @@ class GSheetService {
     }
   }
 
-  static const String _noticeCredentials = r'''
-{
-  "type": "service_account",
-  "project_id": "gochonapp-478905",
-  "private_key_id": "8119c2fd681f85ad1667c93735a78bf0fdac89ef",
-  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCmYoyP4u9OX0JY\n2ijEUmtU5VU6mI13yCjVxgWcIJkAFcclfLPZFyPQ3e8j1I5qnWoQsi4i/c3r9/FU\nOzM9Jytr7eXtQo/YupADPBef1sn4DfFR6P+YMTud7APx/GBbBtwFaatVjFABhe75\nyUidCVXlidIjOca0iHue+y/S1jx6yTf8XoYMPwBEIbGoXk613mCp8ueZSFihAOmv\noplveu2F6dBiqSsYmhpj2dmxVqwZ/eURrKf3G8HAPun9GcWcWg4HxHHhQxo6ZwYq\nRrqw/vNrNL0ZRaU5Pd4LyIOFA8XGOnpTeFFH9YDlXioHnQJS2SMv0oY4f3ogXPmx\nbCaByJ+xAgMBAAECggEAN3UZjMwDH4g4wQzWEbm29LEL22AFpyscEUTTkdp7pL+d\nhS0vdOh1k6SllLfAUGDvfWkmX5thC4m08nJY/cUUgADnZlGNSJvGbI2XAjvBTeC3\n0qlqp/ug9143YmzQYQbERzmVVgpSkG9n2/HvNghqjPuHAx660Gm9apwmsIuf1Py6\n/eef28wdX2HYRebMgJZi1qKEyj6dwQzhylqxVhWQ6W82bEe2/oalgDH0AJ+hshE5\nUpMT/2A/cIRjs7VqeFRe+244MuaXnfM15q/foxdloChBh/wDW7n7ot6RT3BdH3a5\nEwCk0sUbinrdi5jfAmKRvDMbyPlJy3KhytSZtaF40QKBgQDUOmx3vfgDWLA09ujB\nfWXgGML46dpFmmcyoCp7uDT0gefkOvGAzNiP8xdUFdKfGuVZ63j86cDHU8LSotau\nbh+Yfc7ToIruTwUO7hzP79sjO59ZkWBR7XNLsa+xQKdTlivDjaSTTpmEbGkCVKut\noNTl60ru3M2V91LaPLWu3vlD7wKBgQDIs537s7inL5zmZ98vqNmXznzRnK+QDY3q\nWo/XA9Z2SPagaA5B02a88QYqElsBZdFj3jFXTK87SzQVkfCbWw6i60OIlQUdkYgU\nRuzC057/9arWzPnFllu2iBrtwsVmJGL+ecVmRb9jF8xq/Js7h9rYQqUH3TSx5gvL\nwwSDPEw2XwKBgFfyFfzQ9jO8zthD8VQtOMhSuokXr2HkiBtMkA5Q2XDxXD0Rx/5N\n5PhSDjrECFHyfVRz5eE4pLB1H2jWHgyOif1RNSIxhyEWEcyME9h/VtoU3QXq3nVU\n5tBZQ6s6VZynwF77FVYN3kQoAKP8nmAHI/JbPOQbD/6zTNwvCEL9F2J1AoGBAIVj\nw3s3PmF3ZptHq/E8EqovZYvWzGQ8bfa1C+aGuXHSGoAPyHH9c8ndkxBBNNTf++OZ\nGEgCQnBxEgPIBBbs1PR40mCjUkwNnliDrvXpukI537p1bwfgX8IYAXXGPnYdduHU\nwtqvPn04ovb0PqO5Lj0PRinM3iniUDKzwXsLh0eXAoGAS7kOrHTOrMuKamGX3loy\nU40m1RY5hPep+H56j3Y/Xil+EpqwotoBkfaVaZbc55WccltE9PB1KkqZtje1pNMa\nOBGdfo4IWvJe6XdQisMuEtMh7YwCsGB4cTSzQQnQHIrVwNvndq/JXEVwOqjr77Af\nA3a7lL14Je1/R2lzRduVR0Y=\n-----END PRIVATE KEY-----\n",
-  "client_email": "gothic@gochonapp-478905.iam.gserviceaccount.com",
-  "client_id": "108297263725665812259",
-  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-  "token_uri": "https://oauth2.googleapis.com/token",
-  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/gothic%40gochonapp-478905.iam.gserviceaccount.com",
-  "universe_domain": "googleapis.com"
-}
-''';
+  static String? _noticeCredentials;
+
+  static Future<String> _loadNoticeCredentials() async {
+    if (_noticeCredentials != null) return _noticeCredentials!;
+    try {
+      final String jsonString = await rootBundle.loadString('assets/data/gochonapp-478905-8119c2fd681f.json');
+      _noticeCredentials = jsonString;
+      return _noticeCredentials!;
+    } catch (e) {
+      throw Exception('공지사항 credentials 파일을 불러올 수 없습니다: $e');
+    }
+  }
 
   static GSheets? _noticeGSheets;
   static Worksheet? _noticeWorksheet;
@@ -122,7 +120,8 @@ class GSheetService {
 
   static Future<void> initializeNoticeService() async {
     try {
-      _noticeGSheets = GSheets(_noticeCredentials);
+      final credentials = await _loadNoticeCredentials();
+      _noticeGSheets = GSheets(credentials);
       final spreadsheet = await _noticeGSheets!.spreadsheet(_noticeSpreadsheetId);
       _noticeWorksheet = spreadsheet.worksheetByTitle(_noticeWorksheetTitle);
     } catch (e) {
