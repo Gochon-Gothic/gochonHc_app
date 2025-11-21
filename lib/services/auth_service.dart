@@ -145,10 +145,8 @@ class AuthService {
     try {
       final user = _auth.currentUser;
       if (user != null) {
-        // Firestore에서 사용자 데이터 삭제
         await _firestore.collection('users').doc(user.uid).delete();
-        
-        // Firebase Auth에서 계정 삭제
+        await _googleSignIn.signOut();
         await user.delete();
       }
     } catch (e) {

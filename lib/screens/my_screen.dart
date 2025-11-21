@@ -6,7 +6,7 @@ import '../models/user_info.dart';
 import '../services/user_service.dart';
 import '../services/auth_service.dart'; 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth_pkg; 
-import 'initial_setup_screen.dart';
+import 'settings_screen.dart';
 
 class MyScreen extends StatefulWidget {
   const MyScreen({super.key});
@@ -16,8 +16,6 @@ class MyScreen extends StatefulWidget {
 }
 
 class _MyScreenState extends State<MyScreen> {
-  bool isLoading = false;
-  String? error;
   UserInfo? userInfo;
 
   @override
@@ -56,7 +54,9 @@ class _MyScreenState extends State<MyScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            userInfo?.name ?? '사용자',
+            AuthService.instance.currentUser == null
+                ? '게스트'
+                : (userInfo?.name ?? '사용자'),
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
@@ -64,9 +64,11 @@ class _MyScreenState extends State<MyScreen> {
             ),
           ),
           Text(
-            userInfo != null
-                ? '${userInfo?.grade ?? ''}학년 ${userInfo?.classNum ?? ''}반 ${userInfo?.number ?? ''}번'
-                : '정보를 불러오는 중...',
+            AuthService.instance.currentUser == null
+                ? ''
+                : (userInfo != null
+                    ? '${userInfo?.grade ?? ''}학년 ${userInfo?.classNum ?? ''}반 ${userInfo?.number ?? ''}번'
+                    : '정보를 불러오는 중...'),
             style: TextStyle(fontSize: 16, color: textColor),
           ),
           const SizedBox(height: 24),
@@ -89,176 +91,11 @@ class _MyScreenState extends State<MyScreen> {
                       color: textColor,
                     ),
                     onTap: () {
-                      showModalBottomSheet(
-                        context: context,
-                        isScrollControlled: true, // 스크롤 가능하게 설정
-                        builder: (context) {
-                          return DraggableScrollableSheet(
-                            initialChildSize: 0.6, // 초기 높이를 화면의 60%로 설정
-                            minChildSize: 0.4, // 최소 높이를 화면의 40%로 설정
-                            maxChildSize: 0.9, // 최대 높이를 화면의 90%로 설정
-                            builder: (context, scrollController) {
-                              return Container(
-                                color: cardColor,
-                                padding: const EdgeInsets.all(24),
-                                child: SingleChildScrollView(
-                                  controller: scrollController,
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        '설정',
-                                        style: TextStyle(
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.bold,
-                                          color: textColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 24),
-                                      if (userInfo != null &&
-                                          userInfo!.name != '게스트')
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Text(
-                                              '사용자 정보',
-                                              style: TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: textColor,
-                                              ),
-                                            ),
-                                            const SizedBox(height: 16),
-                                            TextField(
-                                              decoration: InputDecoration(
-                                                labelText: '이름',
-                                                labelStyle: TextStyle(
-                                                  color: textColor,
-                                                ),
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                enabledBorder:
-                                                    OutlineInputBorder(
-                                                      borderRadius:
-                                                          BorderRadius.circular(
-                                                            8,
-                                                          ),
-                                                      borderSide: BorderSide(
-                                                        color: textColor
-                                                            .withValues(
-                                                              alpha: 0.3,
-                                                            ),
-                                                      ),
-                                                    ),
-                                              ),
-                                              style: TextStyle(
-                                                color: textColor,
-                                              ),
-                                              controller: TextEditingController(
-                                                text: userInfo?.name ?? '',
-                                              ),
-                                              onChanged: (value) async {
-                                                await UserService.instance
-                                                    .updateUserName(value);
-                                                _loadUserInfo(); // UI 새로고침
-                                              },
-                                            ),
-                                            const SizedBox(height: 20),
-                                            // 인적사항 수정하기 버튼
-                                            SizedBox(
-                                              width: double.infinity,
-                                              child: ElevatedButton(
-                                                onPressed: () {
-                                                  Navigator.pop(context); // 설정 모달 닫기
-                                                  final currentUser = AuthService.instance.currentUser;
-                                                  if (currentUser != null && userInfo != null) {
-                                                    Navigator.push(
-                                                      context,
-                                                      MaterialPageRoute(
-                                                        builder: (context) => InitialSetupScreen(
-                                                          userEmail: currentUser.email ?? '',
-                                                          uid: currentUser.uid,
-                                                          existingUserInfo: userInfo,
-                                                        ),
-                                                      ),
-                                                    ).then((_) {
-                                                      // 수정 후 돌아왔을 때 사용자 정보 새로고침
-                                                      _loadUserInfo();
-                                                    });
-                                                  }
-                                                },
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor: AppColors.primary,
-                                                  foregroundColor: Colors.white,
-                                                  padding: const EdgeInsets.symmetric(vertical: 12),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius: BorderRadius.circular(8),
-                                                  ),
-                                                ),
-                                                child: const Text(
-                                                  '인적사항 수정하기',
-                                                  style: TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(height: 20),
-                                          ],
-                                        ),
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Text(
-                                            '다크모드',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              color: textColor,
-                                            ),
-                                          ),
-                                          Switch(
-                                            value: themeProvider.isDarkMode,
-                                            onChanged: (val) {
-                                              themeProvider.setDarkMode(val);
-                                              Navigator.pop(context);
-                                            },
-                                            activeThumbColor: textColor,
-                                            inactiveThumbColor: Colors.grey,
-                                          ),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Text(
-                                        '추가 설정',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: textColor,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        '추후 더 많은 설정 옵션이 추가될 예정입니다.',
-                                        style: TextStyle(
-                                          color: textColor.withValues(
-                                            alpha: 0.6,
-                                          ),
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
+                        ),
                       );
                     },
                   ),
@@ -352,24 +189,16 @@ class _MyScreenState extends State<MyScreen> {
 
   Future<void> _loadUserInfo() async {
     if (!mounted) return;
-    setState(() {
-      isLoading = true;
-    });
 
     try {
       final loadedUserInfo = await UserService.instance.getUserInfo();
       if (mounted) {
         setState(() {
           userInfo = loadedUserInfo;
-          isLoading = false;
         });
       }
     } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
+      // 에러 발생 시 무시 (UI에 표시하지 않음)
     }
   }
 
@@ -406,24 +235,18 @@ class _MyScreenState extends State<MyScreen> {
 
   Future<void> _logout() async {
     if (!mounted) return;
-    setState(() {
-      isLoading = true;
-    });
 
     try {
-      await AuthService.instance.signOut(); // Firebase 로그아웃 호출
-
-      if (!mounted) return;
-      setState(() {
-        isLoading = false;
-      });
-      // AuthWrapper가 로그인 상태 변화를 감지하여 자동으로 화면 전환을 처리하므로, 여기서 직접 /login으로 이동할 필요 없음
+      await AuthService.instance.signOut();
+      // AuthWrapper가 로그인 상태 변화를 감지하여 자동으로 화면 전환을 처리
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        error = e.toString();
-        isLoading = false;
-      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('로그아웃 실패: ${e.toString()}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

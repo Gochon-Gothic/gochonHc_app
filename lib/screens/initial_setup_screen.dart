@@ -212,13 +212,15 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 환영 메시지 또는 수정 제목
-                Text(
-                  widget.existingUserInfo != null ? '인적사항 수정' : '환영합니다',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 50,
-                    fontWeight: FontWeight.bold,
+                Center(
+                  child: Text(
+                    widget.existingUserInfo != null ? '인적사항 수정' : '환영합니다',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: textColor,
+                      fontSize: 50,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 35),

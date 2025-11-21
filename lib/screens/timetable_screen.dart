@@ -9,6 +9,7 @@ import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/user_service.dart';
 import '../services/auth_service.dart';
+import '../services/gsheet_service.dart';
 
 
 class TimetableScreen extends StatefulWidget {
@@ -33,6 +34,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
   final Map<String, String> _shortenCache = {}; // 과목 축약 캐시
   final PageController _dayController = PageController();
   Map<String, String>? _electiveSubjects; // 선택과목 데이터
+  bool _isMyTimetable = true; // true: 나의 시간표, false: 반별 시간표
+  String? _myGrade; // 나의 시간표일 때의 학년
+  String? _myClass; // 나의 시간표일 때의 반
+  Map<int, int>? _classCounts; // 학년별 반 수 (스프레드시트에서 로드)
   DateTime getCurrentWeekStart() {
     // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
@@ -52,6 +57,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
   void initState() {
     super.initState();
     currentWeekStart = getCurrentWeekStart();
+    
+    // 로그인 상태 확인하여 초기 모드 설정
+    final currentUser = AuthService.instance.currentUser;
+    if (currentUser == null) {
+      // 로그인 안되어있으면 바로 반별 시간표로 (1-1)
+      _isMyTimetable = false;
+      selectedGrade = '1';
+      selectedClass = '1';
+    }
+    
+    _loadClassCounts();
     _initMyClassAndLoad();
     // 리스트 모드 기본 선택 요일: 오늘(월~금) 아니면 월요일
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
@@ -68,29 +84,230 @@ class _TimetableScreenState extends State<TimetableScreen> {
     });
   }
 
+  // 학년별 반 수 로드
+  Future<void> _loadClassCounts() async {
+    try {
+      final counts = await GSheetService.getClassCounts();
+      if (mounted) {
+        setState(() {
+          _classCounts = counts;
+        });
+      }
+    } catch (e) {
+      // 오류 발생 시 기본값 유지
+      print('학년별 반 수 로드 실패: $e');
+    }
+  }
+
+  // 반 선택 메뉴 표시
+  void _showClassPicker(BuildContext context, bool isDark, Color textColor) {
+    if (_classCounts == null) return;
+    
+    // 모든 학년-반 조합 생성
+    final List<MapEntry<int, int>> classOptions = [];
+    for (int grade = 1; grade <= 3; grade++) {
+      final maxClass = _classCounts![grade] ?? 11;
+      for (int classNum = 1; classNum <= maxClass; classNum++) {
+        classOptions.add(MapEntry(grade, classNum));
+      }
+    }
+    
+    // 현재 선택된 반의 인덱스 찾기
+    final currentGrade = int.tryParse(selectedGrade ?? '1') ?? 1;
+    final currentClass = int.tryParse(selectedClass ?? '1') ?? 1;
+    int initialIndex = 0;
+    for (int i = 0; i < classOptions.length; i++) {
+      if (classOptions[i].key == currentGrade && classOptions[i].value == currentClass) {
+        initialIndex = i;
+        break;
+      }
+    }
+    
+    final FixedExtentScrollController scrollController = FixedExtentScrollController(initialItem: initialIndex);
+    final ValueNotifier<int> selectedIndexNotifier = ValueNotifier<int>(initialIndex);
+    
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => ValueListenableBuilder<int>(
+        valueListenable: selectedIndexNotifier,
+        builder: (context, selectedIndex, _) {
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.5,
+            decoration: BoxDecoration(
+              color: isDark ? AppColors.darkCard : AppColors.lightCard,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                // 상단 핸들 바
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: textColor.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // 제목
+                Text(
+                  '반 선택',
+                  style: TextStyle(
+                    color: textColor,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                // 휠 스크롤 선택기
+                Expanded(
+                  child: ListWheelScrollView.useDelegate(
+                    controller: scrollController,
+                    itemExtent: 50,
+                    physics: const FixedExtentScrollPhysics(),
+                    perspective: 0.003,
+                    diameterRatio: 1.5,
+                    squeeze: 1.0,
+                    onSelectedItemChanged: (index) {
+                      if (index >= 0 && index < classOptions.length) {
+                        selectedIndexNotifier.value = index;
+                      }
+                    },
+                    childDelegate: ListWheelChildBuilderDelegate(
+                      childCount: classOptions.length,
+                      builder: (context, index) {
+                        if (index < 0 || index >= classOptions.length) return const SizedBox();
+                        final option = classOptions[index];
+                        final isCenter = selectedIndex == index;
+                        
+                        return Center(
+                          child: Text(
+                            '${option.key}학년 ${option.value}반',
+                            style: TextStyle(
+                              color: isCenter 
+                                  ? Colors.white 
+                                  : textColor.withValues(alpha: 0.5),
+                              fontSize: isCenter ? 24 : 20,
+                              fontWeight: isCenter ? FontWeight.w700 : FontWeight.w500,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 20),
+              ],
+            ),
+          );
+        },
+      ),
+    ).then((_) {
+      // 모달이 닫힌 후 선택된 반으로 시간표 불러오기
+      final finalIndex = selectedIndexNotifier.value;
+      if (finalIndex >= 0 && finalIndex < classOptions.length) {
+        final selectedOption = classOptions[finalIndex];
+        setState(() {
+          selectedGrade = selectedOption.key.toString();
+          selectedClass = selectedOption.value.toString();
+        });
+        loadTimetable();
+      }
+      selectedIndexNotifier.dispose();
+    });
+  }
+
   Future<void> _initMyClassAndLoad() async {
     final userInfo = await UserService.instance.getUserInfo();
     if (userInfo != null) {
       if (mounted) {
         setState(() {
-          selectedGrade = userInfo.grade.toString();
-          selectedClass = userInfo.classNum.toString();
+          _myGrade = userInfo.grade.toString();
+          _myClass = userInfo.classNum.toString();
+          // 나의 시간표 모드일 때만 사용자 정보 사용
+          if (_isMyTimetable) {
+            selectedGrade = _myGrade;
+            selectedClass = _myClass;
+          } else {
+            // 반별 시간표 모드: 로그인된 사용자는 자신의 학년/반 표시
+            selectedGrade = _myGrade ?? '1';
+            selectedClass = _myClass ?? '1';
+          }
         });
-        // 선택과목 데이터 불러오기
-        final currentUser = AuthService.instance.currentUser;
-        if (currentUser != null) {
-          _electiveSubjects = await UserService.instance.getElectiveSubjects(currentUser.uid);
+        // 선택과목 데이터 불러오기 (나의 시간표일 때만)
+        if (_isMyTimetable) {
+          final currentUser = AuthService.instance.currentUser;
+          if (currentUser != null) {
+            _electiveSubjects = await UserService.instance.getElectiveSubjects(currentUser.uid);
+          }
+        } else {
+          _electiveSubjects = null; // 반별 시간표일 때는 선택과목 적용 안함
         }
         loadTimetable();
       }
     } else {
       if (mounted) {
-        setState(() {
-          isLoading = false;
-          error = '사용자 정보를 찾을 수 없습니다. 초기 설정을 완료해주세요.';
-        });
+        // 로그인 안되어있으면 반별 시간표로
+        if (!_isMyTimetable) {
+          setState(() {
+            selectedGrade = '1';
+            selectedClass = '1';
+            isLoading = false;
+          });
+          loadTimetable();
+        } else {
+          setState(() {
+            isLoading = false;
+            error = '사용자 정보를 찾을 수 없습니다. 초기 설정을 완료해주세요.';
+          });
+        }
       }
     }
+  }
+  
+  // 나의 시간표 <-> 반별 시간표 전환
+  void _toggleTimetableMode() {
+    setState(() {
+      _isMyTimetable = !_isMyTimetable;
+      if (_isMyTimetable) {
+        // 나의 시간표로 전환
+        selectedGrade = _myGrade;
+        selectedClass = _myClass;
+        // 선택과목 데이터 다시 불러오기
+        final currentUser = AuthService.instance.currentUser;
+        if (currentUser != null) {
+          UserService.instance.getElectiveSubjects(currentUser.uid).then((subjects) {
+            if (mounted) {
+              setState(() {
+                _electiveSubjects = subjects;
+              });
+              loadTimetable();
+            }
+          });
+        } else {
+          _electiveSubjects = null;
+          loadTimetable();
+        }
+      } else {
+        // 반별 시간표로 전환
+        // 로그인된 사용자는 자신의 학년/반, 아니면 1-1
+        final currentUser = AuthService.instance.currentUser;
+        if (currentUser != null && _myGrade != null && _myClass != null) {
+          // 로그인된 경우: 자신의 학년/반 표시
+          selectedGrade = _myGrade;
+          selectedClass = _myClass;
+        } else {
+          // 로그인 안된 경우: 1-1 반 표시
+          selectedGrade = '1';
+          selectedClass = '1';
+        }
+        _electiveSubjects = null; // 선택과목 적용 안함
+        loadTimetable();
+      }
+    });
   }
   int getPeriodCount(int dayIndex) {
     switch (dayIndex) {
@@ -591,15 +808,124 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      '나의 시간표',
-                      style: TextStyle(
-                        color: textColor,
-                        fontSize: 39,
-                        fontWeight: FontWeight.w800,
-                        height: 1,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SizeTransition(
+                                sizeFactor: animation,
+                                axis: Axis.horizontal,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: (!_isMyTimetable && AuthService.instance.currentUser != null)
+                              ? Padding(
+                                  key: const ValueKey('left_arrow'),
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: GestureDetector(
+                                    onTap: _toggleTimetableMode,
+                                    child: Icon(
+                                      Icons.arrow_back_ios,
+                                      size: 20,
+                                      color: textColor.withValues(alpha: 0.8),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(key: ValueKey('left_empty')),
+                        ),
+                        // 제목 텍스트
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(
+                                position: Tween<Offset>(
+                                  begin: const Offset(0.1, 0),
+                                  end: Offset.zero,
+                                ).animate(animation),
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: Text(
+                            _isMyTimetable ? '나의 시간표' : '반별 시간표',
+                            key: ValueKey(_isMyTimetable),
+                            style: TextStyle(
+                              color: textColor,
+                              fontSize: 39,
+                              fontWeight: FontWeight.w800,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                        AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 200),
+                          transitionBuilder: (Widget child, Animation<double> animation) {
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SizeTransition(
+                                sizeFactor: animation,
+                                axis: Axis.horizontal,
+                                child: child,
+                              ),
+                            );
+                          },
+                          child: (_isMyTimetable && AuthService.instance.currentUser != null)
+                              ? Padding(
+                                  key: const ValueKey('right_arrow'),
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: GestureDetector(
+                                    onTap: _toggleTimetableMode,
+                                    child: Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: 20,
+                                      color: textColor.withValues(alpha: 0.8),
+                                    ),
+                                  ),
+                                )
+                              : const SizedBox.shrink(key: ValueKey('right_empty')),
+                        ),
+                      ],
                     ),
+                    const SizedBox(height: 14),
+                    // 반 선택 텍스트 (반별 시간표 모드일 때만 표시)
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 200),
+                      transitionBuilder: (Widget child, Animation<double> animation) {
+                        return FadeTransition(
+                          opacity: animation,
+                          child: SlideTransition(
+                            position: Tween<Offset>(
+                              begin: const Offset(0, -0.1),
+                              end: Offset.zero,
+                            ).animate(animation),
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: !_isMyTimetable
+                          ? GestureDetector(
+                              key: const ValueKey('class_text'),
+                              onTap: () => _showClassPicker(context, isDark, textColor),
+                              child: Text(
+                                '${selectedGrade ?? '1'}학년 ${selectedClass ?? '1'}반',
+                                style: TextStyle(
+                                  color: textColor,
+                                  fontSize: 27,
+                                  fontWeight: FontWeight.w800,
+                                  height: 1,
+                                ),
+                              ),
+                            )
+                          : const SizedBox.shrink(key: ValueKey('class_text_empty')),
+                    ),
+                    // 주간 텍스트
                     Row(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -631,7 +957,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
                                 )
                               : const SizedBox.shrink(key: ValueKey('left_empty')),
                         ),
-                        // 날짜 텍스트
                         Text(
                           '${DateFormat('MM/dd').format(currentWeekStart)}~${DateFormat('MM/dd').format(currentWeekStart.add(const Duration(days: 4)))}',
                           style: TextStyle(

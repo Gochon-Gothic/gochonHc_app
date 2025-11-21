@@ -482,7 +482,9 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    widget.userInfo?.welcomeMessage ?? '로그인 정보를 불러오는 중...',
+                                    AuthService.instance.currentUser == null
+                                        ? '환영합니다, 게스트님'
+                                        : (widget.userInfo?.welcomeMessage ?? '로그인 정보를 불러오는 중...'),
                                     style: TextStyle(
                                       color: textColor,
                                       fontWeight: FontWeight.w600,

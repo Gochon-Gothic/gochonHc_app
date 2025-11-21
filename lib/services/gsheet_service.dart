@@ -1,114 +1,15 @@
 import 'package:gsheets/gsheets.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notice.dart';
 
 class GSheetService {
-  static const String _spreadsheetId = '1Q45kRO9R_SUZoLvB78MZrbTUWnWTU-3MLL5Pfh8RZz4';
-  static const String _worksheetTitle = '사용자정보';
-  static GSheets? _gsheets;
-  static Worksheet? _worksheet;
-  static String? _credentials;
-
-  static Future<String> _loadCredentials() async {
-    if (_credentials != null) return _credentials!;
-    try {
-      final String jsonString = await rootBundle.loadString('assets/data/gochon-sheet-credentials.json');
-      _credentials = jsonString;
-      return _credentials!;
-    } catch (_) {
-      try {
-        final String jsonString = await rootBundle.loadString('assets/data/gochonapp-478905-8119c2fd681f.json');
-        _credentials = jsonString;
-        return _credentials!;
-      } catch (e) {
-        throw Exception('Credentials 파일을 불러올 수 없습니다: $e');
-      }
-    }
-  }
-
-  static Future<void> initialize() async {
-    try {
-      final credentials = await _loadCredentials();
-      _gsheets = GSheets(credentials);
-      final spreadsheet = await _gsheets!.spreadsheet(_spreadsheetId);
-      try {
-        _worksheet = spreadsheet.worksheetByTitle(_worksheetTitle);
-      } catch (_) {
-        _worksheet = await spreadsheet.addWorksheet(_worksheetTitle);
-      }
-      await _ensureHeaders();
-    } catch (e) {
-      throw Exception('Google Sheets 초기화 실패: $e');
-    }
-  }
-
-  static Future<void> _ensureHeaders() async {
-    if (_worksheet == null) return;
-    try {
-      final firstRow = await _worksheet!.values.row(1);
-      if (firstRow.isEmpty) {
-        const headers = ['이메일', '이름', '학년', '반', '번호', '가입일시', '약관동의'];
-        await _worksheet!.values.insertRow(1, headers);
-      }
-    } catch (_) {}
-  }
-
-  static Future<bool> saveUserInfo({
-    required String email,
-    required String name,
-    required String grade,
-    required String className,
-    required String studentNumber,
-    required bool agreedToTerms,
-  }) async {
-    try {
-      if (_worksheet == null) await initialize();
-      final now = DateTime.now();
-      final formattedDate = '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')} ${now.hour.toString().padLeft(2, '0')}:${now.minute.toString().padLeft(2, '0')}';
-      final newRow = [
-        email,
-        name,
-        grade,
-        className,
-        studentNumber,
-        formattedDate,
-        agreedToTerms ? '동의' : '미동의',
-      ];
-      await _worksheet!.values.appendRow(newRow);
-      return true;
-    } catch (_) {
-      return false;
-    }
-  }
-
-  static Future<Map<String, String>?> getUserInfo(String email) async {
-    try {
-      if (_worksheet == null) await initialize();
-      final rows = await _worksheet!.values.allRows();
-      if (rows.length < 2) return null;
-      final headers = rows[0];
-      for (int i = 1; i < rows.length; i++) {
-        final row = rows[i];
-        if (row.isNotEmpty && row[0] == email) {
-          final userInfo = <String, String>{};
-          for (int j = 0; j < headers.length && j < row.length; j++) {
-            userInfo[headers[j]] = row[j];
-          }
-          return userInfo;
-        }
-      }
-      return null;
-    } catch (_) {
-      return null;
-    }
-  }
-
   static String? _noticeCredentials;
 
   static Future<String> _loadNoticeCredentials() async {
     if (_noticeCredentials != null) return _noticeCredentials!;
     try {
-      final String jsonString = await rootBundle.loadString('assets/data/gochonapp-478905-8119c2fd681f.json');
+      final String jsonString = await rootBundle.loadString('assets/data/gochonapp-478905-9c5cec1fa71e.json');
       _noticeCredentials = jsonString;
       return _noticeCredentials!;
     } catch (e) {
@@ -168,6 +69,76 @@ class GSheetService {
       return notices.take(limit).toList();
     } catch (e) {
       throw Exception('공지사항 가져오기 실패: $e');
+    }
+  }
+
+  static Worksheet? _classCountWorksheet;
+  static const String _classCountWorksheetTitle = '학년별반수';
+
+  static Future<void> initializeClassCountService() async {
+    try {
+      final credentials = await _loadNoticeCredentials();
+      if (_noticeGSheets == null) {
+        _noticeGSheets = GSheets(credentials);
+      }
+      final spreadsheet = await _noticeGSheets!.spreadsheet(_noticeSpreadsheetId);
+      _classCountWorksheet = spreadsheet.worksheetByTitle(_classCountWorksheetTitle);
+      if (_classCountWorksheet == null) {
+        throw Exception('"$_classCountWorksheetTitle" 시트를 찾을 수 없습니다.');
+      }
+    } catch (e) {
+      throw Exception('학년별 반수 Google Sheets 초기화 실패: $e');
+    }
+  }
+
+  static Future<Map<int, int>> getClassCounts() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      const cacheKey = 'class_counts_cache';
+      const lastUpdateKey = 'class_counts_lastUpdate';
+      const cacheExpiry = 6 * 30 * 24 * 60 * 60 * 1000; // 6개월 (밀리초)
+
+      final cachedData = prefs.getString(cacheKey);
+      final lastUpdate = prefs.getInt(lastUpdateKey) ?? 0;
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
+        try {
+          final parts = cachedData.split(',');
+          if (parts.length == 3) {
+            return {
+              1: int.tryParse(parts[0]) ?? 11,
+              2: int.tryParse(parts[1]) ?? 11,
+              3: int.tryParse(parts[2]) ?? 11,
+            };
+          }
+        } catch (_) {
+        }
+      }
+
+      if (_classCountWorksheet == null) await initializeClassCountService();
+      if (_classCountWorksheet == null) {
+        throw Exception('학년별반수 시트를 초기화할 수 없습니다.');
+      }
+      
+      final grade1Count = await _classCountWorksheet!.values.value(column: 3, row: 3);
+      final grade2Count = await _classCountWorksheet!.values.value(column: 3, row: 4);
+      final grade3Count = await _classCountWorksheet!.values.value(column: 3, row: 5);
+
+      final counts = {
+        1: int.tryParse(grade1Count) ?? 11,
+        2: int.tryParse(grade2Count) ?? 11,
+        3: int.tryParse(grade3Count) ?? 11,
+      };
+
+      // 캐시 저장
+      await prefs.setString(cacheKey, '${counts[1]},${counts[2]},${counts[3]}');
+      await prefs.setInt(lastUpdateKey, now);
+
+      return counts;
+    } catch (e) {
+      // 오류 발생 시 기본값 반환
+      return {1: 11, 2: 11, 3: 11};
     }
   }
 }

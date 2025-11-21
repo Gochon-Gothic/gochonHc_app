@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../services/api_service.dart';
@@ -283,13 +284,14 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: bgColor,
         elevation: 0,
-        iconTheme: IconThemeData(color: textColor),
-        title: Text(
-          '선택과목 선택',
-          style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.w600),
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
         ),
+        iconTheme: IconThemeData(color: textColor),
       ),
       body: SafeArea(
         child: _isLoading
@@ -298,7 +300,19 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                 ? _buildError(textColor)
                 : _slotsBySet.isEmpty || _slotsBySet.values.every((slots) => slots.isEmpty)
                     ? Center(child: Text('선택과목이 없습니다.', style: TextStyle(color: textColor)))
-                    : _buildContent(cardColor, textColor, isDark),
+                    : Column(
+                        children: [
+                          Center(
+                            child: Text(
+                              '선택과목 설정',
+                              style: TextStyle(color: textColor, fontSize: 50, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                          Expanded(
+                            child: _buildContent(cardColor, textColor, isDark),
+                          ),
+                        ],
+                      ),
       ),
     );
   }
@@ -325,15 +339,6 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '이동 수업 과목을 선택해주세요',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                // 세트별로 섹션 나누어 표시
                 ...List.generate(4, (index) {
                   final setNum = index + 1;
                   final slots = _slotsBySet[setNum] ?? [];
@@ -344,7 +349,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                     children: [
                       // 세트 헤더
                       Container(
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                        padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
                         margin: const EdgeInsets.only(bottom: 12),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.1),

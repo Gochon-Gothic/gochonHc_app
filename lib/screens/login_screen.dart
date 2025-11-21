@@ -76,6 +76,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleAppleSignIn() async {
     print('Apple 로그인 버튼 클릭됨 (구현 예정)');
   }
+  Future<void> _handleGuestLogin() async {
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, '/main');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -238,6 +243,51 @@ class _LoginScreenState extends State<LoginScreen> {
                                     const SizedBox(width: 8),
                                     Text(
                                       'Continue with Apple',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: isDark ? Colors.black : Colors.white,
+                                        fontSize: 14,
+                                        letterSpacing: 0,
+                                        fontWeight: FontWeight.w500,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        SizedBox(
+                          width: 327,
+                          height: 1,
+                          child: Container(
+                            color: Colors.white.withValues(alpha: 0.3),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                        Container(
+                          width: 327,
+                          height: 40,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            color: isDark ? Colors.white : Colors.black,
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(8),
+                              onTap: isLoading ? null : _handleGuestLogin,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      '로그인 없이 이용하기',
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: isDark ? Colors.black : Colors.white,
