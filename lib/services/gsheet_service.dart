@@ -1,93 +1,41 @@
-import 'package:gsheets/gsheets.dart';
-import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notice.dart';
 
 class GSheetService {
-  static String? _noticeCredentials;
-
-  static Future<String> _loadNoticeCredentials() async {
-    if (_noticeCredentials != null) return _noticeCredentials!;
-    try {
-      final String jsonString = await rootBundle.loadString('assets/data/gochonapp-478905-9c5cec1fa71e.json');
-      _noticeCredentials = jsonString;
-      return _noticeCredentials!;
-    } catch (e) {
-      throw Exception('공지사항 credentials 파일을 불러올 수 없습니다: $e');
-    }
-  }
-
-  static GSheets? _noticeGSheets;
-  static Worksheet? _noticeWorksheet;
-  static const String _noticeSpreadsheetId = '1PuH6M2yL-3A29b3cT9kl3CP7cGVbwGBms5Dhzg3E-AM';
-  static const String _noticeWorksheetTitle = '공지사항';
-
-  static Future<void> initializeNoticeService() async {
-    try {
-      final credentials = await _loadNoticeCredentials();
-      _noticeGSheets = GSheets(credentials);
-      final spreadsheet = await _noticeGSheets!.spreadsheet(_noticeSpreadsheetId);
-      _noticeWorksheet = spreadsheet.worksheetByTitle(_noticeWorksheetTitle);
-    } catch (e) {
-      throw Exception('공지사항 Google Sheets 초기화 실패: $e');
-    }
-  }
+  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static Future<List<Notice>> getNotices({int limit = 3}) async {
     try {
-      if (_noticeWorksheet == null) await initializeNoticeService();
-      final rows = await _noticeWorksheet!.values.allRows();
-      if (rows.length < 3) return [];
-
-      final notices = <Notice>[];
-      for (int i = 2; i < rows.length; i++) {
-        final row = rows[i];
-        if (row.length < 3) continue;
-        
-        final dateValue = row.length > 1 ? row[1] : null;
-        final titleValue = row.length > 2 ? row[2] : null;
-        final contentValue = row.length > 3 ? row[3] : null;
-        
-        final dateStr = (dateValue?.toString() ?? '').trim();
-        final title = (titleValue?.toString() ?? '').trim();
-        final content = (contentValue?.toString() ?? '').trim();
-        
-        if (title.isEmpty) continue;
-        
-        notices.add(Notice(date: dateStr, title: title, content: content));
+      debugPrint('[GSheetService] Fetching notices from Firestore...');
+      
+      final snapshot = await _firestore
+          .collection('notices')
+          .orderBy('createdAt', descending: true)
+          .limit(limit)
+          .get();
+          
+      if (snapshot.docs.isEmpty) {
+        debugPrint('[GSheetService] No notices found in Firestore.');
+        return [];
       }
 
-      notices.sort((a, b) {
-        final aDate = a.parsedDate;
-        final bDate = b.parsedDate;
-        if (aDate == null && bDate == null) return 0;
-        if (aDate == null) return 1;
-        if (bDate == null) return -1;
-        return bDate.compareTo(aDate);
-      });
+      final notices = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return Notice(
+          date: data['date'] as String? ?? '',
+          title: data['title'] as String? ?? '',
+          content: data['content'] as String? ?? '',
+        );
+      }).toList();
+      
+      debugPrint('[GSheetService] Successfully fetched ${notices.length} notices.');
+      return notices;
 
-      return notices.take(limit).toList();
     } catch (e) {
-      throw Exception('공지사항 가져오기 실패: $e');
-    }
-  }
-
-  static Worksheet? _classCountWorksheet;
-  static const String _classCountWorksheetTitle = '학년별반수';
-
-  static Future<void> initializeClassCountService() async {
-    try {
-      final credentials = await _loadNoticeCredentials();
-      if (_noticeGSheets == null) {
-        _noticeGSheets = GSheets(credentials);
-      }
-      final spreadsheet = await _noticeGSheets!.spreadsheet(_noticeSpreadsheetId);
-      _classCountWorksheet = spreadsheet.worksheetByTitle(_classCountWorksheetTitle);
-      if (_classCountWorksheet == null) {
-        throw Exception('"$_classCountWorksheetTitle" 시트를 찾을 수 없습니다.');
-      }
-    } catch (e) {
-      throw Exception('학년별 반수 Google Sheets 초기화 실패: $e');
+      debugPrint('[GSheetService] Error fetching notices from Firestore: $e');
+      throw Exception('공지사항을 불러오는데 실패했습니다: $e');
     }
   }
 
@@ -96,7 +44,7 @@ class GSheetService {
       final prefs = await SharedPreferences.getInstance();
       const cacheKey = 'class_counts_cache';
       const lastUpdateKey = 'class_counts_lastUpdate';
-      const cacheExpiry = 6 * 30 * 24 * 60 * 60 * 1000; // 6개월 (밀리초)
+      const cacheExpiry = 6 * 30 * 24 * 60 * 60 * 1000; // 6 months in milliseconds
 
       final cachedData = prefs.getString(cacheKey);
       final lastUpdate = prefs.getInt(lastUpdateKey) ?? 0;
@@ -113,31 +61,34 @@ class GSheetService {
             };
           }
         } catch (_) {
+          // Fallback to fetching new data if cached data is malformed
         }
       }
 
-      if (_classCountWorksheet == null) await initializeClassCountService();
-      if (_classCountWorksheet == null) {
-        throw Exception('학년별반수 시트를 초기화할 수 없습니다.');
+      debugPrint('[GSheetService] Fetching class counts from Firestore...');
+      final doc = await _firestore.collection('configs').doc('class_counts').get();
+
+      if (!doc.exists || doc.data() == null) {
+        throw Exception("Firestore에서 'configs/class_counts' 문서를 찾을 수 없습니다.");
       }
       
-      final grade1Count = await _classCountWorksheet!.values.value(column: 3, row: 3);
-      final grade2Count = await _classCountWorksheet!.values.value(column: 3, row: 4);
-      final grade3Count = await _classCountWorksheet!.values.value(column: 3, row: 5);
-
+      final data = doc.data()!;
       final counts = {
-        1: int.tryParse(grade1Count) ?? 11,
-        2: int.tryParse(grade2Count) ?? 11,
-        3: int.tryParse(grade3Count) ?? 11,
+        1: int.tryParse(data['1']?.toString() ?? '') ?? 11,
+        2: int.tryParse(data['2']?.toString() ?? '') ?? 11,
+        3: int.tryParse(data['3']?.toString() ?? '') ?? 11,
       };
 
-      // 캐시 저장
+      // Save to cache
       await prefs.setString(cacheKey, '${counts[1]},${counts[2]},${counts[3]}');
       await prefs.setInt(lastUpdateKey, now);
 
+      debugPrint('[GSheetService] Successfully fetched and cached class counts.');
       return counts;
+
     } catch (e) {
-      // 오류 발생 시 기본값 반환
+      debugPrint('[GSheetService] Error fetching class counts: $e');
+      // On error, return default values
       return {1: 11, 2: 11, 3: 11};
     }
   }
