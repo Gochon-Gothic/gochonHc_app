@@ -26,7 +26,7 @@ def setup_clients():
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
         
-db = firestore.client()
+    db = firestore.client()
     
     return gc, db
 
