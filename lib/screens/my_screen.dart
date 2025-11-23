@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:gochon_mobile/screens/login_screen.dart';
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
@@ -172,7 +173,7 @@ class _MyScreenState extends State<MyScreen> {
                             color: textColor,
                           ),
                           onTap: () {
-                            Navigator.pushReplacementNamed(context, '/login');
+                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
                           },
                         ),
                       );
