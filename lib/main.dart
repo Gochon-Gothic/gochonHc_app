@@ -178,30 +178,28 @@ class _MainScreenState extends State<MainScreen> {
 
         return Scaffold(
           resizeToAvoidBottomInset: false,
-          body: ClipRect(
-            child: Stack(
-              children: [
-                Container(
-                  color: bgColor,
-                  child: PageView(
-                    controller: _pageController,
-                    onPageChanged: _onPageChanged,
-                    physics: const ClampingScrollPhysics(),
-                    children: _pages,
-                  ),
+          body: Stack(
+            children: [
+              Container(
+                color: bgColor,
+                child: PageView(
+                  controller: _pageController,
+                  onPageChanged: _onPageChanged,
+                  physics: const ClampingScrollPhysics(),
+                  children: _pages,
                 ),
-                Positioned(
-                  bottom: 0,
-                  left: 0,
-                  right: 0,
-                  child: GlassNavigationBar(
-                    currentIndex: _selectedIndex,
-                    onTap: _onTabTapped,
-                    pageController: _pageController,
-                  ),
+              ),
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: GlassNavigationBar(
+                  currentIndex: _selectedIndex,
+                  onTap: _onTabTapped,
+                  pageController: _pageController,
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },

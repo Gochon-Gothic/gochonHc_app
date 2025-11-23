@@ -1,94 +1,118 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notice.dart';
 
 class GSheetService {
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  // Google Apps Script 웹 앱 URL
+  static const String _serviceUrl =
+      'https://script.google.com/macros/s/AKfycbxMZBeV9vgKkqB-49Xz4Z0MGmCU95d6q3UB1e-gAdLlJvNdGVI_aCdExz_c5GO7itw/exec';
 
   static Future<List<Notice>> getNotices({int limit = 3}) async {
+    final prefs = await SharedPreferences.getInstance();
+    const cacheKey = 'notices_cache';
+    const lastUpdateKey = 'notices_last_update';
+    const cacheExpiry = 15 * 60 * 1000; // 15분 (밀리초)
+
+    final cachedData = prefs.getString(cacheKey);
+    final lastUpdate = prefs.getInt(lastUpdateKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
+      try {
+        final List<dynamic> decodedData = json.decode(cachedData);
+        final cachedNotices =
+            decodedData
+                .map((item) => Notice.fromJson(item as Map<String, dynamic>))
+                .toList();
+        return cachedNotices.take(limit).toList();
+      } catch (_) {
+        // 캐시 데이터가 손상된 경우, 새로 가져오기 위해 진행
+      }
+    }
+
     try {
-      debugPrint('[GSheetService] Fetching notices from Firestore...');
-      
-      final snapshot = await _firestore
-          .collection('notices')
-          .orderBy('createdAt', descending: true)
-          .limit(limit)
-          .get();
-          
-      if (snapshot.docs.isEmpty) {
-        debugPrint('[GSheetService] No notices found in Firestore.');
-        return [];
+      var response = await http.get(Uri.parse(_serviceUrl));
+
+      if (response.statusCode == 302) {
+        final redirectUrl = response.headers['location'];
+        if (redirectUrl != null) {
+          response = await http.get(Uri.parse(redirectUrl));
+        }
       }
 
-      final notices = snapshot.docs.map((doc) {
-        final data = doc.data();
-        return Notice(
-          date: data['date'] as String? ?? '',
-          title: data['title'] as String? ?? '',
-          content: data['content'] as String? ?? '',
-        );
-      }).toList();
-      
-      debugPrint('[GSheetService] Successfully fetched ${notices.length} notices.');
-      return notices;
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
 
+        final notices =
+            data
+                .map((item) => Notice.fromJson(item as Map<String, dynamic>))
+                .toList();
+
+        await prefs.setString(
+          cacheKey,
+          json.encode(notices.map((n) => n.toJson()).toList()),
+        );
+        await prefs.setInt(lastUpdateKey, now);
+
+        return notices.take(limit).toList();
+      } else {
+        throw Exception('API 서버로부터 데이터를 가져오는데 실패했습니다: ${response.statusCode}');
+      }
     } catch (e) {
-      debugPrint('[GSheetService] Error fetching notices from Firestore: $e');
       throw Exception('공지사항을 불러오는데 실패했습니다: $e');
     }
   }
 
   static Future<Map<int, int>> getClassCounts() async {
+    final prefs = await SharedPreferences.getInstance();
+    const cacheKey = 'class_counts_cache';
+    const lastUpdateKey = 'class_counts_last_update';
+    const cacheExpiry = 6 * 30 * 24 * 60 * 60 * 1000; // 6개월 (밀리초)
+
+    final cachedData = prefs.getString(cacheKey);
+    final lastUpdate = prefs.getInt(lastUpdateKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
+      try {
+        final Map<String, dynamic> decoded = json.decode(cachedData);
+        return decoded.map(
+          (key, value) => MapEntry(int.parse(key), value as int),
+        );
+      } catch (_) {
+        // 캐시 데이터가 손상된 경우, 새로 가져오기 위해 진행
+      }
+    }
+
     try {
-      final prefs = await SharedPreferences.getInstance();
-      const cacheKey = 'class_counts_cache';
-      const lastUpdateKey = 'class_counts_lastUpdate';
-      const cacheExpiry = 6 * 30 * 24 * 60 * 60 * 1000; // 6 months in milliseconds
+      final url = Uri.parse('$_serviceUrl?action=getClassCounts');
+      var response = await http.get(url);
 
-      final cachedData = prefs.getString(cacheKey);
-      final lastUpdate = prefs.getInt(lastUpdateKey) ?? 0;
-      final now = DateTime.now().millisecondsSinceEpoch;
-
-      if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
-        try {
-          final parts = cachedData.split(',');
-          if (parts.length == 3) {
-            return {
-              1: int.tryParse(parts[0]) ?? 11,
-              2: int.tryParse(parts[1]) ?? 11,
-              3: int.tryParse(parts[2]) ?? 11,
-            };
-          }
-        } catch (_) {
-          // Fallback to fetching new data if cached data is malformed
+      if (response.statusCode == 302) {
+        final redirectUrl = response.headers['location'];
+        if (redirectUrl != null) {
+          response = await http.get(Uri.parse(redirectUrl));
         }
       }
 
-      debugPrint('[GSheetService] Fetching class counts from Firestore...');
-      final doc = await _firestore.collection('configs').doc('class_counts').get();
+      if (response.statusCode == 200) {
+        final Map<String, dynamic> data = json.decode(response.body);
+        final counts = data.map(
+          (key, value) => MapEntry(int.parse(key), value as int),
+        );
 
-      if (!doc.exists || doc.data() == null) {
-        throw Exception("Firestore에서 'configs/class_counts' 문서를 찾을 수 없습니다.");
+        await prefs.setString(cacheKey, json.encode(data));
+        await prefs.setInt(lastUpdateKey, now);
+
+        return counts;
+      } else {
+        throw Exception(
+          'API 서버로부터 학급 수 정보를 가져오는데 실패했습니다: ${response.statusCode}',
+        );
       }
-      
-      final data = doc.data()!;
-      final counts = {
-        1: int.tryParse(data['1']?.toString() ?? '') ?? 11,
-        2: int.tryParse(data['2']?.toString() ?? '') ?? 11,
-        3: int.tryParse(data['3']?.toString() ?? '') ?? 11,
-      };
-
-      // Save to cache
-      await prefs.setString(cacheKey, '${counts[1]},${counts[2]},${counts[3]}');
-      await prefs.setInt(lastUpdateKey, now);
-
-      debugPrint('[GSheetService] Successfully fetched and cached class counts.');
-      return counts;
-
     } catch (e) {
-      debugPrint('[GSheetService] Error fetching class counts: $e');
-      // On error, return default values
+      // 오류 발생 시 기본값 반환
       return {1: 11, 2: 11, 3: 11};
     }
   }
