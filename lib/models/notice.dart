@@ -9,6 +9,22 @@ class Notice {
     required this.content,
   });
 
+  factory Notice.fromJson(Map<String, dynamic> json) {
+    return Notice(
+      date: json['date'] as String? ?? '',
+      title: json['title'] as String? ?? '',
+      content: json['content'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'date': date,
+      'title': title,
+      'content': content,
+    };
+  }
+
   DateTime? get parsedDate {
     if (date.isEmpty) return null;
     try {
@@ -38,11 +54,6 @@ class Notice {
   }
 
   String get formattedDate {
-    if (date.isEmpty) return '';
-    final parsed = parsedDate;
-    if (parsed != null) {
-      return '${parsed.year}/${parsed.month.toString().padLeft(2, '0')}/${parsed.day.toString().padLeft(2, '0')}';
-    }
     return date;
   }
 }
