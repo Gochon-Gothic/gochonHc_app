@@ -72,9 +72,55 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
-//애플 로인
   Future<void> _handleAppleSignIn() async {
-    print('Apple 로그인 버튼 클릭됨 (구현 예정)');
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+
+    try {
+      print('Apple 로그인 버튼 클릭됨');
+      final userCredential = await AuthService.instance.signInWithApple();
+
+      if (userCredential != null && mounted) {
+        final user = userCredential.user!;
+        print('Apple 로그인 성공: ${user.email}');
+
+        final userExists = await AuthService.instance.checkUserExists(user.uid);
+
+        if (userExists) {
+          final userData = await AuthService.instance.getUserFromFirestore(user.uid);
+          if (userData != null) {
+            final userInfo = UserInfo.fromJson(userData);
+            await UserService.instance.saveUserInfo(userInfo);
+          }
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/main');
+          }
+        } else {
+          if (mounted) {
+            Navigator.pushReplacementNamed(
+              context,
+              '/initial_setup',
+              arguments: {'userEmail': user.email, 'uid': user.uid},
+            );
+          }
+        }
+      } else {
+        print('Apple 로그인 취소됨');
+        setState(() {
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Apple 로그인 화면에서 에러 발생: $e');
+      if (mounted) {
+        setState(() {
+          error = e.toString();
+          isLoading = false;
+        });
+      }
+    }
   }
   Future<void> _handleGuestLogin() async {
     if (mounted) {
