@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -103,120 +104,50 @@ class _TimetableScreenState extends State<TimetableScreen> {
   void _showClassPicker(BuildContext context, bool isDark, Color textColor) {
     if (_classCounts == null) return;
     
-    // 모든 학년-반 조합 생성
-    final List<MapEntry<int, int>> classOptions = [];
-    for (int grade = 1; grade <= 3; grade++) {
-      final maxClass = _classCounts![grade] ?? 11;
-      for (int classNum = 1; classNum <= maxClass; classNum++) {
-        classOptions.add(MapEntry(grade, classNum));
-      }
-    }
-    
-    // 현재 선택된 반의 인덱스 찾기
+    // 현재 선택된 학년과 반
     final currentGrade = int.tryParse(selectedGrade ?? '1') ?? 1;
     final currentClass = int.tryParse(selectedClass ?? '1') ?? 1;
-    int initialIndex = 0;
-    for (int i = 0; i < classOptions.length; i++) {
-      if (classOptions[i].key == currentGrade && classOptions[i].value == currentClass) {
-        initialIndex = i;
-        break;
-      }
-    }
     
-    final FixedExtentScrollController scrollController = FixedExtentScrollController(initialItem: initialIndex);
-    final ValueNotifier<int> selectedIndexNotifier = ValueNotifier<int>(initialIndex);
+    // 학년별 반 수 가져오기
+    final maxClassForCurrentGrade = _classCounts![currentGrade] ?? 11;
     
+    // 학년과 반을 별도로 관리
+    final ValueNotifier<int> selectedGradeNotifier = ValueNotifier<int>(currentGrade - 1); // 0-based
+    final ValueNotifier<int> selectedClassNotifier = ValueNotifier<int>((currentClass - 1).clamp(0, maxClassForCurrentGrade - 1)); // 0-based
+    
+    // 학년 휠 컨트롤러
+    final FixedExtentScrollController gradeController = FixedExtentScrollController(initialItem: currentGrade - 1);
+    
+    // 반 휠 컨트롤러를 동적으로 관리하기 위한 StatefulWidget 사용
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => ValueListenableBuilder<int>(
-        valueListenable: selectedIndexNotifier,
-        builder: (context, selectedIndex, _) {
-          return Container(
-            height: MediaQuery.of(context).size.height * 0.5,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.darkCard : AppColors.lightCard,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                // 상단 핸들 바
-                Container(
-                  margin: const EdgeInsets.only(top: 12),
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: textColor.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // 제목
-                Text(
-                  '반 선택',
-                  style: TextStyle(
-                    color: textColor,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                // 휠 스크롤 선택기
-                Expanded(
-                  child: ListWheelScrollView.useDelegate(
-                    controller: scrollController,
-                    itemExtent: 50,
-                    physics: const FixedExtentScrollPhysics(),
-                    perspective: 0.003,
-                    diameterRatio: 1.5,
-                    squeeze: 1.0,
-                    onSelectedItemChanged: (index) {
-                      if (index >= 0 && index < classOptions.length) {
-                        selectedIndexNotifier.value = index;
-                      }
-                    },
-                    childDelegate: ListWheelChildBuilderDelegate(
-                      childCount: classOptions.length,
-                      builder: (context, index) {
-                        if (index < 0 || index >= classOptions.length) return const SizedBox();
-                        final option = classOptions[index];
-                        final isCenter = selectedIndex == index;
-                        
-                        return Center(
-                          child: Text(
-                            '${option.key}학년 ${option.value}반',
-                            style: TextStyle(
-                              color: isCenter 
-                                  ? Colors.white 
-                                  : textColor.withValues(alpha: 0.5),
-                              fontSize: isCenter ? 24 : 20,
-                              fontWeight: isCenter ? FontWeight.w700 : FontWeight.w500,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-              ],
-            ),
-          );
-        },
+      builder: (context) => _ClassPickerWidget(
+        isDark: isDark,
+        textColor: textColor,
+        classCounts: _classCounts!,
+        initialGrade: currentGrade - 1,
+        initialClass: (currentClass - 1).clamp(0, maxClassForCurrentGrade - 1),
+        gradeController: gradeController,
+        selectedGradeNotifier: selectedGradeNotifier,
+        selectedClassNotifier: selectedClassNotifier,
       ),
     ).then((_) {
       // 모달이 닫힌 후 선택된 반으로 시간표 불러오기
-      final finalIndex = selectedIndexNotifier.value;
-      if (finalIndex >= 0 && finalIndex < classOptions.length) {
-        final selectedOption = classOptions[finalIndex];
-        setState(() {
-          selectedGrade = selectedOption.key.toString();
-          selectedClass = selectedOption.value.toString();
-        });
-        loadTimetable();
-      }
-      selectedIndexNotifier.dispose();
+      final finalGrade = selectedGradeNotifier.value + 1; // 1-based
+      final finalClass = selectedClassNotifier.value + 1; // 1-based
+      
+      setState(() {
+        selectedGrade = finalGrade.toString();
+        selectedClass = finalClass.toString();
+      });
+      // 캐시가 있으면 즉시 표시, 없으면 로딩 표시
+      loadTimetable(showLoading: false);
+      
+      selectedGradeNotifier.dispose();
+      selectedClassNotifier.dispose();
+      gradeController.dispose();
     });
   }
 
@@ -365,15 +296,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     loadTimetable();
   }
 
-  Future<void> loadTimetable() async {
+  Future<void> loadTimetable({bool showLoading = true}) async {
     try {
       if (!mounted) return;
       
-      setState(() {
-        isLoading = true;
-        error = null;
-      });
-
       final prefs = await SharedPreferences.getInstance();
       final cacheKey =
           'timetable_${selectedGrade}_${selectedClass}_${getDateRange()}';
@@ -384,20 +310,52 @@ class _TimetableScreenState extends State<TimetableScreen> {
               .toUtc()
               .add(const Duration(hours: 9))
               .millisecondsSinceEpoch;
-      final cacheExpiry = 3600000; // 1시간 (밀리초) 
-      if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
-        final data = json.decode(cachedData);
-        if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
-          final timetableData = data['hisTimetable'][1]['row'] as List;
-          parseAndSetTimetable(timetableData);
-          if (!mounted) return;
-          setState(() {
-            isLoading = false;
-          });
-          updateTimetableInBackground();
-          return;
+      final cacheExpiry = 3600000; // 1시간 (밀리초)
+      
+      bool hasValidCache = false;
+      
+      // 캐시가 있으면 (유효하든 오래되었든) 일단 표시
+      if (cachedData != null) {
+        try {
+          final data = json.decode(cachedData);
+          if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
+            final timetableData = data['hisTimetable'][1]['row'] as List;
+            parseAndSetTimetable(timetableData);
+            if (!mounted) return;
+            hasValidCache = true;
+            setState(() {
+              isLoading = false;
+              error = null;
+            });
+            
+            // 캐시가 유효하면 백그라운드 업데이트, 오래되었으면 즉시 업데이트
+            if ((now - lastUpdate) < cacheExpiry) {
+              // 캐시가 유효하면 백그라운드에서만 업데이트
+              updateTimetableInBackground();
+            } else {
+              // 캐시가 오래되었으면 백그라운드에서 업데이트하되, 사용자는 기존 데이터를 볼 수 있음
+              updateTimetableInBackground();
+            }
+            
+            // 캐시가 유효하면 여기서 종료
+            if ((now - lastUpdate) < cacheExpiry) {
+              return;
+            }
+          }
+        } catch (e) {
+          // 캐시 파싱 실패 시 API 호출로 진행
         }
       }
+      
+      // 캐시가 없거나 만료된 경우에만 로딩 표시
+      // (캐시가 있어서 이미 표시했다면 로딩 표시 안함)
+      if (showLoading && !hasValidCache) {
+        setState(() {
+          isLoading = true;
+          error = null;
+        });
+      }
+      
       await fetchTimetableFromAPI(prefs, cacheKey);
     } catch (e) {
       if (!mounted) return;
@@ -420,7 +378,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
         'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=$selectedGrade&CLASS_NM=$selectedClass&TI_FROM_YMD=${dateRange.split(':')[0]}&TI_TO_YMD=${dateRange.split(':')[1]}',
       );
 
-      final response = await http.get(url);
+      // 타임아웃 설정 (10초)
+      final response = await http.get(url).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('시간표 로딩 시간이 초과되었습니다.');
+        },
+      );
+      
       if (response.statusCode != 200) {
         if (!mounted) return;
         setState(() {
@@ -446,7 +411,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
             .millisecondsSinceEpoch,
       );
 
-      final timetableData = data['hisTimetable'][3]['row'] as List;
+      // API 응답에서 데이터 인덱스 확인 (에러 응답이 아닌 경우)
+      List<dynamic> timetableData;
+      if (data['hisTimetable'].length > 3) {
+        timetableData = data['hisTimetable'][3]['row'] as List;
+      } else if (data['hisTimetable'].length > 1) {
+        timetableData = data['hisTimetable'][1]['row'] as List;
+      } else {
+        if (!mounted) return;
+        setState(() {
+          isLoading = false;
+        });
+        return;
+      }
+      
       parseAndSetTimetable(timetableData);
 
       if (!mounted) return;
@@ -454,11 +432,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
         isLoading = false;
       });
     } catch (e) {
+      // 에러 발생 시 캐시된 데이터가 있으면 표시
       final cachedData = prefs.getString(cacheKey);
       if (cachedData != null) {
         try {
           final data = json.decode(cachedData);
-          if (data['hisTimetable'] != null) {
+          if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
             final timetableData = data['hisTimetable'][1]['row'] as List;
             parseAndSetTimetable(timetableData);
           }
@@ -1059,12 +1038,42 @@ class _TimetableScreenState extends State<TimetableScreen> {
           const SizedBox(height: 7),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
-            child: _isTableView
-                ? _buildTableView(isDark, textColor)
-                : _buildListView(cardColor, textColor, isDark),
+            child: isLoading
+                ? _buildLoadingView(textColor)
+                : (_isTableView
+                    ? _buildTableView(isDark, textColor)
+                    : _buildListView(cardColor, textColor, isDark)),
           ),
           const SizedBox(height: 32),
         ],
+      ),
+    );
+  }
+  
+  Widget _buildLoadingView(Color textColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: SizedBox(
+        height: 400,
+        child: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                color: textColor.withValues(alpha: 0.6),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '로딩중입니다',
+                style: TextStyle(
+                  color: textColor.withValues(alpha: 0.6),
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1438,5 +1447,209 @@ class _CornerPainter extends CustomPainter {
         oldDelegate.topRight != topRight ||
         oldDelegate.bottomLeft != bottomLeft ||
         oldDelegate.bottomRight != bottomRight;
+  }
+}
+
+class _ClassPickerWidget extends StatefulWidget {
+  final bool isDark;
+  final Color textColor;
+  final Map<int, int> classCounts;
+  final int initialGrade;
+  final int initialClass;
+  final FixedExtentScrollController gradeController;
+  final ValueNotifier<int> selectedGradeNotifier;
+  final ValueNotifier<int> selectedClassNotifier;
+
+  const _ClassPickerWidget({
+    required this.isDark,
+    required this.textColor,
+    required this.classCounts,
+    required this.initialGrade,
+    required this.initialClass,
+    required this.gradeController,
+    required this.selectedGradeNotifier,
+    required this.selectedClassNotifier,
+  });
+
+  @override
+  State<_ClassPickerWidget> createState() => _ClassPickerWidgetState();
+}
+
+class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
+  FixedExtentScrollController? _classController;
+  int _currentGrade = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _currentGrade = widget.initialGrade;
+    _createClassController();
+    
+    // 학년 변경 리스너 추가
+    widget.selectedGradeNotifier.addListener(_onGradeChanged);
+  }
+
+  void _createClassController() {
+    final selectedGrade = _currentGrade + 1; // 1-based
+    final maxClass = widget.classCounts[selectedGrade] ?? 11;
+    final currentClass = widget.selectedClassNotifier.value + 1; // 1-based
+    final adjustedClassIndex = (currentClass > maxClass) ? maxClass - 1 : (currentClass - 1);
+    
+    _classController?.dispose();
+    _classController = FixedExtentScrollController(
+      initialItem: adjustedClassIndex.clamp(0, maxClass - 1),
+    );
+    widget.selectedClassNotifier.value = adjustedClassIndex.clamp(0, maxClass - 1);
+  }
+
+  void _onGradeChanged() {
+    final newGrade = widget.selectedGradeNotifier.value;
+    if (newGrade != _currentGrade) {
+      setState(() {
+        _currentGrade = newGrade;
+        _createClassController();
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.selectedGradeNotifier.removeListener(_onGradeChanged);
+    _classController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<int>(
+      valueListenable: widget.selectedGradeNotifier,
+      builder: (context, selectedGradeIndex, _) {
+        final selectedGrade = selectedGradeIndex + 1; // 1-based
+        final maxClass = widget.classCounts[selectedGrade] ?? 11;
+        
+        return ValueListenableBuilder<int>(
+          valueListenable: widget.selectedClassNotifier,
+          builder: (context, selectedClassIndex, __) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.5,
+              decoration: BoxDecoration(
+                color: widget.isDark ? AppColors.darkCard : AppColors.lightCard,
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  // 상단 핸들 바
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: widget.textColor.withValues(alpha: 0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // 제목
+                  Text(
+                    '반 선택',
+                    style: TextStyle(
+                      color: widget.textColor,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  // 학년과 반 휠 선택기 (나란히 배치)
+                  Expanded(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 학년 휠
+                        Expanded(
+                          child: ListWheelScrollView.useDelegate(
+                            controller: widget.gradeController,
+                            itemExtent: 50,
+                            physics: const FixedExtentScrollPhysics(),
+                            perspective: 0.003,
+                            diameterRatio: 1.5,
+                            squeeze: 1.0,
+                            onSelectedItemChanged: (index) {
+                              if (index >= 0 && index < 3) {
+                                widget.selectedGradeNotifier.value = index;
+                              }
+                            },
+                            childDelegate: ListWheelChildBuilderDelegate(
+                              childCount: 3,
+                              builder: (context, index) {
+                                if (index < 0 || index >= 3) return const SizedBox();
+                                final grade = index + 1;
+                                final isCenter = selectedGradeIndex == index;
+                                
+                                return Center(
+                                  child: Text(
+                                    '$grade 학년',
+                                    style: TextStyle(
+                                      color: isCenter 
+                                          ? Colors.white 
+                                          : widget.textColor.withValues(alpha: 0.5),
+                                      fontSize: isCenter ? 24 : 20,
+                                      fontWeight: isCenter ? FontWeight.w700 : FontWeight.w500,
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ),
+                        // 반 휠
+                        Expanded(
+                          child: _classController != null
+                              ? ListWheelScrollView.useDelegate(
+                                  controller: _classController!,
+                                  itemExtent: 50,
+                                  physics: const FixedExtentScrollPhysics(),
+                                  perspective: 0.003,
+                                  diameterRatio: 1.5,
+                                  squeeze: 1.0,
+                                  onSelectedItemChanged: (index) {
+                                    if (index >= 0 && index < maxClass) {
+                                      widget.selectedClassNotifier.value = index;
+                                    }
+                                  },
+                                  childDelegate: ListWheelChildBuilderDelegate(
+                                    childCount: maxClass,
+                                    builder: (context, index) {
+                                      if (index < 0 || index >= maxClass) return const SizedBox();
+                                      final classNum = index + 1;
+                                      final isCenter = selectedClassIndex == index;
+                                      
+                                      return Center(
+                                        child: Text(
+                                          '$classNum 반',
+                                          style: TextStyle(
+                                            color: isCenter 
+                                                ? Colors.white 
+                                                : widget.textColor.withValues(alpha: 0.5),
+                                            fontSize: isCenter ? 24 : 20,
+                                            fontWeight: isCenter ? FontWeight.w700 : FontWeight.w500,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                )
+                              : const SizedBox(),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
   }
 }
