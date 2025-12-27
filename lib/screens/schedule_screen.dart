@@ -218,48 +218,53 @@ class _ScheduleViewState extends State<ScheduleView> {
           ResponsiveHelper.verticalSpace(context, 2),
           _WeekdaysRow(textColor: textColor),
           ResponsiveHelper.verticalSpace(context, 0),
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                    ? Center(
-                        child: Text(
-                          _error!,
-                          style: ResponsiveHelper.textStyle(
-                            context,
-                            fontSize: 16,
-                            color: textColor,
+          Flexible(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(
+                maxHeight: ResponsiveHelper.height(context, 400),
+              ),
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _error != null
+                      ? Center(
+                          child: Text(
+                            _error!,
+                            style: ResponsiveHelper.textStyle(
+                              context,
+                              fontSize: 16,
+                              color: textColor,
+                            ),
                           ),
+                        )
+                      : PageView.builder(
+                          controller: _monthController,
+                          onPageChanged: (i) {
+                            // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
+                            setState(() {
+                              _currentMonthIndex = i;
+                              _selectedDay = null;
+                            });
+                          },
+                          itemCount: _totalMonths,
+                          itemBuilder: (context, index) {
+                            final yearMonth = _getYearAndMonth(index);
+                            final month = yearMonth['month']!;
+                            final year = yearMonth['year']!;
+                            return _MonthGrid(
+                              year: year,
+                              month: month,
+                              scheduleMap: _scheduleMap,
+                              selectedDay: _selectedDay,
+                              onDaySelected: (d) {
+                                setState(() => _selectedDay = d);
+                                WidgetsBinding.instance.addPostFrameCallback((_) {
+                                  _scrollToDay(d);
+                                });
+                              },
+                            );
+                          },
                         ),
-                      )
-                    : PageView.builder(
-                        controller: _monthController,
-                        onPageChanged: (i) {
-                          // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
-                          setState(() {
-                            _currentMonthIndex = i;
-                            _selectedDay = null;
-                          });
-                        },
-                        itemCount: _totalMonths,
-                        itemBuilder: (context, index) {
-                          final yearMonth = _getYearAndMonth(index);
-                          final month = yearMonth['month']!;
-                          final year = yearMonth['year']!;
-                          return _MonthGrid(
-                            year: year,
-                            month: month,
-                            scheduleMap: _scheduleMap,
-                            selectedDay: _selectedDay,
-                            onDaySelected: (d) {
-                              setState(() => _selectedDay = d);
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                _scrollToDay(d);
-                              });
-                            },
-                          );
-                        },
-                      ),
+            ),
           ),
           SizedBox(
             height: ResponsiveHelper.height(context, 300),
@@ -329,7 +334,7 @@ class _ScheduleViewState extends State<ScheduleView> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          ResponsiveHelper.verticalSpace(context, 24),
         ],
       ),
     );
@@ -608,7 +613,7 @@ class _MonthGrid extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const SizedBox(height: 6),
+              const SizedBox(height: 3), // 상단 여백 더 줄임 (4 -> 3)
               Container(
                 width: 32,
                 height: 32,
@@ -631,7 +636,7 @@ class _MonthGrid extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1), // 날짜와 캡슐 사이 간격 유지
               if (continuousInfo == null && firstEvent != null)
                 _DayCapsule(
                   text: firstEvent,
@@ -655,10 +660,10 @@ class _MonthGrid extends StatelessWidget {
             crossAxisCount: 7,
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: 4,
+            mainAxisSpacing: 1, // 행 간격 더 줄임 (2 -> 1)
             crossAxisSpacing: 0,
-            childAspectRatio: 0.85,
-            padding: const EdgeInsets.only(top: 4, bottom: 8),
+            childAspectRatio: 0.95, // 셀 높이 조정 (0.9 -> 0.95)
+            padding: const EdgeInsets.only(top: 4, bottom: 2), // 하단 패딩 더 줄임 (4 -> 2)
             children: cells,
           ),
         ],
@@ -763,16 +768,16 @@ class _MonthGrid extends StatelessWidget {
         final double gridWidth = constraints.maxWidth;
         const int columns = 7;
         const double crossAxisSpacing = 0;
-        const double mainAxisSpacing = 4; // GridView의 mainAxisSpacing과 일치
-        const double aspect = 0.85; // GridView의 childAspectRatio와 일치
+        const double mainAxisSpacing = 1; // GridView의 mainAxisSpacing과 일치 (2 -> 1)
+        const double aspect = 0.95; // GridView의 childAspectRatio와 일치 (0.9 -> 0.95)
         const double gridTopPadding = 4; // GridView의 padding top과 일치
         final double cellWidth = (gridWidth - (columns - 1) * crossAxisSpacing) / columns;
         final double cellHeight = cellWidth / aspect;
 
         // 날짜 아래 일정이 시작되는 위치 계산 (셀 내부 오프셋만)
-        // 날짜 위쪽 여백(6) + 날짜 컨테이너 높이(32) + 날짜와 캡슐 사이 여백(2) = 40
+        // 날짜 위쪽 여백(3) + 날짜 컨테이너 높이(32) + 날짜와 캡슐 사이 여백(1) = 36
         // 실제 측정값에 맞게 조정
-        const double dateTopOffset = 6 + 32 + 2;
+        const double dateTopOffset = 3 + 32 + 1;
 
         final firstDay = range.days.first;
         final lastDay = range.days.last;
