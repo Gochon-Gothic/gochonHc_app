@@ -20,6 +20,7 @@ import 'theme_colors.dart';
 import 'services/user_service.dart';
 import 'services/auth_service.dart';
 import 'services/gsheet_service.dart';
+import 'utils/responsive_helper.dart';
 import 'dart:convert';
 
 class MainScreen extends StatefulWidget {
@@ -265,17 +266,21 @@ class _MainHomeContentState extends State<_MainHomeContent> {
 
   Widget _buildLoadingState(Color textColor) => Center(
     child: Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: ResponsiveHelper.padding(context, all: 20.0),
       child: CircularProgressIndicator(color: textColor),
     ),
   );
 
   Widget _buildErrorState(String message, Color textColor) => Center(
     child: Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: ResponsiveHelper.padding(context, all: 20.0),
       child: Text(
         message,
-        style: TextStyle(color: textColor, fontSize: 16),
+        style: ResponsiveHelper.textStyle(
+          context,
+          fontSize: 16,
+          color: textColor,
+        ),
         textAlign: TextAlign.center,
       ),
     ),
@@ -283,10 +288,14 @@ class _MainHomeContentState extends State<_MainHomeContent> {
 
   Widget _buildEmptyState(String message) => Center(
     child: Padding(
-      padding: const EdgeInsets.all(20.0),
+      padding: ResponsiveHelper.padding(context, all: 20.0),
       child: Text(
         message,
-        style: const TextStyle(fontSize: 16, color: Colors.grey),
+        style: ResponsiveHelper.textStyle(
+          context,
+          fontSize: 16,
+          color: Colors.grey,
+        ),
       ),
     ),
   );
@@ -303,17 +312,22 @@ class _MainHomeContentState extends State<_MainHomeContent> {
         final event = schedule['EVENT_NM'] as String;
         final formattedDate = '${date.substring(4, 6)}월 ${date.substring(6, 8)}일';
         return Padding(
-          padding: const EdgeInsets.only(bottom: 12),
+          padding: ResponsiveHelper.padding(context, bottom: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('· ', style: TextStyle(fontSize: 18, color: textColor)),
+              Text('· ', style: ResponsiveHelper.textStyle(
+                context,
+                fontSize: 18,
+                color: textColor,
+              )),
               Expanded(
                 child: Text(
                   '$formattedDate $event',
-                  style: TextStyle(
-                    color: textColor,
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 18,
+                    color: textColor,
                     fontWeight: FontWeight.w500,
                     height: 1.3,
                   ),
@@ -348,17 +362,25 @@ class _MainHomeContentState extends State<_MainHomeContent> {
             );
           },
           child: Padding(
-            padding: EdgeInsets.only(bottom: isLast ? 0 : 8),
+            padding: ResponsiveHelper.padding(
+              context,
+              bottom: isLast ? 0 : 8,
+            ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('· ', style: TextStyle(fontSize: 18, color: textColor)),
+                Text('· ', style: ResponsiveHelper.textStyle(
+                  context,
+                  fontSize: 18,
+                  color: textColor,
+                )),
                 Expanded(
                   child: Text(
                     notice.title,
-                    style: TextStyle(
-                      color: textColor,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 18,
+                      color: textColor,
                       fontWeight: FontWeight.w500,
                       height: 1.3,
                     ),
@@ -382,16 +404,21 @@ class _MainHomeContentState extends State<_MainHomeContent> {
           children: [
             Text(
               title,
-              style: TextStyle(
-                color: textColor,
+              style: ResponsiveHelper.textStyle(
+                context,
                 fontSize: 22,
+                color: textColor,
                 letterSpacing: 0,
                 fontWeight: FontWeight.bold,
                 height: 1,
               ),
             ),
-            const SizedBox(height: 7),
-            Container(width: 73, height: 2, color: textColor),
+            ResponsiveHelper.verticalSpace(context, 7),
+            Container(
+              width: ResponsiveHelper.width(context, 73),
+              height: ResponsiveHelper.height(context, 2),
+              color: textColor,
+            ),
           ],
         ),
         if (onMore != null)
@@ -399,9 +426,10 @@ class _MainHomeContentState extends State<_MainHomeContent> {
             onTap: onMore,
             child: Text(
               '더보기',
-              style: TextStyle(
-                color: textColor.withValues(alpha: 0.6),
+              style: ResponsiveHelper.textStyle(
+                context,
                 fontSize: 14,
+                color: textColor.withValues(alpha: 0.6),
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -413,17 +441,21 @@ class _MainHomeContentState extends State<_MainHomeContent> {
   Widget _buildCardContainer(Widget child, Color cardColor, bool isDark) {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 18),
+      padding: ResponsiveHelper.padding(
+        context,
+        vertical: 24,
+        horizontal: 18,
+      ),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: ResponsiveHelper.borderRadius(context, 10),
         color: cardColor,
         boxShadow: [
           BoxShadow(
             color: isDark
                 ? Colors.black.withValues(alpha: 0.5)
                 : const Color.fromRGBO(21, 21, 21, 0.5),
-            offset: const Offset(0, 0),
-            blurRadius: 8,
+            offset: Offset.zero,
+            blurRadius: ResponsiveHelper.width(context, 8),
           ),
         ],
       ),
@@ -456,14 +488,14 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                 },
                 child: SingleChildScrollView(
                   physics: const ClampingScrollPhysics(),
-                  child: Container(
-                    padding: const EdgeInsets.only(bottom: 100),
+                    child: Container(
+                    padding: ResponsiveHelper.padding(context, bottom: 100),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 80),
+                        ResponsiveHelper.verticalSpace(context, 80),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          padding: ResponsiveHelper.horizontalPadding(context, 24),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
@@ -472,31 +504,36 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                                 children: [
                                   Text(
                                     '고촌고등학교',
-                                    style: TextStyle(
-                                      color: textColor,
+                                    style: ResponsiveHelper.textStyle(
+                                      context,
                                       fontSize: 41,
-                                      fontWeight: FontWeight.w900,
+                                      color: textColor,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  ResponsiveHelper.verticalSpace(context, 8),
                                   Text(
                                     AuthService.instance.currentUser == null
                                         ? '환영합니다, 게스트님'
                                         : (widget.userInfo?.welcomeMessage ?? '로그인 정보를 불러오는 중...'),
-                                    style: TextStyle(
+                                    style: ResponsiveHelper.textStyle(
+                                      context,
+                                      fontSize: 16,
                                       color: textColor,
                                       fontWeight: FontWeight.w600,
-                                      fontSize: 16,
                                     ),
                                   ),
                                 ],
                               ),
                               const Spacer(),
                               Transform.translate(
-                                offset: const Offset(0, 5),
+                                offset: Offset(
+                                  0,
+                                  ResponsiveHelper.height(context, 5),
+                                ),
                                 child: SizedBox(
-                                  width: 80,
-                                  height: 80,
+                                  width: ResponsiveHelper.width(context, 80),
+                                  height: ResponsiveHelper.height(context, 80),
                                   child: SvgPicture.asset(
                                     'assets/images/gochon_logo.svg',
                                     semanticsLabel: 'Gochon Logo',
@@ -506,24 +543,27 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 38),
+                        ResponsiveHelper.verticalSpace(context, 38),
                         Center(
                           child: Container(
-                            width: 371,
-                            height: 235,
+                            width: ResponsiveHelper.width(context, 371),
+                            height: ResponsiveHelper.height(context, 235),
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: ResponsiveHelper.borderRadius(context, 10),
                               border: Border.all(
                                 color: isDark ? Colors.white : AppColors.lightBorder,
-                                width: 2,
+                                width: ResponsiveHelper.width(context, 2),
                               ),
                               boxShadow: [
                                 BoxShadow(
                                   color: isDark
                                       ? Colors.black.withValues(alpha: 0.25)
                                       : const Color.fromRGBO(0, 0, 0, 0.25),
-                                  offset: const Offset(0, 4),
-                                  blurRadius: 16,
+                                  offset: Offset(
+                                    0,
+                                    ResponsiveHelper.height(context, 4),
+                                  ),
+                                  blurRadius: ResponsiveHelper.width(context, 16),
                                 ),
                               ],
                               image: const DecorationImage(
@@ -533,9 +573,9 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 25),
+                        ResponsiveHelper.verticalSpace(context, 25),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 13),
+                          padding: ResponsiveHelper.horizontalPadding(context, 13),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             mainAxisSize: MainAxisSize.min,
@@ -552,18 +592,18 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                                 },
                                 textColor,
                               ),
-                              const SizedBox(height: 10),
+                              ResponsiveHelper.verticalSpace(context, 10),
                               _buildCardContainer(
                                 buildNoticeCard(isDark, textColor),
                                 cardColor,
                                 isDark,
                               ),
-                              const SizedBox(height: 15),
+                              ResponsiveHelper.verticalSpace(context, 15),
                             ],
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 13),
+                          padding: ResponsiveHelper.horizontalPadding(context, 13),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -572,26 +612,32 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                                 () => setState(() => _showSchedule = true),
                                 textColor,
                               ),
-                              const SizedBox(height: 10),
+                              ResponsiveHelper.verticalSpace(context, 10),
                               Container(
                                 width: double.infinity,
-                                padding: const EdgeInsets.only(left: 18, right: 18, top: 16, bottom: 0),
+                                padding: ResponsiveHelper.padding(
+                                  context,
+                                  left: 18,
+                                  right: 18,
+                                  top: 16,
+                                  bottom: 0,
+                                ),
                                 decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(10),
+                                  borderRadius: ResponsiveHelper.borderRadius(context, 10),
                                   color: cardColor,
                                   boxShadow: [
                                     BoxShadow(
                                       color: isDark
                                           ? Colors.black.withValues(alpha: 0.5)
                                           : const Color.fromRGBO(21, 21, 21, 0.5),
-                                      offset: const Offset(0, 0),
-                                      blurRadius: 8,
+                                      offset: Offset.zero,
+                                      blurRadius: ResponsiveHelper.width(context, 8),
                                     ),
                                   ],
                                 ),
                                 child: buildScheduleCard(isDark, textColor, cardColor),
                               ),
-                              const SizedBox(height: 10),
+                              ResponsiveHelper.verticalSpace(context, 10),
                             ],
                           ),
                         ),

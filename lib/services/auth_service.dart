@@ -22,7 +22,7 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
-    hostedDomain: 'gochon.hs.kr',
+    serverClientId: '38240410420-3hsiq53tf3etuajnptqbba2gfkt9rvh9.apps.googleusercontent.com',
   );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -46,14 +46,6 @@ class AuthService {
       );
 
       print('Apple 자격 증명서 받음: ${appleCredential.email}');
-
-      final userEmail = appleCredential.email;
-      if (userEmail != null &&
-          !userEmail.endsWith('@gochon.hs.kr') &&
-          !userEmail.endsWith('@privaterelay.appleid.com')) {
-        print('잘못된 도메인: $userEmail');
-        throw Exception('고촌고등학교 계정(@gochon.hs.kr)으로만 로그인할 수 있습니다.');
-      }
 
       final credential = OAuthProvider("apple.com").credential(
         idToken: appleCredential.identityToken,
@@ -111,7 +103,16 @@ class AuthService {
       }
 
       print('Google Sign-In 프로세스 시작...');
-      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      print('플랫폼: ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Other"}');
+      
+      GoogleSignInAccount? googleUser;
+      try {
+        googleUser = await _googleSignIn.signIn();
+      } catch (signInError) {
+        print('Google Sign-In 호출 중 오류 발생: $signInError');
+        print('오류 타입: ${signInError.runtimeType}');
+        rethrow;
+      }
 
       if (googleUser == null) {
         print('사용자가 로그인을 취소했습니다.');
@@ -119,12 +120,6 @@ class AuthService {
       }
 
       print('Google 사용자 정보: ${googleUser.email}');
-
-      if (!googleUser.email.endsWith('@gochon.hs.kr')) {
-        print('잘못된 도메인: ${googleUser.email}');
-        await _googleSignIn.signOut();
-        throw Exception('고촌고등학교 계정(@gochon.hs.kr)으로만 로그인할 수 있습니다.');
-      }
 
       print('Google 인증 토큰 요청 중...');
       final GoogleSignInAuthentication googleAuth =

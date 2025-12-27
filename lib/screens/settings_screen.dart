@@ -4,6 +4,7 @@ import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
+import '../utils/responsive_helper.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -35,20 +36,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         title: Text(
           '설정',
-          style: TextStyle(
-            color: textColor,
+          style: ResponsiveHelper.textStyle(
+            context,
             fontSize: 24,
+            color: textColor,
             fontWeight: FontWeight.bold,
           ),
         ),
       ),
       body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: ResponsiveHelper.padding(
+          context,
+          horizontal: 24,
+          vertical: 16,
+        ),
         children: [
           // 다크모드 설정
           Card(
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: ResponsiveHelper.borderRadius(context, 12),
             ),
             elevation: 4,
             color: cardColor,
@@ -59,7 +65,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
               title: Text(
                 '다크모드',
-                style: TextStyle(color: textColor),
+                style: ResponsiveHelper.textStyle(
+                  context,
+                  fontSize: 16,
+                  color: textColor,
+                ),
               ),
               trailing: Switch(
                 value: themeProvider.isDarkMode,
@@ -71,13 +81,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          ResponsiveHelper.verticalSpace(context, 12),
           
           // 계정 관련 설정 (로그인 시에만 표시)
           if (currentUser != null) ...[
             Card(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: ResponsiveHelper.borderRadius(context, 12),
               ),
               elevation: 4,
               color: cardColor,
@@ -87,37 +97,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     leading: Icon(Icons.account_circle, color: textColor),
                     title: Text(
                       '계정',
-                      style: TextStyle(
-                        color: textColor,
+                      style: ResponsiveHelper.textStyle(
+                        context,
                         fontSize: 18,
+                        color: textColor,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
-                  const Divider(height: 1),
+                  Divider(height: ResponsiveHelper.height(context, 1)),
                   ListTile(
                     leading: Icon(Icons.email, color: textColor.withValues(alpha: 0.7)),
                     title: Text(
                       '이메일',
-                      style: TextStyle(color: textColor),
+                      style: ResponsiveHelper.textStyle(
+                        context,
+                        fontSize: 16,
+                        color: textColor,
+                      ),
                     ),
                     subtitle: Text(
                       currentUser.email ?? '이메일 없음',
-                      style: TextStyle(
-                        color: textColor.withValues(alpha: 0.6),
+                      style: ResponsiveHelper.textStyle(
+                        context,
                         fontSize: 14,
+                        color: textColor.withValues(alpha: 0.6),
                       ),
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            ResponsiveHelper.verticalSpace(context, 12),
             
             // 계정 삭제 버튼
             Card(
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: ResponsiveHelper.borderRadius(context, 12),
               ),
               elevation: 4,
               color: cardColor,
@@ -128,22 +144,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 title: Text(
                   '계정 삭제',
-                  style: TextStyle(
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 16,
                     color: Colors.red,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 trailing: _isDeleting
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
+                    ? SizedBox(
+                        width: ResponsiveHelper.width(context, 20),
+                        height: ResponsiveHelper.height(context, 20),
                         child: CircularProgressIndicator(
-                          strokeWidth: 2,
+                          strokeWidth: ResponsiveHelper.width(context, 2),
                         ),
                       )
                     : Icon(
                         Icons.arrow_forward_ios,
-                        size: 16,
+                        size: ResponsiveHelper.width(context, 16),
                         color: Colors.red,
                       ),
                 onTap: _isDeleting ? null : _showDeleteAccountDialog,

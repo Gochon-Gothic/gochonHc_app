@@ -7,6 +7,9 @@ import '../services/auth_service.dart';
 import '../theme_colors.dart';
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
+import 'initial_setup_screen.dart';
+import '../main.dart';
+import '../utils/responsive_helper.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -45,14 +48,21 @@ class _LoginScreenState extends State<LoginScreen> {
             await UserService.instance.saveUserInfo(userInfo);
           }
           if (mounted) {
-            Navigator.pushReplacementNamed(context, '/main');
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const MainScreen(),
+              ),
+            );
           }
         } else {
           if (mounted) {
-            Navigator.pushReplacementNamed(
-              context,
-              '/initial_setup',
-              arguments: {'userEmail': user.email, 'uid': user.uid},
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => InitialSetupScreen(
+                  userEmail: user.email ?? '',
+                  uid: user.uid,
+                ),
+              ),
             );
           }
         }
@@ -95,14 +105,21 @@ class _LoginScreenState extends State<LoginScreen> {
             await UserService.instance.saveUserInfo(userInfo);
           }
           if (mounted) {
-            Navigator.pushReplacementNamed(context, '/main');
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => const MainScreen(),
+              ),
+            );
           }
         } else {
           if (mounted) {
-            Navigator.pushReplacementNamed(
-              context,
-              '/initial_setup',
-              arguments: {'userEmail': user.email, 'uid': user.uid},
+            Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (context) => InitialSetupScreen(
+                  userEmail: user.email ?? '',
+                  uid: user.uid,
+                ),
+              ),
             );
           }
         }
@@ -124,7 +141,11 @@ class _LoginScreenState extends State<LoginScreen> {
   }
   Future<void> _handleGuestLogin() async {
     if (mounted) {
-      Navigator.pushReplacementNamed(context, '/main');
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(
+          builder: (context) => const MainScreen(),
+        ),
+      );
     }
   }
 
@@ -151,15 +172,16 @@ class _LoginScreenState extends State<LoginScreen> {
             child: Stack(
               children: [
                 Positioned(
-                  top: 60,
+                  top: ResponsiveHelper.height(context, 60),
                   left: 0,
                   right: 0,
                   child: Text(
                     '로그인하기',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textColor,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 50,
+                      color: textColor,
                       letterSpacing: 0,
                       fontWeight: FontWeight.w600,
                       height: 1.5,
@@ -168,11 +190,12 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 Positioned(
-                  top: 210,
-                  left: 13,
-                  right: 13,
+                  top: ResponsiveHelper.height(context, 210),
+                  left: ResponsiveHelper.width(context, 13),
+                  right: ResponsiveHelper.width(context, 13),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
+                    padding: ResponsiveHelper.padding(
+                      context,
                       horizontal: 24,
                       vertical: 0,
                     ),
@@ -185,21 +208,23 @@ class _LoginScreenState extends State<LoginScreen> {
                             Text(
                               '소셜 계정을 이용해 로그인',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: textColor,
+                              style: ResponsiveHelper.textStyle(
+                                context,
                                 fontSize: 16,
+                                color: textColor,
                                 letterSpacing: 0,
                                 fontWeight: FontWeight.w500,
                                 height: 1.5,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            ResponsiveHelper.verticalSpace(context, 2),
                             Text(
                               'Login by using social account',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
-                                color: textColor,
+                              style: ResponsiveHelper.textStyle(
+                                context,
                                 fontSize: 14,
+                                color: textColor,
                                 letterSpacing: 0,
                                 fontWeight: FontWeight.normal,
                                 height: 1.5,
@@ -208,45 +233,41 @@ class _LoginScreenState extends State<LoginScreen> {
                           ],
                         ),
 
-                        const SizedBox(height: 24),
+                        ResponsiveHelper.verticalSpace(context, 24),
 
                         Container(
-                          width: 327,
-                          height: 40,
+                          width: ResponsiveHelper.width(context, 327),
+                          height: ResponsiveHelper.height(context, 40),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: ResponsiveHelper.borderRadius(context, 8),
                             color: isDark ? Colors.white : AppColors.primary,
                           ),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: ResponsiveHelper.borderRadius(context, 8),
                               onTap: isLoading ? null : _handleGoogleSignIn,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
+                                padding: ResponsiveHelper.horizontalPadding(context, 16),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     SizedBox(
-                                      width: 20,
-                                      height: 20,
+                                      width: ResponsiveHelper.width(context, 20),
+                                      height: ResponsiveHelper.height(context, 20),
                                       child: SvgPicture.asset(
                                         'assets/images/google_logo.svg',
                                         semanticsLabel: 'Google Logo',
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    ResponsiveHelper.horizontalSpace(context, 8),
                                     Text(
                                       'Continue with Google',
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color:
-                                            isDark
-                                                ? Colors.black
-                                                : Colors.white,
+                                      style: ResponsiveHelper.textStyle(
+                                        context,
                                         fontSize: 14,
+                                        color: isDark ? Colors.black : Colors.white,
                                         letterSpacing: 0,
                                         fontWeight: FontWeight.w500,
                                         height: 1.5,
@@ -258,41 +279,40 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        ResponsiveHelper.verticalSpace(context, 20),
                         Container(
-                          width: 327,
-                          height: 40,
+                          width: ResponsiveHelper.width(context, 327),
+                          height: ResponsiveHelper.height(context, 40),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: ResponsiveHelper.borderRadius(context, 8),
                             color: isDark ? Colors.white : Colors.black,
                           ),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: ResponsiveHelper.borderRadius(context, 8),
                               onTap: isLoading ? null : _handleAppleSignIn,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
+                                padding: ResponsiveHelper.horizontalPadding(context, 16),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     SizedBox(
-                                      width: 20,
-                                      height: 20,
+                                      width: ResponsiveHelper.width(context, 20),
+                                      height: ResponsiveHelper.height(context, 20),
                                       child: SvgPicture.asset(
                                         'assets/images/apple.svg',
                                         semanticsLabel: 'Apple Logo',
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    ResponsiveHelper.horizontalSpace(context, 8),
                                     Text(
                                       'Continue with Apple',
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: isDark ? Colors.black : Colors.white,
+                                      style: ResponsiveHelper.textStyle(
+                                        context,
                                         fontSize: 14,
+                                        color: isDark ? Colors.black : Colors.white,
                                         letterSpacing: 0,
                                         fontWeight: FontWeight.w500,
                                         height: 1.5,
@@ -304,40 +324,39 @@ class _LoginScreenState extends State<LoginScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        ResponsiveHelper.verticalSpace(context, 32),
                         SizedBox(
-                          width: 327,
-                          height: 1,
+                          width: ResponsiveHelper.width(context, 327),
+                          height: ResponsiveHelper.height(context, 1),
                           child: Container(
                             color: Colors.white.withValues(alpha: 0.3),
                           ),
                         ),
-                        const SizedBox(height: 32),
+                        ResponsiveHelper.verticalSpace(context, 32),
                         Container(
-                          width: 327,
-                          height: 40,
+                          width: ResponsiveHelper.width(context, 327),
+                          height: ResponsiveHelper.height(context, 40),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: ResponsiveHelper.borderRadius(context, 8),
                             color: isDark ? Colors.white : Colors.black,
                           ),
                           child: Material(
                             color: Colors.transparent,
                             child: InkWell(
-                              borderRadius: BorderRadius.circular(8),
+                              borderRadius: ResponsiveHelper.borderRadius(context, 8),
                               onTap: isLoading ? null : _handleGuestLogin,
                               child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                ),
+                                padding: ResponsiveHelper.horizontalPadding(context, 16),
                                 child: Row(
                                   mainAxisAlignment: MainAxisAlignment.center,
                                   children: [
                                     Text(
                                       '로그인 없이 이용하기',
                                       textAlign: TextAlign.center,
-                                      style: TextStyle(
-                                        color: isDark ? Colors.black : Colors.white,
+                                      style: ResponsiveHelper.textStyle(
+                                        context,
                                         fontSize: 14,
+                                        color: isDark ? Colors.black : Colors.white,
                                         letterSpacing: 0,
                                         fontWeight: FontWeight.w500,
                                         height: 1.5,
@@ -350,14 +369,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 24),
+                        ResponsiveHelper.verticalSpace(context, 24),
 
                         Text(
                           'By clicking continue, you agree to our Terms of Service and Privacy Policy',
                           textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: secondaryTextColor,
+                          style: ResponsiveHelper.textStyle(
+                            context,
                             fontSize: 12,
+                            color: secondaryTextColor,
                             letterSpacing: 0,
                             fontWeight: FontWeight.normal,
                             height: 1.5,
@@ -365,12 +385,13 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
 
                         if (error != null) ...[
-                          const SizedBox(height: 16),
+                          ResponsiveHelper.verticalSpace(context, 16),
                           Text(
                             error!,
-                            style: TextStyle(
-                              color: AppColors.error,
+                            style: ResponsiveHelper.textStyle(
+                              context,
                               fontSize: 12,
+                              color: AppColors.error,
                             ),
                             textAlign: TextAlign.center,
                           ),
@@ -381,7 +402,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
 
                 Positioned(
-                  bottom: 70,
+                  bottom: ResponsiveHelper.height(context, 70),
                   left: 0,
                   right: 0,
                   child: Row(
@@ -390,25 +411,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       Text(
                         '고촌고등학교',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: textColor,
+                        style: ResponsiveHelper.textStyle(
+                          context,
                           fontSize: 25,
+                          color: textColor,
                           letterSpacing: 0,
                           fontWeight: FontWeight.w700,
                           height: 1.5,
+                        ).copyWith(
                           shadows: [
                             Shadow(
-                              offset: const Offset(0.5, 0.5),
-                              blurRadius: 0.5,
+                              offset: Offset(
+                                ResponsiveHelper.width(context, 0.5),
+                                ResponsiveHelper.height(context, 0.5),
+                              ),
+                              blurRadius: ResponsiveHelper.width(context, 0.5),
                               color: textColor.withValues(alpha: 0.3),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      ResponsiveHelper.horizontalSpace(context, 8),
                       SizedBox(
-                        width: 23,
-                        height: 23,
+                        width: ResponsiveHelper.width(context, 23),
+                        height: ResponsiveHelper.height(context, 23),
                         child: SvgPicture.asset(
                           'assets/images/gochon_logo.svg',
                           semanticsLabel: 'Gochon Logo',

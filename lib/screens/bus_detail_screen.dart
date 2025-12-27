@@ -5,6 +5,7 @@ import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../utils/preference_manager.dart';
 import 'bus_route_detail_screen.dart';
+import '../utils/responsive_helper.dart';
 
 class BusDetailScreen extends StatefulWidget {
   final BusStation station;
@@ -132,16 +133,23 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                     children: [
                       Text(
                         error!,
-                        style: const TextStyle(
-                          color: Colors.red,
+                        style: ResponsiveHelper.textStyle(
+                          context,
                           fontSize: 16,
+                          color: Colors.red,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
+                      ResponsiveHelper.verticalSpace(context, 16),
                       ElevatedButton(
                         onPressed: _loadStationInfo,
-                        child: const Text('다시 시도'),
+                        child: Text(
+                          '다시 시도',
+                          style: ResponsiveHelper.textStyle(
+                            context,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -149,7 +157,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
               : Column(
                   children: [
                     _buildTopStationPanel(),
-                    const SizedBox(height: 15),
+                    ResponsiveHelper.verticalSpace(context, 15),
                     Expanded(
                       child: _buildBusList(),
                     ),
@@ -169,15 +177,15 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     return Container(
       padding: EdgeInsets.only(
         top: MediaQuery.of(context).padding.top,
-        left: 20,
-        right: 20,
-        bottom: 10,
+        left: ResponsiveHelper.width(context, 20),
+        right: ResponsiveHelper.width(context, 20),
+        bottom: ResponsiveHelper.height(context, 10),
       ),
       decoration: BoxDecoration(
         color: panelColor,
-        borderRadius: const BorderRadius.only(
-          bottomRight: Radius.circular(33),
-          bottomLeft: Radius.circular(33),
+        borderRadius: BorderRadius.only(
+          bottomRight: Radius.circular(ResponsiveHelper.width(context, 33)),
+          bottomLeft: Radius.circular(ResponsiveHelper.width(context, 33)),
         ),
       ),
       child: Column(
@@ -188,25 +196,26 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
               GestureDetector(
                 onTap: () => Navigator.of(context).pop(favoriteChanged),
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: ResponsiveHelper.padding(context, all: 8),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: ResponsiveHelper.borderRadius(context, 8),
                   ),
                     child: Icon(
                       Icons.arrow_back_ios,
                       color: textColor,
-                      size: 25,
+                      size: ResponsiveHelper.width(context, 25),
                     ),
                 ),
               ),
-              const SizedBox(width: 7),
+              ResponsiveHelper.horizontalSpace(context, 7),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                       Text(
                         widget.station.baseStationName,
-                        style: TextStyle(
+                        style: ResponsiveHelper.textStyle(
+                          context,
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
                           color: textColor,
@@ -215,13 +224,14 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                       if (direction.isNotEmpty) ...[
                         Text(
                           '$direction 방면',
-                          style: TextStyle(
+                          style: ResponsiveHelper.textStyle(
+                            context,
                             fontSize: 18,
                             color: subTextColor,
                             fontWeight: FontWeight.w500,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        ResponsiveHelper.verticalSpace(context, 2),
                       ],
                   ],
                 ),
@@ -229,14 +239,14 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
               GestureDetector(
                 onTap: _toggleFavorite,
                 child: Container(
-                  padding: const EdgeInsets.all(8),
+                  padding: ResponsiveHelper.padding(context, all: 8),
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: ResponsiveHelper.borderRadius(context, 8),
                   ),
                   child: Icon(
                     isFavorite ? Icons.star : Icons.star_border,
                     color: isFavorite ? const Color.fromRGBO(255, 197, 30, 1) : textColor.withValues(alpha: 0.6),
-                    size: 28,
+                    size: ResponsiveHelper.width(context, 28),
                   ),
                 ),
               ),
@@ -249,19 +259,20 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
 
   Widget _buildBusList() {
     if (routes.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           '경유하는 버스가 없습니다',
-          style: TextStyle(
-            color: Colors.grey,
+          style: ResponsiveHelper.textStyle(
+            context,
             fontSize: 16,
+            color: Colors.grey,
           ),
         ),
       );
     }
 
     return ListView.builder(
-      padding: const EdgeInsets.symmetric(horizontal: 15),
+      padding: ResponsiveHelper.horizontalPadding(context, 15),
       itemCount: routes.length,
       itemBuilder: (context, index) {
         final route = routes[index];

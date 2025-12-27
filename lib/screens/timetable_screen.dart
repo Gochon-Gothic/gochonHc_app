@@ -11,6 +11,7 @@ import '../theme_colors.dart';
 import '../services/user_service.dart';
 import '../services/auth_service.dart';
 import '../services/gsheet_service.dart';
+import '../utils/responsive_helper.dart';
 
 
 class TimetableScreen extends StatefulWidget {
@@ -62,10 +63,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     // 로그인 상태 확인하여 초기 모드 설정
     final currentUser = AuthService.instance.currentUser;
     if (currentUser == null) {
-      // 로그인 안되어있으면 바로 반별 시간표로 (1-1)
+      // 로그인 안되어있으면 바로 반별 시간표로
       _isMyTimetable = false;
-      selectedGrade = '1';
-      selectedClass = '1';
+      // 저장된 마지막 선택 반 정보 불러오기
+      _loadLastSelectedClass();
     }
     
     _loadClassCounts();
@@ -83,6 +84,47 @@ class _TimetableScreenState extends State<TimetableScreen> {
         _dayController.jumpToPage(_selectedListDayIndex ?? 0);
       }
     });
+  }
+
+  // 마지막 선택한 반 정보 불러오기
+  Future<void> _loadLastSelectedClass() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final lastGrade = prefs.getString('last_selected_grade');
+      final lastClass = prefs.getString('last_selected_class');
+      
+      if (lastGrade != null && lastClass != null) {
+        setState(() {
+          selectedGrade = lastGrade;
+          selectedClass = lastClass;
+        });
+      } else {
+        // 저장된 정보가 없으면 기본값 1-1
+        setState(() {
+          selectedGrade = '1';
+          selectedClass = '1';
+        });
+      }
+    } catch (e) {
+      // 오류 발생 시 기본값 1-1
+      setState(() {
+        selectedGrade = '1';
+        selectedClass = '1';
+      });
+    }
+  }
+
+  // 마지막 선택한 반 정보 저장하기
+  Future<void> _saveLastSelectedClass() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (selectedGrade != null && selectedClass != null) {
+        await prefs.setString('last_selected_grade', selectedGrade!);
+        await prefs.setString('last_selected_class', selectedClass!);
+      }
+    } catch (e) {
+      print('마지막 선택 반 정보 저장 실패: $e');
+    }
   }
 
   // 학년별 반 수 로드
@@ -142,6 +184,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
         selectedGrade = finalGrade.toString();
         selectedClass = finalClass.toString();
       });
+      // 마지막 선택 반 정보 저장
+      _saveLastSelectedClass();
       // 캐시가 있으면 즉시 표시, 없으면 로딩 표시
       loadTimetable(showLoading: false);
       
@@ -183,9 +227,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (mounted) {
         // 로그인 안되어있으면 반별 시간표로
         if (!_isMyTimetable) {
+          // 저장된 마지막 선택 반 정보가 없으면 기본값 사용
+          if (selectedGrade == null || selectedClass == null) {
+            await _loadLastSelectedClass();
+          }
           setState(() {
-            selectedGrade = '1';
-            selectedClass = '1';
             isLoading = false;
           });
           loadTimetable();
@@ -536,14 +582,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
         if (period >= 0 && period < 7) {
           String subject = item['ITRT_CNTNT'];
           
-          // 선택과목 적용: 해당 과목이 선택과목에 있으면 교체
-          if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
-            final setNum = getSetNumber(subject);
-            if (setNum != null) {
-              final clean = cleanSubject(subject, setNum);
-              final key = '$setNum-$clean';
-              if (_electiveSubjects!.containsKey(key)) {
-                subject = _electiveSubjects![key]!;
+          // 지필평가가 포함된 경우 선택과목 적용하지 않음
+          if (!subject.contains('지필평가')) {
+            // 선택과목 적용: 해당 과목이 선택과목에 있으면 교체
+            if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+              final setNum = getSetNumber(subject);
+              if (setNum != null) {
+                final clean = cleanSubject(subject, setNum);
+                final key = '$setNum-$clean';
+                if (_electiveSubjects!.containsKey(key)) {
+                  subject = _electiveSubjects![key]!;
+                }
               }
             }
           }
@@ -590,7 +639,21 @@ class _TimetableScreenState extends State<TimetableScreen> {
   ];
 
   String shortenSubject(String subject) {
+    // 지필평가 체크를 캐시 체크 전에 가장 먼저 수행
+    if (subject.contains('지필평가')) {
+      _shortenCache[subject] = '지필';
+      return '지필';
+    }
+    
+    // 자기주도 체크
+    if (subject.contains('자기주도')) {
+      _shortenCache[subject] = '자습';
+      return '자습';
+    }
+    
+    // 캐시 체크
     if (_shortenCache.containsKey(subject)) return _shortenCache[subject]!;
+    
     // 휴일 체크
     for (var holiday in dayoff) {
       if (subject.contains(holiday)) return '휴일';
@@ -743,20 +806,21 @@ class _TimetableScreenState extends State<TimetableScreen> {
             children: [
               Icon(
                 Icons.error_outline,
-                size: 64,
+                size: ResponsiveHelper.width(context, 64),
                 color: textColor.withValues(alpha: 0.5),
               ),
-              const SizedBox(height: 16),
+              ResponsiveHelper.verticalSpace(context, 16),
               Text(
                 error!,
-                style: TextStyle(
-                  color: textColor,
+                style: ResponsiveHelper.textStyle(
+                  context,
                   fontSize: 18,
+                  color: textColor,
                   fontWeight: FontWeight.w500,
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 24),
+              ResponsiveHelper.verticalSpace(context, 24),
               ElevatedButton(
                 onPressed: () {
                   setState(() {
@@ -776,11 +840,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return Container(
       color: bgColor,
       child: ListView(
-        padding: const EdgeInsets.all(0),
+        padding: EdgeInsets.zero,
         children: [
-          const SizedBox(height: 80),
+          ResponsiveHelper.verticalSpace(context, 80),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: ResponsiveHelper.horizontalPadding(context, 24),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -835,9 +899,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           child: Text(
                             _isMyTimetable ? '나의 시간표' : '반별 시간표',
                             key: ValueKey(_isMyTimetable),
-                            style: TextStyle(
-                              color: textColor,
+                            style: ResponsiveHelper.textStyle(
+                              context,
                               fontSize: 39,
+                              color: textColor,
                               fontWeight: FontWeight.w800,
                               height: 1,
                             ),
@@ -858,12 +923,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           child: (_isMyTimetable && AuthService.instance.currentUser != null)
                               ? Padding(
                                   key: const ValueKey('right_arrow'),
-                                  padding: const EdgeInsets.only(left: 8),
+                                  padding: ResponsiveHelper.padding(context, left: 8),
                                   child: GestureDetector(
                                     onTap: _toggleTimetableMode,
                                     child: Icon(
                                       Icons.arrow_forward_ios,
-                                      size: 20,
+                                      size: ResponsiveHelper.width(context, 20),
                                       color: textColor.withValues(alpha: 0.8),
                                     ),
                                   ),
@@ -872,7 +937,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 14),
+                    ResponsiveHelper.verticalSpace(context, 14),
                     // 반 선택 텍스트 (반별 시간표 모드일 때만 표시)
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
@@ -894,9 +959,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               onTap: () => _showClassPicker(context, isDark, textColor),
                               child: Text(
                                 '${selectedGrade ?? '1'}학년 ${selectedClass ?? '1'}반',
-                                style: TextStyle(
-                                  color: textColor,
+                                style: ResponsiveHelper.textStyle(
+                                  context,
                                   fontSize: 27,
+                                  color: textColor,
                                   fontWeight: FontWeight.w800,
                                   height: 1,
                                 ),
@@ -925,9 +991,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           child: _isNextWeek()
                               ? Padding(
                                   key: const ValueKey('left_arrow'),
-                                  padding: const EdgeInsets.only(right: 0),
+                                  padding: ResponsiveHelper.padding(context, right: 0),
                                   child: IconButton(
-                                    icon: const Icon(Icons.arrow_back_ios, size: 16),
+                                    icon: Icon(
+                                      Icons.arrow_back_ios,
+                                      size: ResponsiveHelper.width(context, 16),
+                                    ),
                                     color: textColor.withValues(alpha: 0.6),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
@@ -938,9 +1007,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         ),
                         Text(
                           '${DateFormat('MM/dd').format(currentWeekStart)}~${DateFormat('MM/dd').format(currentWeekStart.add(const Duration(days: 4)))}',
-                          style: TextStyle(
-                            color: textColor.withValues(alpha: 0.6),
+                          style: ResponsiveHelper.textStyle(
+                            context,
                             fontSize: 16,
+                            color: textColor.withValues(alpha: 0.6),
                             fontWeight: FontWeight.w600,
                             height: 1,
                           ),
@@ -961,9 +1031,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           child: !_isNextWeek()
                               ? Padding(
                                   key: const ValueKey('right_arrow'),
-                                  padding: const EdgeInsets.only(left: 0),
+                                  padding: ResponsiveHelper.padding(context, left: 0),
                                   child: IconButton(
-                                    icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                                    icon: Icon(
+                                      Icons.arrow_forward_ios,
+                                      size: ResponsiveHelper.width(context, 16),
+                                    ),
                                     color: textColor.withValues(alpha: 0.6),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
@@ -978,8 +1051,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 ),
                 const Spacer(),
                 SizedBox(
-                  width: 70,
-                  height: 70,
+                  width: ResponsiveHelper.width(context, 70),
+                  height: ResponsiveHelper.height(context, 70),
                   child: SvgPicture.asset(
                     'assets/images/gochon_logo.svg',
                     semanticsLabel: 'Gochon Logo',
@@ -990,9 +1063,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
           ),
           if (!_isTableView)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
+              padding: ResponsiveHelper.horizontalPadding(context, 12),
               child: SizedBox(
-                height: 90,
+                height: ResponsiveHelper.height(context, 90),
                 child: _WeekHeader(
                   controller: _dayController,
                   dates: getWeekDates(),
@@ -1016,7 +1089,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               ),
             ),
           Padding(
-            padding: const EdgeInsets.only(right: 24),
+            padding: ResponsiveHelper.padding(context, right: 24),
             child: Align(
               alignment: Alignment.centerRight,
               child: GestureDetector(
@@ -1080,11 +1153,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
   
   Widget _buildTableView(bool isDark, Color textColor) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: ResponsiveHelper.horizontalPadding(context, 16),
       child: Column(
         children: [
           LayoutBuilder(builder: (context, constraints) {
-            const double gap = 8;
+            final double gap = ResponsiveHelper.width(context, 8);
             final double itemWidth = (constraints.maxWidth - gap * 4) / 5;
             return Row(
               children: List.generate(5, (i) {
@@ -1092,13 +1165,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 final bool topRight = i == 4;
                 return Container(
                   width: itemWidth,
-                  height: 36,
+                  height: ResponsiveHelper.height(context, 36),
                   margin: EdgeInsets.only(right: i == 4 ? 0 : gap),
                   decoration: const BoxDecoration(color: Colors.transparent),
                   child: CustomPaint(
                     painter: _CornerPainter(
-                      fill: isDark ? const Color(0xFF1E1E1E) : const Color.fromARGB(255, 203, 204, 208),
-                      radius: 12,
+                      fill: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
+                      radius: ResponsiveHelper.width(context, 12),
                       topLeft: topLeft,
                       topRight: topRight,
                       bottomLeft: false,
@@ -1107,10 +1180,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     child: Center(
                       child: Text(
                         const ['월', '화', '수', '목', '금'][i],
-                        style: TextStyle(
+                        style: ResponsiveHelper.textStyle(
+                          context,
+                          fontSize: 15,
                           color: isDark ? AppColors.darkText : const Color(0xFF30302E),
                           fontWeight: FontWeight.w700,
-                          fontSize: 15,
                         ),
                       ),
                     ),
@@ -1119,13 +1193,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
               }),
             );
           }),
-          const SizedBox(height: 8),
+          ResponsiveHelper.verticalSpace(context, 8),
           ...List.generate(7, (row) {
             return LayoutBuilder(builder: (context, constraints) {
-              const double gap = 8;
+              final double gap = ResponsiveHelper.width(context, 8);
               final double itemWidth = (constraints.maxWidth - gap * 4) / 5;
               return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
+                padding: ResponsiveHelper.padding(context, bottom: 8),
                 child: Row(
                   children: List.generate(5, (dayIdx) {
                     final int lastIndex = getPeriodCount(dayIdx) - 1; // 0-based
@@ -1140,13 +1214,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     final bool bottomRight = dayIdx == 4 && row == lastIndex;
                     return Container(
                       width: itemWidth,
-                      height: 50,
+                      height: ResponsiveHelper.height(context, 50),
                       margin: EdgeInsets.only(right: dayIdx == 4 ? 0 : gap),
                       decoration: const BoxDecoration(color: Colors.transparent),
                       child: CustomPaint(
                         painter: _CornerPainter(
-                          fill: isDark ? const Color(0xFF1E1E1E) : const Color.fromARGB(255, 203, 204, 208),
-                          radius: 12,
+                          fill: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
+                          radius: ResponsiveHelper.width(context, 12),
                           topLeft: false,
                           topRight: false,
                           bottomLeft: bottomLeft,
@@ -1154,16 +1228,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         ),
                         child: Center(
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            padding: ResponsiveHelper.horizontalPadding(context, 8),
                             child: Text(
                               shortenSubject(cell),
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 15,
                                 color: isDark ? AppColors.darkText : const Color(0xFF30302E),
                                 fontWeight: FontWeight.w600,
-                                fontSize: 15,
                                 height: 1.1,
                               ),
                             ),
@@ -1182,7 +1257,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
   Widget _buildListView(Color cardColor, Color textColor, bool isDark) {
     return SizedBox(
-      height: 500, // 적절한 고정 높이 설정
+      height: ResponsiveHelper.height(context, 500), // 적절한 고정 높이 설정
       child: PageView.builder(
         controller: _dayController,
         physics: const BouncingScrollPhysics(),
@@ -1196,37 +1271,61 @@ class _TimetableScreenState extends State<TimetableScreen> {
           final List<_PeriodInfo> periods = _buildPeriodInfos(dayIdx);
           return SingleChildScrollView(
             physics: const BouncingScrollPhysics(),
-            padding: const EdgeInsets.symmetric(horizontal: 16),
+            padding: ResponsiveHelper.horizontalPadding(context, 16),
             child: Column(
               children: [
-                ...List.generate(periods.length, (i) {
-                  final info = periods[i];
+                ...periods.where((info) {
                   final subject = (dayIdx < timetable.length && info.periodIndex < timetable[dayIdx].length)
                       ? timetable[dayIdx][info.periodIndex]
                       : '';
+                  return subject.isNotEmpty;
+                }).map((info) {
+                  final subject = (dayIdx < timetable.length && info.periodIndex < timetable[dayIdx].length)
+                      ? timetable[dayIdx][info.periodIndex]
+                      : '';
+                  final listItemBgColor = isDark 
+                      ? cardColor 
+                      : const Color(0xFFF5F5F5);
+                  
                   return Container(
                     width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(5),
+                    margin: ResponsiveHelper.padding(context, bottom: 8),
+                    padding: ResponsiveHelper.padding(context, all: 5),
                     decoration: const BoxDecoration(color: Colors.transparent),
                     child: CustomPaint(
                       painter: _OuterCornersPainter(
-                        fill: cardColor,
-                        radius: 20,
+                        fill: listItemBgColor,
+                        radius: ResponsiveHelper.width(context, 20),
                       ),
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        padding: ResponsiveHelper.padding(
+                          context,
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               '${info.label} | ${_formatAmPm(info.start)} ${_formatAmPm(info.end)}',
-                              style: TextStyle(color: textColor.withValues(alpha: 0.9), fontSize: 13, fontWeight: FontWeight.w400, height: 1.28),
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 13,
+                                color: textColor.withValues(alpha: 0.9),
+                                fontWeight: FontWeight.w400,
+                                height: 1.28,
+                              ),
                             ),
-                            const SizedBox(height: 6),
+                            ResponsiveHelper.verticalSpace(context, 6),
                             Text(
-                              subject.isEmpty ? '-' : subject,
-                              style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600, height: 1.28),
+                              _formatSubjectName(subject),
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 18,
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                                height: 1.28,
+                              ),
                             ),
                           ],
                         ),
@@ -1263,6 +1362,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final String mm = t.minute.toString().padLeft(2, '0');
     return '$hour12:$mm $ampm';
   }
+
+  String _formatSubjectName(String subject) {
+    if (subject.contains('지필평가')) {
+      final index = subject.indexOf('지필평가');
+      if (index != -1) {
+        final afterIndex = index + '지필평가'.length;
+        if (afterIndex < subject.length && subject[afterIndex] != ' ') {
+          return subject.substring(0, afterIndex) + ' ' + subject.substring(afterIndex);
+        }
+      }
+    }
+    return subject;
+  }
 }
 
 class _WeekHeader extends StatelessWidget {
@@ -1278,10 +1390,10 @@ class _WeekHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     const labels = ['일', '월', '화', '수', '목', '금', '토'];
-    const itemWidth = 44.0;
-    const sidePadding = 13.0;
-    const capsuleWidth = 44.0;
-    const capsuleHeight = 60.0;
+    final itemWidth = ResponsiveHelper.width(context, 44.0);
+    final sidePadding = ResponsiveHelper.width(context, 13.0);
+    final capsuleWidth = ResponsiveHelper.width(context, 44.0);
+    final capsuleHeight = ResponsiveHelper.height(context, 60.0);
     
     Color getDayColor(int index) {
       if (index == 0) return const Color.fromRGBO(236, 69, 69, 1);
@@ -1292,7 +1404,7 @@ class _WeekHeader extends StatelessWidget {
     return Column(
       children: [
         SizedBox(
-          height: 80,
+          height: ResponsiveHelper.height(context, 80),
           child: LayoutBuilder(
             builder: (context, constraints) {
               final totalItemWidth = 7 * itemWidth;
@@ -1310,7 +1422,7 @@ class _WeekHeader extends StatelessWidget {
                       left: positions[i],
                       top: 0,
                       width: itemWidth,
-                      height: 80,
+                      height: ResponsiveHelper.height(context, 80),
                       child: GestureDetector(
                         onTap: () => onTapDay?.call(i),
                         child: Column(
@@ -1318,12 +1430,22 @@ class _WeekHeader extends StatelessWidget {
                           children: [
                             Text(
                               labels[i],
-                              style: TextStyle(color: getDayColor(i), fontSize: 15, fontWeight: FontWeight.w600),
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 15,
+                                color: getDayColor(i),
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                            const SizedBox(height: 6),
+                            ResponsiveHelper.verticalSpace(context, 6),
                             Text(
                               '${dates[i].day}',
-                              style: TextStyle(color: textColor, fontSize: 15, fontWeight: FontWeight.w500),
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 15,
+                                color: textColor,
+                                fontWeight: FontWeight.w500,
+                              ),
                             ),
                           ],
                         ),
@@ -1353,16 +1475,16 @@ class _WeekHeader extends StatelessWidget {
 
                       return Positioned(
                         left: leftForCapsule,
-                        top: (80 - capsuleHeight) / 2,
+                        top: (ResponsiveHelper.height(context, 80) - capsuleHeight) / 2,
                         width: capsuleWidth,
                         height: capsuleHeight,
                         child: Container(
                           decoration: BoxDecoration(
                             color: capsuleFill,
-                            borderRadius: BorderRadius.circular(25),
+                            borderRadius: BorderRadius.circular(ResponsiveHelper.width(context, 25)),
                             border: Border.all(
                               color: const Color.fromRGBO(255, 255, 255, 0.35),
-                              width: 1,
+                              width: ResponsiveHelper.width(context, 1),
                             ),
                           ),
                         ),
@@ -1490,6 +1612,7 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
   }
 
   void _createClassController() {
+    if (!mounted) return;
     final selectedGrade = _currentGrade + 1; // 1-based
     final maxClass = widget.classCounts[selectedGrade] ?? 11;
     final currentClass = widget.selectedClassNotifier.value + 1; // 1-based
@@ -1499,10 +1622,13 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
     _classController = FixedExtentScrollController(
       initialItem: adjustedClassIndex.clamp(0, maxClass - 1),
     );
-    widget.selectedClassNotifier.value = adjustedClassIndex.clamp(0, maxClass - 1);
+    if (mounted) {
+      widget.selectedClassNotifier.value = adjustedClassIndex.clamp(0, maxClass - 1);
+    }
   }
 
   void _onGradeChanged() {
+    if (!mounted) return;
     final newGrade = widget.selectedGradeNotifier.value;
     if (newGrade != _currentGrade) {
       setState(() {
@@ -1574,7 +1700,7 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                             diameterRatio: 1.5,
                             squeeze: 1.0,
                             onSelectedItemChanged: (index) {
-                              if (index >= 0 && index < 3) {
+                              if (mounted && index >= 0 && index < 3) {
                                 widget.selectedGradeNotifier.value = index;
                               }
                             },
@@ -1612,7 +1738,7 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                                   diameterRatio: 1.5,
                                   squeeze: 1.0,
                                   onSelectedItemChanged: (index) {
-                                    if (index >= 0 && index < maxClass) {
+                                    if (mounted && index >= 0 && index < maxClass) {
                                       widget.selectedClassNotifier.value = index;
                                     }
                                   },

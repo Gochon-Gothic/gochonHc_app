@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "38240410420-54f2utdvjpglakm1ca9dpr4jvksh9isd.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.gochon_mobile",
+            "certificate_hash": "095efd32424bf7b201695d2d20111df28cda85a6"
+          }
+        },
+        {
           "client_id": "38240410420-upj33b51cvuln16si4nhq3t1f3oesfug.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../models/notice.dart';
 import '../theme_colors.dart';
 import '../theme_provider.dart';
+import '../utils/responsive_helper.dart';
 
 class NoticeDetailScreen extends StatelessWidget {
   final Notice notice;
@@ -31,30 +32,34 @@ class NoticeDetailScreen extends StatelessWidget {
         ),
         title: Text(
           '공지사항',
-          style: TextStyle(
-            color: textColor,
+          style: ResponsiveHelper.textStyle(
+            context,
             fontSize: 20,
+            color: textColor,
             fontWeight: FontWeight.w600,
           ),
         ),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
+        padding: ResponsiveHelper.padding(context, all: 20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Container(
-              padding: const EdgeInsets.all(20),
+              padding: ResponsiveHelper.padding(context, all: 20),
               decoration: BoxDecoration(
                 color: cardColor,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: ResponsiveHelper.borderRadius(context, 12),
                 boxShadow: [
                   BoxShadow(
                     color: isDark
                         ? Colors.black.withValues(alpha: 0.3)
                         : const Color.fromRGBO(0, 0, 0, 0.1),
-                    offset: const Offset(0, 2),
-                    blurRadius: 8,
+                    offset: Offset(
+                      0,
+                      ResponsiveHelper.height(context, 2),
+                    ),
+                    blurRadius: ResponsiveHelper.width(context, 8),
                   ),
                 ],
               ),
@@ -63,33 +68,36 @@ class NoticeDetailScreen extends StatelessWidget {
                 children: [
                   Text(
                     notice.title,
-                    style: TextStyle(
-                      color: textColor,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 22,
+                      color: textColor,
                       fontWeight: FontWeight.w700,
                       height: 1.4,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  ResponsiveHelper.verticalSpace(context, 12),
                   Text(
                     notice.formattedDate,
-                    style: TextStyle(
-                      color: secondaryTextColor,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 14,
+                      color: secondaryTextColor,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  ResponsiveHelper.verticalSpace(context, 20),
                   Divider(
                     color: secondaryTextColor.withValues(alpha: 0.2),
-                    height: 1,
+                    height: ResponsiveHelper.height(context, 1),
                   ),
-                  const SizedBox(height: 20),
+                  ResponsiveHelper.verticalSpace(context, 20),
                   Text(
                     notice.content,
-                    style: TextStyle(
-                      color: textColor,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 16,
+                      color: textColor,
                       height: 1.6,
                       fontWeight: FontWeight.w400,
                     ),

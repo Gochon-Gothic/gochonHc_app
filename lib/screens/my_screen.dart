@@ -8,6 +8,7 @@ import '../services/user_service.dart';
 import '../services/auth_service.dart'; 
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth_pkg; 
 import 'settings_screen.dart';
+import '../utils/responsive_helper.dart';
 
 class MyScreen extends StatefulWidget {
   const MyScreen({super.key});
@@ -37,28 +38,33 @@ class _MyScreenState extends State<MyScreen> {
       color: bgColor,
       child: Column(
         children: [
-          const SizedBox(height: 80),
+          ResponsiveHelper.verticalSpace(context, 80),
           Text(
             '마이',
-            style: TextStyle(
+            style: ResponsiveHelper.textStyle(
+              context,
               fontSize: 28,
               fontWeight: FontWeight.bold,
               color: textColor,
-
             ),
           ),
-          const SizedBox(height: 12),
+          ResponsiveHelper.verticalSpace(context, 12),
           CircleAvatar(
-            radius: 40,
+            radius: ResponsiveHelper.width(context, 40),
             backgroundColor: cardColor,
-            child: Icon(Icons.person, size: 50, color: textColor),
+            child: Icon(
+              Icons.person,
+              size: ResponsiveHelper.width(context, 50),
+              color: textColor,
+            ),
           ),
-          const SizedBox(height: 12),
+          ResponsiveHelper.verticalSpace(context, 12),
           Text(
             AuthService.instance.currentUser == null
                 ? '게스트'
                 : (userInfo?.name ?? '사용자'),
-            style: TextStyle(
+            style: ResponsiveHelper.textStyle(
+              context,
               fontSize: 20,
               fontWeight: FontWeight.bold,
               color: textColor,
@@ -70,25 +76,39 @@ class _MyScreenState extends State<MyScreen> {
                 : (userInfo != null
                     ? '${userInfo?.grade ?? ''}학년 ${userInfo?.classNum ?? ''}반 ${userInfo?.number ?? ''}번'
                     : '정보를 불러오는 중...'),
-            style: TextStyle(fontSize: 16, color: textColor),
+            style: ResponsiveHelper.textStyle(
+              context,
+              fontSize: 16,
+              color: textColor,
+            ),
           ),
-          const SizedBox(height: 24),
+          ResponsiveHelper.verticalSpace(context, 24),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: ResponsiveHelper.horizontalPadding(context, 24),
               children: [
                 Card(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: ResponsiveHelper.borderRadius(context, 12),
                   ),
                   elevation: 4,
                   color: cardColor,
                   child: ListTile(
-                    leading: Icon(Icons.settings, color: textColor),
-                    title: Text('설정', style: TextStyle(color: textColor)),
+                    leading: Icon(
+                      Icons.settings,
+                      color: textColor,
+                    ),
+                    title: Text(
+                      '설정',
+                      style: ResponsiveHelper.textStyle(
+                        context,
+                        fontSize: 16,
+                        color: textColor,
+                      ),
+                    ),
                     trailing: Icon(
                       Icons.arrow_forward_ios,
-                      size: 16,
+                      size: ResponsiveHelper.width(context, 16),
                       color: textColor,
                     ),
                     onTap: () {
@@ -101,33 +121,61 @@ class _MyScreenState extends State<MyScreen> {
                     },
                   ),
                 ),
-                const SizedBox(height: 12),
+                ResponsiveHelper.verticalSpace(context, 12),
                 Card(
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: ResponsiveHelper.borderRadius(context, 12),
                   ),
                   elevation: 4,
                   color: cardColor,
                   child: ListTile(
                     leading: Icon(Icons.info_outline, color: textColor),
-                    title: Text('앱 정보', style: TextStyle(color: textColor)),
+                    title: Text(
+                      '앱 정보',
+                      style: ResponsiveHelper.textStyle(
+                        context,
+                        fontSize: 16,
+                        color: textColor,
+                      ),
+                    ),
                     trailing: Icon(
                       Icons.arrow_forward_ios,
-                      size: 16,
+                      size: ResponsiveHelper.width(context, 16),
                       color: textColor,
                     ),
                     onTap: () {},
                   ),
                 ),
-                const SizedBox(height: 12),
+                ResponsiveHelper.verticalSpace(context, 12),
                 StreamBuilder<firebase_auth_pkg.User?>(
                   stream: AuthService.instance.authStateChanges,
                   builder: (context, snapshot) {
+                    // 로그인 상태가 변경되면 userInfo 업데이트
+                    if (snapshot.hasData) {
+                      // 로그인된 상태: 사용자 정보 다시 로드
+                      if (userInfo == null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          _loadUserInfo();
+                        });
+                      }
+                    } else {
+                      // 로그아웃된 상태: userInfo 즉시 초기화
+                      if (userInfo != null) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() {
+                              userInfo = null;
+                            });
+                          }
+                        });
+                      }
+                    }
+                    
                     if (snapshot.hasData) {
                       // 로그인된 상태: 로그아웃 버튼 표시
                       return Card(
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: ResponsiveHelper.borderRadius(context, 12),
                         ),
                         elevation: 4,
                         color: cardColor,
@@ -135,14 +183,16 @@ class _MyScreenState extends State<MyScreen> {
                           leading: Icon(Icons.logout, color: textColor),
                           title: Text(
                             '로그아웃',
-                            style: TextStyle(
+                            style: ResponsiveHelper.textStyle(
+                              context,
+                              fontSize: 16,
                               color: textColor,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           trailing: Icon(
                             Icons.arrow_forward_ios,
-                            size: 16,
+                            size: ResponsiveHelper.width(context, 16),
                             color: textColor,
                           ),
                           onTap: () {
@@ -154,7 +204,7 @@ class _MyScreenState extends State<MyScreen> {
                       // 로그아웃된 상태: 로그인 버튼 표시
                       return Card(
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: ResponsiveHelper.borderRadius(context, 12),
                         ),
                         elevation: 4,
                         color: cardColor,
@@ -162,14 +212,16 @@ class _MyScreenState extends State<MyScreen> {
                           leading: Icon(Icons.login, color: textColor),
                           title: Text(
                             '로그인',
-                            style: TextStyle(
+                            style: ResponsiveHelper.textStyle(
+                              context,
+                              fontSize: 16,
                               color: textColor,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
                           trailing: Icon(
                             Icons.arrow_forward_ios,
-                            size: 16,
+                            size: ResponsiveHelper.width(context, 16),
                             color: textColor,
                           ),
                           onTap: () {
@@ -214,19 +266,47 @@ class _MyScreenState extends State<MyScreen> {
       builder: (BuildContext context) {
         return AlertDialog(
           backgroundColor: bgColor,
-          title: Text('로그아웃', style: TextStyle(color: textColor)),
-          content: Text('정말 로그아웃 하시겠습니까?', style: TextStyle(color: textColor)),
+          title: Text(
+            '로그아웃',
+            style: ResponsiveHelper.textStyle(
+              context,
+              fontSize: 20,
+              color: textColor,
+            ),
+          ),
+          content: Text(
+            '정말 로그아웃 하시겠습니까?',
+            style: ResponsiveHelper.textStyle(
+              context,
+              fontSize: 16,
+              color: textColor,
+            ),
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: Text('취소', style: TextStyle(color: textColor)),
+              child: Text(
+                '취소',
+                style: ResponsiveHelper.textStyle(
+                  context,
+                  fontSize: 16,
+                  color: textColor,
+                ),
+              ),
             ),
             TextButton(
               onPressed: () {
                 Navigator.of(context).pop();
                 _logout();
               },
-              child: const Text('로그아웃', style: TextStyle(color: Colors.red)),
+              child: Text(
+                '로그아웃',
+                style: ResponsiveHelper.textStyle(
+                  context,
+                  fontSize: 16,
+                  color: Colors.red,
+                ),
+              ),
             ),
           ],
         );
