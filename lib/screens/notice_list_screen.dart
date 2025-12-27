@@ -7,6 +7,7 @@ import '../theme_colors.dart';
 import '../theme_provider.dart';
 import '../services/gsheet_service.dart';
 import 'notice_detail_screen.dart';
+import '../utils/responsive_helper.dart';
 
 class NoticeListScreen extends StatefulWidget {
   const NoticeListScreen({super.key});
@@ -15,7 +16,7 @@ class NoticeListScreen extends StatefulWidget {
   State<NoticeListScreen> createState() => _NoticeListScreenState();
 }
 
-class _NoticeListScreenState extends State<NoticeListScreen> {
+class _NoticeListScreenState extends State<NoticeListScreen> with SingleTickerProviderStateMixin {
   List<Notice> _allNotices = [];
   List<Notice> _filteredNotices = [];
   bool _isLoading = true;
@@ -28,10 +29,15 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
   final ScrollController _scrollController = ScrollController();
   final FocusNode _searchFocusNode = FocusNode();
   final TextEditingController _searchController = TextEditingController();
+  late AnimationController _refreshAnimationController;
 
   @override
   void initState() {
     super.initState();
+    _refreshAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1000),
+    )..repeat();
     _loadNotices();
   }
 
@@ -41,17 +47,18 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
     _scrollController.dispose();
     _searchFocusNode.dispose();
     _searchController.dispose();
+    _refreshAnimationController.dispose();
     super.dispose();
   }
 
-  Future<void> _loadNotices() async {
+  Future<void> _loadNotices({bool forceRefresh = false}) async {
     setState(() {
       _isLoading = true;
       _error = null;
     });
 
     try {
-      final notices = await GSheetService.getNotices(limit: 1000);
+      final notices = await GSheetService.getNotices(limit: 1000, forceRefresh: forceRefresh);
       if (mounted) {
         setState(() {
           _allNotices = notices;
@@ -126,18 +133,21 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
 
   Widget _buildSearchBar(bool isDark, Color cardColor, Color textColor, Color secondaryTextColor) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: ResponsiveHelper.padding(context, all: 16),
       child: Container(
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: ResponsiveHelper.borderRadius(context, 12),
           boxShadow: [
             BoxShadow(
               color: isDark
                   ? Colors.black.withValues(alpha: 0.3)
                   : const Color.fromRGBO(0, 0, 0, 0.1),
-              offset: const Offset(0, 2),
-              blurRadius: 8,
+              offset: Offset(
+                0,
+                ResponsiveHelper.height(context, 2),
+              ),
+              blurRadius: ResponsiveHelper.width(context, 8),
             ),
           ],
         ),
@@ -145,13 +155,25 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
           controller: _searchController,
           focusNode: _searchFocusNode,
           onChanged: _onSearchChanged,
-          style: TextStyle(color: textColor),
+          style: ResponsiveHelper.textStyle(
+            context,
+            fontSize: 16,
+            color: textColor,
+          ),
           decoration: InputDecoration(
             hintText: '공지사항 검색',
-            hintStyle: TextStyle(color: secondaryTextColor),
+            hintStyle: ResponsiveHelper.textStyle(
+              context,
+              fontSize: 16,
+              color: secondaryTextColor,
+            ),
             prefixIcon: Icon(Icons.search, color: secondaryTextColor),
             border: InputBorder.none,
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            contentPadding: ResponsiveHelper.padding(
+              context,
+              horizontal: 16,
+              vertical: 12,
+            ),
           ),
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _searchFocusNode.unfocus(),
@@ -164,18 +186,21 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
     return GestureDetector(
       onTap: () => _navigateToDetail(notice),
       child: Container(
-        margin: const EdgeInsets.only(bottom: 12),
-        padding: const EdgeInsets.all(16),
+        margin: ResponsiveHelper.padding(context, bottom: 12),
+        padding: ResponsiveHelper.padding(context, all: 16),
         decoration: BoxDecoration(
           color: cardColor,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: ResponsiveHelper.borderRadius(context, 12),
           boxShadow: [
             BoxShadow(
               color: isDark
                   ? Colors.black.withValues(alpha: 0.3)
                   : const Color.fromRGBO(0, 0, 0, 0.1),
-              offset: const Offset(0, 2),
-              blurRadius: 8,
+              offset: Offset(
+                0,
+                ResponsiveHelper.height(context, 2),
+              ),
+              blurRadius: ResponsiveHelper.width(context, 8),
             ),
           ],
         ),
@@ -184,21 +209,23 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
           children: [
             Text(
               notice.title,
-              style: TextStyle(
-                color: textColor,
+              style: ResponsiveHelper.textStyle(
+                context,
                 fontSize: 16,
+                color: textColor,
                 fontWeight: FontWeight.w600,
                 height: 1.4,
               ),
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 8),
+            ResponsiveHelper.verticalSpace(context, 8),
             Text(
               notice.formattedDate,
-              style: TextStyle(
-                color: secondaryTextColor,
+              style: ResponsiveHelper.textStyle(
+                context,
                 fontSize: 12,
+                color: secondaryTextColor,
                 fontWeight: FontWeight.w400,
               ),
             ),
@@ -287,6 +314,17 @@ class _NoticeListScreenState extends State<NoticeListScreen> {
             fontWeight: FontWeight.w600,
           ),
         ),
+        actions: [
+          IconButton(
+            icon: _isLoading
+                ? RotationTransition(
+                    turns: _refreshAnimationController,
+                    child: Icon(Icons.refresh, color: textColor),
+                  )
+                : Icon(Icons.refresh, color: textColor),
+            onPressed: _isLoading ? null : () => _loadNotices(forceRefresh: true),
+          ),
+        ],
       ),
       body: Column(
         children: [

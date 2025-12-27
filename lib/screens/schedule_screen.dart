@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../theme_colors.dart';
 import '../theme_provider.dart';
 import '../utils/shadows.dart';
+import '../utils/responsive_helper.dart';
 
 class ScheduleView extends StatefulWidget {
   final VoidCallback onExit;
@@ -30,9 +31,33 @@ class _ScheduleViewState extends State<ScheduleView> {
   final ScrollController _listController = ScrollController();
   final Map<int, GlobalKey> _dayItemKeys = {};
 
+  int get _totalMonths {
+    final now = DateTime.now();
+    if (now.month == 12 && _year == now.year) {
+      return 15;
+    }
+    return 12;
+  }
+  
+  // 현재 인덱스에 해당하는 실제 년도와 월 반환
+  Map<String, int> _getYearAndMonth(int index) {
+    if (index < 12) {
+      return {'year': _year, 'month': index + 1};
+    } else {
+      return {'year': _year + 1, 'month': index - 11};
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    // 현재 날짜 확인
+    final now = DateTime.now();
+    _year = now.year;
+    _currentMonthIndex = now.month - 1; // 0~11
+    
+    // 현재 월이 1월이고 이전에 12월이었던 경우를 대비해 년도 확인
+    // (실제로는 현재 날짜 기준으로 자동 처리됨)
     _monthController = PageController(initialPage: _currentMonthIndex);
     _fetchSchedules();
   }
@@ -43,36 +68,61 @@ class _ScheduleViewState extends State<ScheduleView> {
       _error = null;
     });
     try {
+      // 현재 년도 데이터 가져오기
       final from = '${_year}0101';
       final to = '${_year}1231';
       final url =
           'https://open.neis.go.kr/hub/SchoolSchedule?KEY=44e1ba05c56746c5a09a5fbd5eead0be&Type=json&pIndex=1&pSize=365&ATPT_OFCDC_SC_CODE=J10&SD_SCHUL_CODE=7531375&AA_FROM_YMD=$from&AA_TO_YMD=$to';
       final response = await http.get(Uri.parse(url));
       final data = json.decode(response.body);
+      
+      final Map<String, List<String>> map = {};
+      
       if (data['SchoolSchedule'] != null) {
         final rows = data['SchoolSchedule'][1]['row'] as List;
-        final Map<String, List<String>> map = {};
         for (var row in rows) {
           final date = row['AA_YMD'] as String;
           final event = row['EVENT_NM'] as String;
           final ymd = '${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}';
           map.putIfAbsent(ymd, () => []).add(event);
         }
-        final Map<String, List<String>> filtered = {};
-        map.forEach((k, v) {
-          final f = v.where((e) => !e.contains('겨울방학') && !e.contains('여름방학') && !e.contains('토요휴업일')).toList();
-          if (f.isNotEmpty) filtered[k] = f;
-        });
-        setState(() {
-          _scheduleMap = filtered;
-          _isLoading = false;
-        });
-      } else {
-        setState(() {
-          _error = '학사일정을 불러오지 못했습니다.';
-          _isLoading = false;
-        });
       }
+      
+      // 현재 날짜가 12월이고 현재 년도와 일치하면 다음 년도 1,2,3월 데이터도 가져오기
+      final now = DateTime.now();
+      if (now.month == 12 && _year == now.year) {
+        final nextYear = _year + 1;
+        final nextFrom = '${nextYear}0101';
+        final nextTo = '${nextYear}0331';
+        final nextUrl =
+            'https://open.neis.go.kr/hub/SchoolSchedule?KEY=44e1ba05c56746c5a09a5fbd5eead0be&Type=json&pIndex=1&pSize=365&ATPT_OFCDC_SC_CODE=J10&SD_SCHUL_CODE=7531375&AA_FROM_YMD=$nextFrom&AA_TO_YMD=$nextTo';
+        try {
+          final nextResponse = await http.get(Uri.parse(nextUrl));
+          final nextData = json.decode(nextResponse.body);
+          if (nextData['SchoolSchedule'] != null) {
+            final nextRows = nextData['SchoolSchedule'][1]['row'] as List;
+            for (var row in nextRows) {
+              final date = row['AA_YMD'] as String;
+              final event = row['EVENT_NM'] as String;
+              final ymd = '${date.substring(0, 4)}-${date.substring(4, 6)}-${date.substring(6, 8)}';
+              map.putIfAbsent(ymd, () => []).add(event);
+            }
+          }
+        } catch (e) {
+          // 다음 년도 데이터 가져오기 실패해도 현재 년도 데이터는 표시
+          print('다음 년도 학사일정 로드 실패: $e');
+        }
+      }
+      
+      final Map<String, List<String>> filtered = {};
+      map.forEach((k, v) {
+        final f = v.where((e) => !e.contains('겨울방학') && !e.contains('여름방학') && !e.contains('토요휴업일')).toList();
+        if (f.isNotEmpty) filtered[k] = f;
+      });
+      setState(() {
+        _scheduleMap = filtered;
+        _isLoading = false;
+      });
     } catch (e) {
       setState(() {
         _error = '데이터를 불러오지 못했습니다.';
@@ -86,37 +136,48 @@ class _ScheduleViewState extends State<ScheduleView> {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final bgColor = isDark ? AppColors.darkBackground : AppColors.lightBackground;
     final textColor = isDark ? AppColors.darkText : AppColors.lightText;
-    final month = _currentMonthIndex + 1;
-    final List<_DayEvents> monthlyEvents = _collectMonthlyEvents(_year, month);
+    final yearMonth = _getYearAndMonth(_currentMonthIndex);
+    final month = yearMonth['month']!;
+    final year = yearMonth['year']!;
+    final List<_DayEvents> monthlyEvents = _collectMonthlyEvents(year, month);
 
     return Container(
       color: bgColor,
       width: double.infinity,
       child: Column(
         children: [
-          const SizedBox(height: 65),
+          ResponsiveHelper.verticalSpace(context, 65),
           Padding(
-            padding: const EdgeInsets.only(left: 20, right: 30),
+            padding: ResponsiveHelper.padding(
+              context,
+              left: 20,
+              right: 30,
+            ),
             child: Row(
               children: [
                 IconButton(
                   onPressed: widget.onExit,
-                  icon: Icon(Icons.arrow_back_ios_new, color: textColor),
+                  icon: Icon(
+                    Icons.arrow_back_ios_new,
+                    color: textColor,
+                    size: ResponsiveHelper.width(context, 24),
+                  ),
                 ),
-                const SizedBox(width: 1),
+                ResponsiveHelper.horizontalSpace(context, 1),
                 Text(
                   '학사일정',
-                  style: TextStyle(
-                    color: textColor,
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 30,
+                    color: textColor,
                     fontWeight: FontWeight.w800,
                     height: 1,
                   ),
                 ),
                 const Spacer(),
                 SizedBox(
-                  width: 60,
-                  height: 60,
+                  width: ResponsiveHelper.width(context, 60),
+                  height: ResponsiveHelper.height(context, 60),
                   child: SvgPicture.asset(
                     'assets/images/gochon_logo.svg',
                     semanticsLabel: 'Gochon Logo',
@@ -125,54 +186,68 @@ class _ScheduleViewState extends State<ScheduleView> {
               ],
             ),
           ),
-          const SizedBox(height: 33),
+          ResponsiveHelper.verticalSpace(context, 33),
           _MonthTabsScrollable(
             controller: _monthController,
             scrollController: _tabsScrollController,
             currentIndex: _currentMonthIndex,
+            totalMonths: _totalMonths, // 12월이면 15, 아니면 12
+            currentYear: _year,
             onIndexChanged: (i, deltaYear) {
               setState(() {
-                if (deltaYear != 0) {
-                  _year += deltaYear;
+                // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
+                if (i >= 12) {
+                  // 다음 년도 1,2,3월을 선택했지만 연도 전환하지 않고 인덱스만 유지
+                  _currentMonthIndex = i;
+                } else {
+                  // 현재 년도의 월
+                  if (deltaYear != 0) {
+                    _year += deltaYear;
+                  }
+                  _currentMonthIndex = i;
                 }
-                _currentMonthIndex = i;
                 _selectedDay = null;
               });
+              
+              // 년도가 변경되었을 때만 데이터 다시 가져오기
               if (deltaYear != 0) {
                 _fetchSchedules();
               }
             },
           ),
-          const SizedBox(height: 2),
+          ResponsiveHelper.verticalSpace(context, 2),
           _WeekdaysRow(textColor: textColor),
-          const SizedBox(height: 0),
+          ResponsiveHelper.verticalSpace(context, 0),
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : _error != null
-                    ? Center(child: Text(_error!, style: TextStyle(color: textColor)))
+                    ? Center(
+                        child: Text(
+                          _error!,
+                          style: ResponsiveHelper.textStyle(
+                            context,
+                            fontSize: 16,
+                            color: textColor,
+                          ),
+                        ),
+                      )
                     : PageView.builder(
                         controller: _monthController,
                         onPageChanged: (i) {
-                          int deltaYear = 0;
-                          if (_currentMonthIndex == 11 && i == 0) deltaYear = 1;
-                          if (_currentMonthIndex == 0 && i == 11) deltaYear = -1;
+                          // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
                           setState(() {
-                            if (deltaYear != 0) {
-                              _year += deltaYear;
-                            }
                             _currentMonthIndex = i;
                             _selectedDay = null;
                           });
-                          if (deltaYear != 0) {
-                            _fetchSchedules();
-                          }
                         },
-                        itemCount: 12,
+                        itemCount: _totalMonths,
                         itemBuilder: (context, index) {
-                          final month = index + 1;
+                          final yearMonth = _getYearAndMonth(index);
+                          final month = yearMonth['month']!;
+                          final year = yearMonth['year']!;
                           return _MonthGrid(
-                            year: _year,
+                            year: year,
                             month: month,
                             scheduleMap: _scheduleMap,
                             selectedDay: _selectedDay,
@@ -187,16 +262,26 @@ class _ScheduleViewState extends State<ScheduleView> {
                       ),
           ),
           SizedBox(
-            height: 300,
+            height: ResponsiveHelper.height(context, 300),
             child: Padding(
-              padding: const EdgeInsets.only(left: 20, right: 20, top: 50, bottom: 80),
+              padding: ResponsiveHelper.padding(
+                context,
+                left: 20,
+                right: 20,
+                top: 50,
+                bottom: 80,
+              ),
               child: Container(
                 decoration: BoxDecoration(
                   color: isDark ? AppColors.darkCard : AppColors.lightCard,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: ResponsiveHelper.borderRadius(context, 16),
                   boxShadow: AppShadows.card(isDark),
                 ),
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: ResponsiveHelper.padding(
+                  context,
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: NotificationListener<ScrollNotification>(
                   onNotification: (notification) {
                     return true;
@@ -212,18 +297,28 @@ class _ScheduleViewState extends State<ScheduleView> {
                       final key = _dayItemKeys.putIfAbsent(e.day, () => GlobalKey());
                       return Container(
                         key: key,
-                        margin: const EdgeInsets.only(bottom: 10),
+                        margin: ResponsiveHelper.padding(context, bottom: 10),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
                               '$month월 ${e.day}일',
-                              style: TextStyle(color: textColor, fontSize: 16, fontWeight: FontWeight.w600),
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 16,
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
-                            const SizedBox(height: 6),
+                            ResponsiveHelper.verticalSpace(context, 6),
                             Text(
                               e.events.join(', '),
-                              style: TextStyle(color: textColor, fontSize: 14, height: 1.5),
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 14,
+                                color: textColor,
+                                height: 1.5,
+                              ),
                             ),
                           ],
                         ),
@@ -279,12 +374,16 @@ class _MonthTabsScrollable extends StatelessWidget {
   final PageController controller;
   final ScrollController scrollController;
   final int currentIndex;
+  final int totalMonths;
+  final int currentYear;
   final void Function(int newIndex, int deltaYear) onIndexChanged;
 
   const _MonthTabsScrollable({
     required this.controller,
     required this.scrollController,
     required this.currentIndex,
+    required this.totalMonths,
+    required this.currentYear,
     required this.onIndexChanged,
   });
 
@@ -304,9 +403,9 @@ class _MonthTabsScrollable extends StatelessWidget {
           final double innerWidth = fullWidth - horizontalPadding * 2;
           final double itemWidth = innerWidth / 7; // 7칸 가시
 
-          // 현재 인덱스를 중앙 근처로 스크롤
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            final double target = ((currentIndex - 3).clamp(0, 5)) * itemWidth;
+            int scrollOffset = (currentIndex - 3).clamp(0, (totalMonths - 4).clamp(0, double.infinity).toInt());
+            final double target = scrollOffset * itemWidth;
             if (scrollController.hasClients) {
               final double diff = (scrollController.offset - target).abs();
               if (diff > 6.0) {
@@ -321,7 +420,7 @@ class _MonthTabsScrollable extends StatelessWidget {
 
           return Stack(
             children: [
-              // 라벨 리스트 (12개월)
+              // 라벨 리스트 (동적 개월 수)
               Positioned.fill(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: horizontalPadding),
@@ -329,10 +428,15 @@ class _MonthTabsScrollable extends StatelessWidget {
                     controller: scrollController,
                     scrollDirection: Axis.horizontal,
                     physics: const ClampingScrollPhysics(),
-                    itemCount: 12,
+                    itemCount: totalMonths,
                     itemBuilder: (context, i) {
                       final selected = i == currentIndex;
-                      final label = '${i + 1}월';
+                      String label;
+                      if (i < 12) {
+                        label = '${i + 1}월';
+                      } else {
+                        label = '${i - 11}월';
+                      }
                       final Color textColor = selected
                           ? const Color.fromRGBO(255, 197, 30, 1)
                           : (isDark
@@ -343,14 +447,10 @@ class _MonthTabsScrollable extends StatelessWidget {
                         child: Center(
                           child: GestureDetector(
                             onTap: () {
-                              int deltaYear = 0;
-                              // 현재 year 테두리에서 이전/다음 해로 자연스럽게 전이
-                              if (currentIndex == 11 && i == 0) deltaYear = 1;
-                              if (currentIndex == 0 && i == 11) deltaYear = -1;
                               if (controller.hasClients) {
                                 controller.animateToPage(i, duration: const Duration(milliseconds: 250), curve: Curves.ease);
                               }
-                              onIndexChanged(i, deltaYear);
+                              onIndexChanged(i, 0);
                             },
                             child: Text(
                               label,
@@ -374,10 +474,23 @@ class _MonthTabsScrollable extends StatelessWidget {
                   if (controller.positions.isNotEmpty) {
                     final p = controller.page;
                     if (p != null) {
-                      page = p.clamp(0, 11);
+                      page = p.clamp(0, (totalMonths - 1).toDouble());
                     }
                   }
-                  final double localIndex = (page - (currentIndex - 3).clamp(0, 5)).clamp(0, 6);
+                  
+                  int scrollBase;
+                  if (totalMonths == 15 && currentIndex >= 12) {
+                    scrollBase = (currentIndex - 3).clamp(0, totalMonths - 4);
+                  } else {
+                    scrollBase = (currentIndex - 3).clamp(0, (totalMonths - 4).clamp(0, double.infinity).toInt());
+                  }
+                  
+                  double localIndex = (page - scrollBase).clamp(0, 6);
+                  
+                  if (totalMonths == 15 && currentIndex >= 12) {
+                    localIndex = 4.0 + (currentIndex - 12);
+                  }
+                  
                   final double centerX = horizontalPadding + (itemWidth * 0.5) + localIndex * itemWidth;
                   final double leftForCapsule = centerX - (capsuleWidth / 2);
                   final Color capsuleFill = isDark ? const Color.fromRGBO(255, 255, 255, 0.12) : const Color.fromRGBO(0, 0, 0, 0.08);

@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/user_service.dart';
 import '../theme_colors.dart';
+import '../utils/responsive_helper.dart';
 
 class ElectiveSetupScreen extends StatefulWidget {
   final String userEmail;
@@ -305,7 +306,12 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                           Center(
                             child: Text(
                               '선택과목 설정',
-                              style: TextStyle(color: textColor, fontSize: 50, fontWeight: FontWeight.w600),
+                              style: ResponsiveHelper.textStyle(
+                                context,
+                                fontSize: 50,
+                                color: textColor,
+                                fontWeight: FontWeight.w600,
+                              ),
                             ),
                           ),
                           Expanded(
@@ -322,9 +328,25 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text(_error!, style: TextStyle(color: textColor)),
-          const SizedBox(height: 20),
-          ElevatedButton(onPressed: _loadSlots, child: const Text('다시 시도')),
+          Text(
+            _error!,
+            style: ResponsiveHelper.textStyle(
+              context,
+              fontSize: 16,
+              color: textColor,
+            ),
+          ),
+          ResponsiveHelper.verticalSpace(context, 20),
+          ElevatedButton(
+            onPressed: _loadSlots,
+            child: Text(
+              '다시 시도',
+              style: ResponsiveHelper.textStyle(
+                context,
+                fontSize: 16,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -335,7 +357,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       children: [
         Expanded(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
+            padding: ResponsiveHelper.padding(context, all: 20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -349,24 +371,29 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                     children: [
                       // 세트 헤더
                       Container(
-                        padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: ResponsiveHelper.padding(
+                          context,
+                          vertical: 0,
+                          horizontal: 16,
+                        ),
+                        margin: ResponsiveHelper.padding(context, bottom: 12),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: ResponsiveHelper.borderRadius(context, 8),
                         ),
                         child: Text(
                           '세트 $setNum',
-                          style: TextStyle(
-                            color: AppColors.primary,
+                          style: ResponsiveHelper.textStyle(
+                            context,
                             fontSize: 16,
+                            color: AppColors.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                       ),
                       // 세트 내 슬롯들
                       ...slots.map((slot) => _buildSlotCard(slot, cardColor, textColor)),
-                      const SizedBox(height: 8),
+                      ResponsiveHelper.verticalSpace(context, 8),
                     ],
                   );
                 }),
@@ -375,26 +402,37 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
           ),
         ),
         Container(
-          padding: const EdgeInsets.all(20),
+          padding: ResponsiveHelper.padding(context, all: 20),
           child: SizedBox(
             width: double.infinity,
-            height: 56,
+            height: ResponsiveHelper.height(context, 56),
             child: ElevatedButton(
               onPressed: _isLoading ? null : _complete,
               style: ElevatedButton.styleFrom(
                 backgroundColor: isDark ? AppColors.lightBackground : AppColors.primary,
                 foregroundColor: isDark ? AppColors.primary : Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                shape: RoundedRectangleBorder(
+                  borderRadius: ResponsiveHelper.borderRadius(context, 12),
+                ),
                 elevation: 4,
               ),
               child: _isLoading
-                  ? const SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                  ? SizedBox(
+                      width: ResponsiveHelper.width(context, 24),
+                      height: ResponsiveHelper.height(context, 24),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: ResponsiveHelper.width(context, 2),
+                      ),
                     )
-
-                  : const Text('완료', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  : Text(
+                      '완료',
+                      style: ResponsiveHelper.textStyle(
+                        context,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
             ),
           ),
         ),
@@ -411,11 +449,11 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      padding: const EdgeInsets.all(16),
+      margin: ResponsiveHelper.padding(context, bottom: 16),
+      padding: ResponsiveHelper.padding(context, all: 16),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: ResponsiveHelper.borderRadius(context, 12),
         border: Border.all(
           color: selected != null
               ? AppColors.primary

@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
+import '../utils/responsive_helper.dart';
 
 
 class GlassNavigationBar extends StatelessWidget {
@@ -19,19 +20,19 @@ class GlassNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const double barHeight = 64;
-    const double barRadius = 28;
+    final double barHeight = ResponsiveHelper.height(context, 64);
+    final double barRadius = ResponsiveHelper.width(context, 28);
     const double widthFactor = 0.90; // 90%
 
 
     return SizedBox(
-      height: 110,
+      height: ResponsiveHelper.height(context, 110),
       child: Stack(
         children: [
           Positioned(
-            bottom: 25, // 살짝 위로 이동
-            left: 8,
-            right: 8,
+            bottom: ResponsiveHelper.height(context, 25), // 살짝 위로 이동
+            left: ResponsiveHelper.width(context, 8),
+            right: ResponsiveHelper.width(context, 8),
             child: Align(
               alignment: Alignment.bottomCenter,
               child: FractionallySizedBox(
@@ -41,12 +42,12 @@ class GlassNavigationBar extends StatelessWidget {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final double fullWidth = constraints.maxWidth;
-                      const double horizontalPadding = 8;
+                      final double horizontalPadding = ResponsiveHelper.width(context, 8);
                       final double innerWidth = fullWidth - horizontalPadding * 2;
                       const int tabsCount = 5;
                       final double segment = innerWidth / tabsCount;
-                      const double capsuleWidth = 70;
-                      const double capsuleHeight = 56;
+                      final double capsuleWidth = ResponsiveHelper.width(context, 70);
+                      final double capsuleHeight = ResponsiveHelper.height(context, 56);
 
                       return AnimatedBuilder(
                         animation: pageController,
@@ -69,7 +70,10 @@ class GlassNavigationBar extends StatelessWidget {
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(barRadius),
                                   child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 1.5, sigmaY: 1.5),
+                                    filter: ImageFilter.blur(
+                                      sigmaX: ResponsiveHelper.width(context, 1.5),
+                                      sigmaY: ResponsiveHelper.height(context, 1.5),
+                                    ),
                                     child: const SizedBox.expand(),
                                   ),
                                 ),
@@ -87,7 +91,7 @@ class GlassNavigationBar extends StatelessWidget {
                                     )
                                   : LiquidGlassLayer(
                                       settings: LiquidGlassSettings(
-                                        thickness: 10,
+                                        thickness: ResponsiveHelper.width(context, 10),
                                         glassColor: isDark
                                             ? const Color.fromARGB(29, 255, 255, 255)
                                             : const Color.fromARGB(37, 26, 26, 26),
@@ -100,7 +104,7 @@ class GlassNavigationBar extends StatelessWidget {
                                         children: [
                                           LiquidGlass.inLayer(
                                             shape: LiquidRoundedSuperellipse(
-                                              borderRadius: const Radius.circular(barRadius),
+                                              borderRadius: Radius.circular(barRadius),
                                             ),
                                             child: const SizedBox.expand(),
                                           ),
@@ -110,15 +114,15 @@ class GlassNavigationBar extends StatelessWidget {
 
                               Positioned.fill(
                                 child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: horizontalPadding),
+                                  padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
                                   child: Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
-                                      Expanded(child: _buildNavItem(index: 0, icon: Icons.directions_bus, label: '버스', isSelected: currentIndex == 0, iconSize: 30)),
-                                      Expanded(child: _buildNavItem(index: 1, iconPath: 'assets/images/timetable_logo.svg', label: '시간표', isSelected: currentIndex == 1)),
-                                      Expanded(child: _buildNavItem(index: 2, iconPath: 'assets/images/home_logo.svg', label: '홈', isSelected: currentIndex == 2)),
-                                      Expanded(child: _buildNavItem(index: 3, iconPath: 'assets/images/lunch_logo.svg', label: '급식', isSelected: currentIndex == 3)),
-                                      Expanded(child: _buildNavItem(index: 4, iconPath: 'assets/images/my_logo.svg', label: '마이', isSelected: currentIndex == 4)),
+                                      Expanded(child: _buildNavItem(context: context, index: 0, icon: Icons.directions_bus, label: '버스', isSelected: currentIndex == 0, iconSize: 30)),
+                                      Expanded(child: _buildNavItem(context: context, index: 1, iconPath: 'assets/images/timetable_logo.svg', label: '시간표', isSelected: currentIndex == 1)),
+                                      Expanded(child: _buildNavItem(context: context, index: 2, iconPath: 'assets/images/home_logo.svg', label: '홈', isSelected: currentIndex == 2)),
+                                      Expanded(child: _buildNavItem(context: context, index: 3, iconPath: 'assets/images/lunch_logo.svg', label: '급식', isSelected: currentIndex == 3)),
+                                      Expanded(child: _buildNavItem(context: context, index: 4, iconPath: 'assets/images/my_logo.svg', label: '마이', isSelected: currentIndex == 4)),
                                     ],
                                   ),
                                 ),
@@ -132,10 +136,10 @@ class GlassNavigationBar extends StatelessWidget {
                                 child: Container(
                                   decoration: BoxDecoration(
                                     color: capsuleFill,
-                                    borderRadius: BorderRadius.circular(20),
+                                    borderRadius: BorderRadius.circular(ResponsiveHelper.width(context, 20)),
                                     border: Border.all(
                                       color: const Color.fromRGBO(255, 255, 255, 0.35),
-                                      width: 1,
+                                      width: ResponsiveHelper.width(context, 1),
                                     ),
                                   ),
                                 ),
@@ -156,6 +160,7 @@ class GlassNavigationBar extends StatelessWidget {
   }
 
   Widget _buildNavItem({
+    required BuildContext context,
     required int index,
     String? iconPath,
     IconData? icon,
@@ -167,10 +172,10 @@ class GlassNavigationBar extends StatelessWidget {
       onTap: () => onTap(index),
       child: Center(
         child: Container(
-          width: 66,
-          height: 56,
+          width: ResponsiveHelper.width(context, 66),
+          height: ResponsiveHelper.height(context, 56),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(50),
+            borderRadius: BorderRadius.circular(ResponsiveHelper.width(context, 50)),
             color: Colors.transparent, // 선택 여부와 무관하게 회색 배경 제거
           ),
           child: Stack(
@@ -180,8 +185,8 @@ class GlassNavigationBar extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SizedBox(
-                    width: 25,
-                    height: 25,
+                    width: ResponsiveHelper.width(context, 25),
+                    height: ResponsiveHelper.height(context, 25),
                     child: Builder(builder: (innerContext) {
                       final bool isDark = Theme.of(innerContext).brightness == Brightness.dark;
                       final Color unselected = isDark
@@ -189,9 +194,10 @@ class GlassNavigationBar extends StatelessWidget {
                           : const Color.fromRGBO(48, 48, 46, 0.60);
                       
                       if (icon != null) {
+                        final double finalIconSize = iconSize ?? ResponsiveHelper.width(innerContext, 25);
                         Widget iconWidget = Icon(
                           icon,
-                          size: iconSize ?? 25,
+                          size: finalIconSize,
                           color: isSelected
                               ? const Color.fromRGBO(255, 197, 30, 1)
                               : unselected,
@@ -199,7 +205,10 @@ class GlassNavigationBar extends StatelessWidget {
                         
                         if (icon == Icons.directions_bus) {
                           return Transform.translate(
-                            offset: const Offset(-2.4, -3), // 3픽셀 왼쪽, 3픽셀 위로
+                            offset: Offset(
+                              -ResponsiveHelper.width(innerContext, 2.4),
+                              -ResponsiveHelper.height(innerContext, 3),
+                            ),
                             child: iconWidget,
                           );
                         }
@@ -219,7 +228,7 @@ class GlassNavigationBar extends StatelessWidget {
                       }
                     }),
                   ),
-                  const SizedBox(height: 4),
+                  ResponsiveHelper.verticalSpace(context, 4),
                   Builder(builder: (innerContext) {
                     final bool isDark = Theme.of(innerContext).brightness == Brightness.dark;
                     final Color unselected = isDark
@@ -228,11 +237,12 @@ class GlassNavigationBar extends StatelessWidget {
                     return Text(
                       label,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: ResponsiveHelper.textStyle(
+                        innerContext,
+                        fontSize: 10,
                         color: isSelected
                             ? const Color.fromRGBO(255, 197, 30, 1)
                             : unselected,
-                        fontSize: 10,
                         letterSpacing: 0,
                         fontWeight: FontWeight.w600,
                         height: 1,

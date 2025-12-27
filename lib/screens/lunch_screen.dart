@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:async';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
+import '../utils/responsive_helper.dart';
 
 class LunchScreen extends StatefulWidget {
   const LunchScreen({super.key});
@@ -134,9 +136,17 @@ class _LunchScreenState extends State<LunchScreen> {
   ) async {
     try {
       final url = _buildApiUrl(today);
-      final response = await http.get(Uri.parse(url));
+      print('급식 API 호출 시도: $url');
+      final response = await http.get(Uri.parse(url)).timeout(
+        const Duration(seconds: 10),
+        onTimeout: () {
+          throw TimeoutException('API 호출 시간 초과');
+        },
+      );
+      print('급식 API 응답 상태 코드: ${response.statusCode}');
       
       if (response.statusCode != 200) {
+        print('급식 API 호출 실패: 상태 코드 ${response.statusCode}, 응답: ${response.body}');
         _setStateSafe(() {
           error = '급식을 불러오는데 실패했습니다.';
           isLoading = false;
@@ -150,7 +160,10 @@ class _LunchScreenState extends State<LunchScreen> {
       _setStateSafe(() {
         isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      print('급식 API 호출 에러: $e');
+      print('에러 타입: ${e.runtimeType}');
+      print('스택 트레이스: $stackTrace');
       _setStateSafe(() {
         error = '급식을 불러오는데 실패했습니다.';
         isLoading = false;
@@ -275,15 +288,15 @@ class _LunchScreenState extends State<LunchScreen> {
         .join(', ');
 
     return Card(
-      margin: const EdgeInsets.symmetric(horizontal: 24),
+      margin: ResponsiveHelper.padding(context, horizontal: 24),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: ResponsiveHelper.borderRadius(context, 12),
       ),
       elevation: 2,
       color: cardColor,
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(16),
+        padding: ResponsiveHelper.padding(context, all: 16),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -291,11 +304,12 @@ class _LunchScreenState extends State<LunchScreen> {
               Icons.warning_amber_rounded,
               color: isDark ? textColor : Colors.red,
             ),
-            const SizedBox(width: 8),
+            ResponsiveHelper.horizontalSpace(context, 8),
             Expanded(
               child: Text(
                 '알레르기 정보: $allergyList',
-                style: TextStyle(
+                style: ResponsiveHelper.textStyle(
+                  context,
                   fontSize: 15,
                   color: textColor,
                   fontWeight: FontWeight.w500,
@@ -322,14 +336,15 @@ class _LunchScreenState extends State<LunchScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: 80),
+          ResponsiveHelper.verticalSpace(context, 80),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: ResponsiveHelper.horizontalPadding(context, 24),
             child: Row(
               children: [
                 Text(
                   '오늘의 급식',
-                  style: TextStyle(
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 40,
                     fontWeight: FontWeight.bold,
                     color: textColor,
@@ -337,8 +352,8 @@ class _LunchScreenState extends State<LunchScreen> {
                 ),
                 const Spacer(),
                 SizedBox(
-                  width: 60,
-                  height: 60,
+                  width: ResponsiveHelper.width(context, 60),
+                  height: ResponsiveHelper.height(context, 60),
                   child: SvgPicture.asset(
                     'assets/images/gochon_logo.svg',
                     semanticsLabel: 'Gochon Logo',
@@ -347,30 +362,40 @@ class _LunchScreenState extends State<LunchScreen> {
               ],
             ),
           ),
-          const SizedBox(height: 5),
+          ResponsiveHelper.verticalSpace(context, 5),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+            padding: ResponsiveHelper.padding(
+              context,
+              horizontal: 24,
+              vertical: 8,
+            ),
             child: Row(
               children: [
                 IconButton(
-                  icon: const Icon(Icons.arrow_left, size: 32),
+                  icon: Icon(
+                    Icons.arrow_left,
+                    size: ResponsiveHelper.width(context, 32),
+                  ),
                   onPressed: () => _changeDate(-1),
                 ),
                 Expanded(
                   child: Center(
                     child: Text(
                       todayStr,
-                      style: TextStyle(
+                      style: ResponsiveHelper.textStyle(
+                        context,
                         fontSize: 20,
                         color: textColor,
-        
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.arrow_right, size: 32),
+                  icon: Icon(
+                    Icons.arrow_right,
+                    size: ResponsiveHelper.width(context, 32),
+                  ),
                   onPressed: () => _changeDate(1),
                 ),
               ],
@@ -382,14 +407,19 @@ class _LunchScreenState extends State<LunchScreen> {
                     ? const Center(child: CircularProgressIndicator())
                     : error != null
                     ? Container(
-                      margin: const EdgeInsets.only(top: 40, bottom: 180),
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      margin: ResponsiveHelper.padding(
+                        context,
+                        top: 40,
+                        bottom: 180,
+                      ),
+                      padding: ResponsiveHelper.horizontalPadding(context, 24),
                       child: Center(
                         child: Text(
                           error!,
-                          style: TextStyle(
-                            color: textColor,
+                          style: ResponsiveHelper.textStyle(
+                            context,
                             fontSize: 20,
+                            color: textColor,
                             fontWeight: FontWeight.bold,
                           ),
                           textAlign: TextAlign.center,
@@ -400,34 +430,37 @@ class _LunchScreenState extends State<LunchScreen> {
                       mainAxisAlignment: MainAxisAlignment.start,
                       children: [
                         Card(
-                          margin: const EdgeInsets.symmetric(
+                          margin: ResponsiveHelper.padding(
+                            context,
                             horizontal: 24,
                             vertical: 12,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: ResponsiveHelper.borderRadius(context, 12),
                           ),
                           elevation: 2,
                           color: cardColor,
                           child: Container(
                             width: double.infinity,
-                            padding: const EdgeInsets.all(16),
+                            padding: ResponsiveHelper.padding(context, all: 16),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
                                   '$todayStrShort 급식',
-                                  style: TextStyle(
+                                  style: ResponsiveHelper.textStyle(
+                                    context,
                                     fontSize: 20,
                                     fontWeight: FontWeight.bold,
                                     color: textColor,
                                   ),
                                 ),
-                                const SizedBox(height: 9),
+                                ResponsiveHelper.verticalSpace(context, 9),
                                 Text(
                                   menu ?? '',
-                                  style: TextStyle(
+                                  style: ResponsiveHelper.textStyle(
+                                    context,
                                     fontSize: 19,
                                     color: textColor,
                                     fontWeight: FontWeight.w500,

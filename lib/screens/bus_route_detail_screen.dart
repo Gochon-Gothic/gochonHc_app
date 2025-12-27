@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../services/bus_service.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
+import '../utils/responsive_helper.dart';
 
 class BusRouteDetailScreen extends StatefulWidget {
   final BusRoute route;
@@ -131,16 +132,23 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
                     children: [
                       Text(
                         error!,
-                        style: const TextStyle(
-                          color: Colors.red,
+                        style: ResponsiveHelper.textStyle(
+                          context,
                           fontSize: 16,
+                          color: Colors.red,
                         ),
                         textAlign: TextAlign.center,
                       ),
-                      const SizedBox(height: 16),
+                      ResponsiveHelper.verticalSpace(context, 16),
                       ElevatedButton(
                         onPressed: _loadRouteData,
-                        child: const Text('다시 시도'),
+                        child: Text(
+                          '다시 시도',
+                          style: ResponsiveHelper.textStyle(
+                            context,
+                            fontSize: 16,
+                          ),
+                        ),
                       ),
                     ],
                   ),
@@ -171,58 +179,70 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
           children: [
             // 네비게이션 바
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: ResponsiveHelper.horizontalPadding(context, 16),
               child: Row(
                 children: [
                   IconButton(
                     onPressed: () => Navigator.pop(context),
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: Icon(
+                      Icons.arrow_back,
+                      color: Colors.white,
+                      size: ResponsiveHelper.width(context, 24),
+                    ),
                   ),
                   const Spacer(),
                   IconButton(
                     onPressed: () => Navigator.popUntil(context, (route) => route.isFirst),
-                    icon: const Icon(Icons.home, color: Colors.white),
+                    icon: Icon(
+                      Icons.home,
+                      color: Colors.white,
+                      size: ResponsiveHelper.width(context, 24),
+                    ),
                   ),
                 ],
               ),
             ),
             // 버스 노선 정보
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: ResponsiveHelper.horizontalPadding(context, 16),
               child: Column(
                 children: [
                   Text(
                     routeInfo?.routeTypeName ?? '서울 간선버스',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 16,
+                      color: Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
                   ),
                   Text(
                     widget.route.routeName,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 50,
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  ResponsiveHelper.verticalSpace(context, 3),
                   Text(
                     '${_getDestName()} 방면',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 20,
+                      color: Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
                   ),
-                  const SizedBox(height: 4),
+                  ResponsiveHelper.verticalSpace(context, 4),
                   Text(
                     '${_getFirstTime()}~${_getLastTime()}',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 18,
+                      color: Colors.white,
                       fontWeight: FontWeight.w500,
                     ),
                     textAlign: TextAlign.center,
@@ -240,24 +260,35 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
   Widget _buildSearchBar() {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     return Container(
-      margin: const EdgeInsets.all(16),
+      margin: ResponsiveHelper.padding(context, all: 16),
       decoration: BoxDecoration(
         color: isDark ? Colors.grey[850] : Colors.white,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: ResponsiveHelper.borderRadius(context, 8),
         boxShadow: [
           BoxShadow(
             color: Colors.grey.withOpacity(0.2),
-            blurRadius: 1,
-            offset: const Offset(0, 2),
+            blurRadius: ResponsiveHelper.width(context, 1),
+            offset: Offset(
+              0,
+              ResponsiveHelper.height(context, 2),
+            ),
           ),
         ],
       ),
       child: TextField(
         decoration: InputDecoration(
           hintText: '${widget.route.routeName}번 버스 정류장 검색',
-          prefixIcon: const Icon(Icons.search, color: Colors.grey),
+          prefixIcon: Icon(
+            Icons.search,
+            color: Colors.grey,
+            size: ResponsiveHelper.width(context, 24),
+          ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          contentPadding: ResponsiveHelper.padding(
+            context,
+            horizontal: 16,
+            vertical: 12,
+          ),
         ),
       ),
     );
@@ -265,12 +296,13 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
 
   Widget _buildStationList() {
     if (stations.isEmpty) {
-      return const Center(
+      return Center(
         child: Text(
           '정류장 정보가 없습니다',
-          style: TextStyle(
-            color: Colors.grey,
+          style: ResponsiveHelper.textStyle(
+            context,
             fontSize: 16,
+            color: Colors.grey,
           ),
         ),
       );

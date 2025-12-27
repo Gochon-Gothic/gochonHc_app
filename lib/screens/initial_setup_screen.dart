@@ -7,6 +7,7 @@ import '../models/user_info.dart';
 import '../services/user_service.dart';
 import '../theme_colors.dart';
 import 'elective_setup_screen.dart';
+import '../utils/responsive_helper.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
@@ -206,7 +207,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+          padding: ResponsiveHelper.horizontalPadding(context, 20.0),
           child: Form(
             key: _formKey,
             child: Column(
@@ -216,38 +217,41 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   child: Text(
                     widget.existingUserInfo != null ? '인적사항 수정' : '환영합니다',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: textColor,
+                    style: ResponsiveHelper.textStyle(
+                      context,
                       fontSize: 50,
+                      color: textColor,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                 ),
-                const SizedBox(height: 35),
+                ResponsiveHelper.verticalSpace(context, 35),
 
                 // 학년 입력
                 Text(
                   '학년',
-                  style: TextStyle(
-                    color: textColor,
-
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 19,
+                    color: textColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
                   controller: _gradeController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     hintText: '학년을 입력하세요(숫자만)',
-                    hintStyle: TextStyle(
+                    hintStyle: ResponsiveHelper.textStyle(
+                      context,
+                      fontSize: 16,
                       color: textColor.withValues(alpha: 0.5),
                     ),
                     filled: true,
                     fillColor: cardColor,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -256,7 +260,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -265,14 +269,18 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color: AppColors.primary,
-                        width: 2,
+                        width: ResponsiveHelper.width(context, 2),
                       ),
                     ),
                   ),
-                  style: TextStyle(color: textColor, fontSize: 16),
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 16,
+                    color: textColor,
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '학년을 입력해주세요';
@@ -284,31 +292,33 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                ResponsiveHelper.verticalSpace(context, 24),
 
                 // 반 입력
                 Text(
                   '반',
-                  style: TextStyle(
-                    color: textColor,
-
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 19,
+                    color: textColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
                   controller: _classController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     hintText: '반을 입력하세요(숫자만)',
-                    hintStyle: TextStyle(
+                    hintStyle: ResponsiveHelper.textStyle(
+                      context,
+                      fontSize: 16,
                       color: textColor.withValues(alpha: 0.5),
                     ),
                     filled: true,
                     fillColor: cardColor,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -317,7 +327,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -326,14 +336,18 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color: AppColors.primary,
-                        width: 2,
+                        width: ResponsiveHelper.width(context, 2),
                       ),
                     ),
                   ),
-                  style: TextStyle(color: textColor, fontSize: 16),
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 16,
+                    color: textColor,
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '반을 입력해주세요';
@@ -345,32 +359,34 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                ResponsiveHelper.verticalSpace(context, 24),
 
                 // 번호 입력
                 Text(
                   '번호',
-                  style: TextStyle(
-                    color: textColor,
-
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 19,
+                    color: textColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
                   controller: _studentNumberController,
                   keyboardType: TextInputType.number,
                   decoration: InputDecoration(
                     hintText:
                         '번호를 입력하세요(숫자만)',
-                    hintStyle: TextStyle(
+                    hintStyle: ResponsiveHelper.textStyle(
+                      context,
+                      fontSize: 16,
                       color: textColor.withValues(alpha: 0.5),
                     ),
                     filled: true,
                     fillColor: cardColor,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -379,7 +395,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -388,14 +404,18 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color: AppColors.primary,
-                        width: 2,
+                        width: ResponsiveHelper.width(context, 2),
                       ),
                     ),
                   ),
-                  style: TextStyle(color: textColor, fontSize: 16),
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 16,
+                    color: textColor,
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '번호를 입력해주세요';
@@ -409,30 +429,32 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 24),
+                ResponsiveHelper.verticalSpace(context, 24),
 
                 // 이름 입력
                 Text(
                   '이름',
-                  style: TextStyle(
-                    color: textColor,
-
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 19,
+                    color: textColor,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
                   controller: _nameController,
                   decoration: InputDecoration(
                     hintText: '이름을 입력하세요',
-                    hintStyle: TextStyle(
+                    hintStyle: ResponsiveHelper.textStyle(
+                      context,
+                      fontSize: 16,
                       color: textColor.withValues(alpha: 0.5),
                     ),
                     filled: true,
                     fillColor: cardColor,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -441,7 +463,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color:
                             isDark
@@ -450,14 +472,18 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                       ),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       borderSide: BorderSide(
                         color: AppColors.primary,
-                        width: 2,
+                        width: ResponsiveHelper.width(context, 2),
                       ),
                     ),
                   ),
-                  style: TextStyle(color: textColor, fontSize: 16),
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 16,
+                    color: textColor,
+                  ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
                       return '이름을 입력해주세요';
@@ -468,51 +494,53 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     return null;
                   },
                 ),
-                const SizedBox(height: 8),
+                ResponsiveHelper.verticalSpace(context, 8),
                 Text(
                   '*부적절한 이름을 사용할 경우, 제제가 부과될 수 있습니다*',
-                  style: TextStyle(
-                    color: AppColors.primary.withValues(alpha: 0.7),
+                  style: ResponsiveHelper.textStyle(
+                    context,
                     fontSize: 12,
+                    color: AppColors.primary.withValues(alpha: 0.7),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
-                const SizedBox(height: 30),
+                ResponsiveHelper.verticalSpace(context, 30),
 
                 // 완료 버튼
                 SizedBox(
                   width: double.infinity,
-                  height: 56,
+                  height: ResponsiveHelper.height(context, 56),
                   child: ElevatedButton(
                     onPressed: _isLoading ? null : _completeSetup,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isDark ? AppColors.lightBackground : AppColors.primary,
                       foregroundColor: AppColors.primary,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       ),
                       elevation: 4,
                     ),
                     child:
                         _isLoading
-                            ? const SizedBox(
-                              width: 24,
-                              height: 24,
+                            ? SizedBox(
+                              width: ResponsiveHelper.width(context, 24),
+                              height: ResponsiveHelper.height(context, 24),
                               child: CircularProgressIndicator(
                                 color: Colors.white,
-                                strokeWidth: 2,
+                                strokeWidth: ResponsiveHelper.width(context, 2),
                               ),
                             )
                             : Text(
                               widget.existingUserInfo != null ? '수정 완료' : '설정 완료',
-                              style: TextStyle(
+                              style: ResponsiveHelper.textStyle(
+                                context,
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
                   ),
                 ),
-                const SizedBox(height: 20),
+                ResponsiveHelper.verticalSpace(context, 20),
               ],
             ),
           ),
@@ -521,3 +549,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     );
   }
 }
+
+
+
+

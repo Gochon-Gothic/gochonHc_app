@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_colors.dart';
 import '../utils/shadows.dart';
+import '../utils/responsive_helper.dart';
 
 class CustomCard extends StatelessWidget {
   final Widget child;
@@ -30,10 +31,12 @@ class CustomCard extends StatelessWidget {
         backgroundColor ?? (isDark ? AppColors.darkCard : AppColors.lightCard);
 
     final card = Container(
-      margin: margin ?? const EdgeInsets.symmetric(vertical: 6),
+      margin: margin ?? EdgeInsets.symmetric(
+        vertical: ResponsiveHelper.height(context, 6),
+      ),
       decoration: BoxDecoration(
         color: cardColor,
-        borderRadius: borderRadius ?? BorderRadius.circular(12),
+        borderRadius: borderRadius ?? ResponsiveHelper.borderRadius(context, 12),
         boxShadow: AppShadows.card(isDark),
       ),
       child: padding != null ? Padding(padding: padding!, child: child) : child,
@@ -44,7 +47,7 @@ class CustomCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: borderRadius ?? BorderRadius.circular(12),
+          borderRadius: borderRadius ?? ResponsiveHelper.borderRadius(context, 12),
           child: card,
         ),
       );

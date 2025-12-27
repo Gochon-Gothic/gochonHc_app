@@ -5,6 +5,7 @@ import '../theme_colors.dart';
 import '../services/bus_service.dart';
 import '../utils/preference_manager.dart';
 import 'bus_detail_screen.dart';
+import '../utils/responsive_helper.dart';
 
 class BusSearchScreen extends StatefulWidget {
   const BusSearchScreen({super.key});
@@ -180,34 +181,42 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
     return Container(
       color: bgColor,
       child: ListView(
-        padding: const EdgeInsets.all(0),
+        padding: EdgeInsets.zero,
         children: [
-          const SizedBox(height: 60),
+          ResponsiveHelper.verticalSpace(context, 60),
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: ResponsiveHelper.horizontalPadding(context, 24),
             child: Text(
               '버스 알림',
-              style: TextStyle(
+              style: ResponsiveHelper.textStyle(
+                context,
                 fontSize: 40,
                 color: textColor,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          const SizedBox(height: 24),
+          ResponsiveHelper.verticalSpace(context, 24),
           Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            margin: ResponsiveHelper.padding(context, horizontal: 16),
+            padding: ResponsiveHelper.padding(
+              context,
+              horizontal: 16,
+              vertical: 4,
+            ),
             decoration: BoxDecoration(
               color: cardColor,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: ResponsiveHelper.borderRadius(context, 12),
               boxShadow: [
                 BoxShadow(
                   color: isDark
                       ? Colors.black.withValues(alpha: 0.3)
                       : const Color.fromRGBO(21, 21, 21, 0.1),
-                  offset: const Offset(0, 2),
-                  blurRadius: 8,
+                  offset: Offset(
+                    0,
+                    ResponsiveHelper.height(context, 2),
+                  ),
+                  blurRadius: ResponsiveHelper.width(context, 8),
                 ),
               ],
             ),
@@ -216,9 +225,9 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
                 Icon(
                   Icons.search,
                   color: textColor.withValues(alpha: 0.6),
-                  size: 24,
+                  size: ResponsiveHelper.width(context, 24),
                 ),
-                const SizedBox(width: 12),
+                ResponsiveHelper.horizontalSpace(context, 12),
                 Expanded(
                   child: TextField(
                     controller: _searchController,
@@ -234,36 +243,43 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
                   ),
                 ),
                 if (isSearching)
-                  const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
+                  SizedBox(
+                    width: ResponsiveHelper.width(context, 20),
+                    height: ResponsiveHelper.height(context, 20),
+                    child: CircularProgressIndicator(
+                      strokeWidth: ResponsiveHelper.width(context, 2),
+                    ),
                   ),
               ],
             ),
           ),
           
-          const SizedBox(height: 24),
+          ResponsiveHelper.verticalSpace(context, 24),
           if (_searchController.text.isNotEmpty && searchResults.isNotEmpty) ...[
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: ResponsiveHelper.horizontalPadding(context, 24),
               child: Text(
                 '검색 결과 (${searchResults.length}개)',
-                style: TextStyle(
+                style: ResponsiveHelper.textStyle(
+                  context,
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: textColor,
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            ResponsiveHelper.verticalSpace(context, 12),
             ...searchResults.take(10).map((station) => Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  margin: ResponsiveHelper.padding(
+                    context,
+                    horizontal: 16,
+                    vertical: 4,
+                  ),
                   child: Card(
                     color: cardColor,
                     elevation: 2,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: ResponsiveHelper.borderRadius(context, 12),
                     ),
                     child: ListTile(
                       leading: GestureDetector(
