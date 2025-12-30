@@ -46,13 +46,22 @@ class AuthService {
       );
 
       print('Apple 자격 증명서 받음: ${appleCredential.email}');
+      print('Apple identityToken 존재: ${appleCredential.identityToken != null}');
+      print('Apple authorizationCode 존재: ${appleCredential.authorizationCode != null}');
+      print('Apple userIdentifier: ${appleCredential.userIdentifier}');
+
+      if (appleCredential.identityToken == null) {
+        throw Exception('Apple identityToken이 null입니다.');
+      }
 
       final credential = OAuthProvider("apple.com").credential(
-        idToken: appleCredential.identityToken,
+        idToken: appleCredential.identityToken!,
         rawNonce: rawNonce,
+        accessToken: appleCredential.authorizationCode, // firebase_auth 4.3.0+ 필수
       );
 
       print('Firebase 인증 시작...');
+      print('OAuthCredential 생성 완료');
       final userCredential = await _auth.signInWithCredential(credential);
       print('Firebase 로그인 성공: ${userCredential.user?.email}');
 

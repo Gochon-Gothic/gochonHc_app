@@ -161,7 +161,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                     Icons.arrow_back_ios_new,
                     color: textColor,
                     size: ResponsiveHelper.width(context, 24),
-                  ),
+                ),
                 ),
                 ResponsiveHelper.horizontalSpace(context, 1),
                 Text(
@@ -223,9 +223,9 @@ class _ScheduleViewState extends State<ScheduleView> {
               constraints: BoxConstraints(
                 maxHeight: ResponsiveHelper.height(context, 400),
               ),
-              child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
-                  : _error != null
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : _error != null
                       ? Center(
                           child: Text(
                             _error!,
@@ -236,35 +236,35 @@ class _ScheduleViewState extends State<ScheduleView> {
                             ),
                           ),
                         )
-                      : PageView.builder(
-                          controller: _monthController,
-                          onPageChanged: (i) {
-                            // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
-                            setState(() {
-                              _currentMonthIndex = i;
-                              _selectedDay = null;
-                            });
-                          },
-                          itemCount: _totalMonths,
-                          itemBuilder: (context, index) {
-                            final yearMonth = _getYearAndMonth(index);
-                            final month = yearMonth['month']!;
-                            final year = yearMonth['year']!;
-                            return _MonthGrid(
-                              year: year,
-                              month: month,
-                              scheduleMap: _scheduleMap,
-                              selectedDay: _selectedDay,
-                              onDaySelected: (d) {
-                                setState(() => _selectedDay = d);
-                                WidgetsBinding.instance.addPostFrameCallback((_) {
-                                  _scrollToDay(d);
-                                });
-                              },
-                            );
-                          },
+                    : PageView.builder(
+                        controller: _monthController,
+                        onPageChanged: (i) {
+                          // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
+                          setState(() {
+                            _currentMonthIndex = i;
+                            _selectedDay = null;
+                          });
+                        },
+                        itemCount: _totalMonths,
+                        itemBuilder: (context, index) {
+                          final yearMonth = _getYearAndMonth(index);
+                          final month = yearMonth['month']!;
+                          final year = yearMonth['year']!;
+                          return _MonthGrid(
+                            year: year,
+                            month: month,
+                            scheduleMap: _scheduleMap,
+                            selectedDay: _selectedDay,
+                            onDaySelected: (d) {
+                              setState(() => _selectedDay = d);
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                _scrollToDay(d);
+                              });
+                            },
+                          );
+                        },
                         ),
-            ),
+                      ),
           ),
           SizedBox(
             height: ResponsiveHelper.height(context, 300),

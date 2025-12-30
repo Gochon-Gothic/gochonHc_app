@@ -31,6 +31,10 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final _gradeController = TextEditingController();
   final _classController = TextEditingController();
   final _studentNumberController = TextEditingController();
+  final _gradeFocusNode = FocusNode();
+  final _classFocusNode = FocusNode();
+  final _studentNumberFocusNode = FocusNode();
+  final _nameFocusNode = FocusNode();
   bool _isLoading = false;
 
   @override
@@ -51,6 +55,10 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     _gradeController.dispose();
     _classController.dispose();
     _studentNumberController.dispose();
+    _gradeFocusNode.dispose();
+    _classFocusNode.dispose();
+    _studentNumberFocusNode.dispose();
+    _nameFocusNode.dispose();
     super.dispose();
   }
 
@@ -240,7 +248,12 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
                   controller: _gradeController,
+                  focusNode: _gradeFocusNode,
                   keyboardType: TextInputType.number,
+                  textInputAction: TextInputAction.next,
+                  onFieldSubmitted: (_) {
+                    FocusScope.of(context).requestFocus(_classFocusNode);
+                  },
                   decoration: InputDecoration(
                     hintText: '학년을 입력하세요(숫자만)',
                     hintStyle: ResponsiveHelper.textStyle(

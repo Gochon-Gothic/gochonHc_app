@@ -48,3 +48,9 @@ app.*.map.json
 assets/data/*.json
 **/credentials.json
 **/*credentials*.json
+
+android/key.properties
+android/app/keystore/*.jks
+android/app/keystore/*.keystore
+*.jks
+*.keystore
