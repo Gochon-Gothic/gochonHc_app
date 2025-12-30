@@ -1,3 +1,6 @@
+import java.util.Properties
+import java.io.FileInputStream
+
 plugins {
     id("com.android.application")
     // START: FlutterFire Configuration
@@ -7,6 +10,13 @@ plugins {
     // The Flutter Gradle Plugin must be applied after the Android and Kotlin Gradle plugins.
     id("dev.flutter.flutter-gradle-plugin")
 }
+
+val keystoreProperties = Properties()
+val keystorePropertiesFile = rootProject.file("key.properties")
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(FileInputStream(keystorePropertiesFile))
+}
+
 dependencies {
   // Firebase BoM (Bill of Materials) → 버전 관리 통합
   implementation(platform("com.google.firebase:firebase-bom:34.3.0"))
@@ -19,7 +29,7 @@ dependencies {
   //     implementation("com.google.firebase:firebase-firestore")
 }
 android {
-    namespace = "com.example.gochon_mobile"
+    namespace = "kr.hs.gochon.mobile"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = "27.0.12077973"
 
@@ -33,8 +43,8 @@ android {
     }
 
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "com.example.gochon_mobile"
+        // 고촌고등학교 앱 패키지명
+        applicationId = "kr.hs.gochon.mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -43,11 +53,26 @@ android {
         versionName = flutter.versionName
     }
 
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                keyAlias = keystoreProperties["keyAlias"] as String?
+                keyPassword = keystoreProperties["keyPassword"] as String?
+                val storeFilePath = keystoreProperties["storeFile"] as String?
+                storeFile = storeFilePath?.let { rootProject.file(it) }
+                storePassword = keystoreProperties["storePassword"] as String?
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            if (keystorePropertiesFile.exists()) {
+                signingConfig = signingConfigs.getByName("release")
+            } else {
+                // key.properties가 없으면 debug 키 사용
             signingConfig = signingConfigs.getByName("debug")
+            }
         }
     }
 }
