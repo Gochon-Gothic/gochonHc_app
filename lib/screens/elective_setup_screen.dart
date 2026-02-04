@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../services/api_service.dart';
 import '../services/user_service.dart';
+import '../services/gsheet_service.dart';
 import '../theme_colors.dart';
 import '../utils/responsive_helper.dart';
 
@@ -12,7 +13,8 @@ class ElectiveSetupScreen extends StatefulWidget {
   final String uid;
   final int grade;
   final int classNum;
-  final bool isEditMode; 
+  final bool isEditMode;
+  final bool isFromLogin; // 로그인에서 온 경우인지
 
   const ElectiveSetupScreen({
     super.key,
@@ -21,6 +23,7 @@ class ElectiveSetupScreen extends StatefulWidget {
     required this.grade,
     required this.classNum,
     this.isEditMode = false,
+    this.isFromLogin = false,
   });
 
   @override
@@ -31,6 +34,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   bool _isLoading = true;
   Map<int, List<ElectiveSlot>> _slotsBySet = {}; // 세트별로 그룹화된 슬롯
   final Map<String, String> _selections = {}; // key: 'set-slotKey', value: 선택한 과목
+  Map<int, String> _setNames = {}; // 세트 번호 -> 세트 이름 (구글 시트에서 가져옴)
   String? _error;
 
   static const _apiKey = '2cf24c119b434f93b2f916280097454a';
@@ -88,6 +92,28 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
     });
 
     try {
+      // 2학년, 3학년인 경우 구글 시트에서 선택과목 정보 가져오기
+      Map<int, Map<String, String>>? gsheetElectiveSubjects;
+      if (widget.grade == 2 || widget.grade == 3) {
+        final gradeData = widget.grade == 2 
+            ? await GSheetService.getGrade2Subjects()
+            : await GSheetService.getGrade3Subjects();
+        final electiveSets = gradeData['elective'] as Map<int, Map<String, dynamic>>?;
+        if (electiveSets != null) {
+          gsheetElectiveSubjects = {};
+          electiveSets.forEach((setNum, setData) {
+            final setName = setData['setName'] as String?;
+            final subjects = setData['subjects'] as Map<String, String>?;
+            if (setName != null) {
+              _setNames[setNum] = setName;
+            }
+            if (subjects != null) {
+              gsheetElectiveSubjects![setNum] = subjects;
+            }
+          });
+        }
+      }
+
       final thisWeekStart = _getWeekStart();
       final nextWeekStart = thisWeekStart.add(const Duration(days: 7));
       final formatter = DateFormat('yyyyMMdd');
@@ -114,11 +140,15 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       ]);
 
       // 세트별로 슬롯을 저장할 맵: {세트번호: {과목명: 슬롯}}
-      // 같은 과목이 여러 시간에 나타나도 하나의 슬롯으로 통합
       final slotsBySet = <int, Map<String, ElectiveSlot>>{};
+      
+      // 2학년, 3학년인 경우 구글 시트의 세트 정보 사용
+      final maxSets = (widget.grade == 2 || widget.grade == 3) && gsheetElectiveSubjects != null 
+          ? gsheetElectiveSubjects.keys.length 
+          : 4;
 
-      // 세트 1부터 4까지 순서대로 검색
-      for (int setNum = 1; setNum <= 4; setNum++) {
+      // 세트별로 검색
+      for (int setNum = 1; setNum <= maxSets; setNum++) {
         slotsBySet[setNum] = {};
 
         for (int weekIdx = 0; weekIdx < responses.length; weekIdx++) {
@@ -131,7 +161,24 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             final subject = (item['ITRT_CNTNT'] as String? ?? '').trim();
             final dateStr = item['ALL_TI_YMD'] as String? ?? '';
             final periodStr = item['PERIO'] as String? ?? '';
-            final subjectSetNum = _getSetNumber(subject);
+            
+            // 2학년, 3학년인 경우 구글 시트의 과목명으로 세트 확인
+            int? subjectSetNum;
+            if ((widget.grade == 2 || widget.grade == 3) && gsheetElectiveSubjects != null) {
+              for (var setEntry in gsheetElectiveSubjects.entries) {
+                for (var subEntry in setEntry.value.entries) {
+                  if (subject.contains(subEntry.key)) {
+                    subjectSetNum = setEntry.key;
+                    break;
+                  }
+                }
+                if (subjectSetNum != null) break;
+              }
+            } else {
+              // 구글 시트 데이터가 없는 경우 기존 로직 사용 (하위 호환성)
+              subjectSetNum = _getSetNumber(subject);
+            }
+            
             if (subjectSetNum != setNum || dateStr.isEmpty || periodStr.isEmpty) {
               continue;
             }
@@ -141,19 +188,30 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
               final day = _days[date.weekday - 1];
               final period = int.parse(periodStr);
               
-              // 과목명으로 키 생성 (같은 과목은 하나의 슬롯으로 통합)
-              final clean = _cleanSubject(subject, setNum);
+              // 과목명 정리
+              String clean;
+              if ((widget.grade == 2 || widget.grade == 3) && gsheetElectiveSubjects != null) {
+                // 2학년, 3학년: 구글 시트의 과목명 사용
+                clean = gsheetElectiveSubjects[setNum]?.keys.firstWhere(
+                  (name) => subject.contains(name),
+                  orElse: () => subject,
+                ) ?? subject;
+              } else {
+                // 구글 시트 데이터가 없는 경우 기존 로직 사용 (하위 호환성)
+                clean = _cleanSubject(subject, setNum);
+              }
+              
               if (clean.isEmpty) continue;
               
               // 같은 과목이 여러 시간에 나타나도 하나의 슬롯으로 통합
               slotsBySet[setNum]!.putIfAbsent(clean, () => ElectiveSlot(
-                day: day, // 첫 번째 발견된 시간 정보 저장
+                day: day,
                 period: period,
                 week: weekIdx == 0 ? '이번주' : '다음주',
                 date: date,
                 subjects: [clean],
                 setNumber: setNum,
-                timeSlots: [], // 여러 시간 정보를 저장할 리스트
+                timeSlots: [],
               ));
               
               // 해당 과목의 슬롯에 시간 정보 추가 (중복 방지)
@@ -171,7 +229,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
 
       // 세트별로 정렬하고 선택 번호 부여
       final sortedSlotsBySet = <int, List<ElectiveSlot>>{};
-      for (int setNum = 1; setNum <= 4; setNum++) {
+      for (int setNum = 1; setNum <= maxSets; setNum++) {
         final slots = slotsBySet[setNum]?.values.toList() ?? [];
         slots.sort((a, b) {
           final dayDiff = (_dayOrder[a.day] ?? 999) - (_dayOrder[b.day] ?? 999);
@@ -287,6 +345,18 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       appBar: AppBar(
         backgroundColor: bgColor,
         elevation: 0,
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back_ios, color: textColor),
+          onPressed: () {
+            if (widget.isFromLogin) {
+              // 로그인에서 온 경우: 로그인 화면으로
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            } else {
+              // 설정에서 온 경우: 이전 화면으로
+              Navigator.of(context).pop();
+            }
+          },
+        ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
@@ -300,7 +370,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             : _error != null
                 ? _buildError(textColor)
                 : _slotsBySet.isEmpty || _slotsBySet.values.every((slots) => slots.isEmpty)
-                    ? Center(child: Text('선택과목이 없습니다.', style: TextStyle(color: textColor)))
+                    ? _buildNoDataView(textColor, cardColor, isDark)
                     : Column(
                         children: [
                           Center(
@@ -352,6 +422,58 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
     );
   }
 
+  Widget _buildNoDataView(Color textColor, Color cardColor, bool isDark) {
+    return Center(
+      child: Padding(
+        padding: ResponsiveHelper.padding(context, all: 20),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              '현재 선택과목 정보가 존재하지 않아 선택할 수 없습니다\n이후에 다시 선택해주세요',
+              textAlign: TextAlign.center,
+              style: ResponsiveHelper.textStyle(
+                context,
+                fontSize: 16,
+                color: textColor,
+              ),
+            ),
+            ResponsiveHelper.verticalSpace(context, 30),
+            SizedBox(
+              width: double.infinity,
+              height: ResponsiveHelper.height(context, 56),
+              child: ElevatedButton(
+                onPressed: () {
+                  if (widget.isEditMode) {
+                    Navigator.of(context).pop();
+                  } else {
+                    Navigator.of(context).pushReplacementNamed('/main');
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: cardColor,
+                  foregroundColor: textColor,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: ResponsiveHelper.borderRadius(context, 12),
+                  ),
+                  elevation: 4,
+                ),
+                child: Text(
+                  '계속하기',
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent(Color cardColor, Color textColor, bool isDark) {
     return Column(
       children: [
@@ -382,7 +504,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                           borderRadius: ResponsiveHelper.borderRadius(context, 8),
                         ),
                         child: Text(
-                          '세트 $setNum',
+                          _setNames[setNum] ?? '세트 $setNum',
                           style: ResponsiveHelper.textStyle(
                             context,
                             fontSize: 16,

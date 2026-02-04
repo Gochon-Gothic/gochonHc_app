@@ -108,49 +108,43 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-// Firestore에서 사용자 정보를 가져와 로컬에 저장하는 헬퍼 함수
-Future<void> _syncUserInfo(String uid) async {
-  try {
-    final userData = await AuthService.instance.getUserFromFirestore(uid);
-    if (userData != null) {
-      final userInfo = UserInfo.fromJson(userData);
-      await UserService.instance.saveUserInfo(userInfo);
-      print('AuthWrapper: 사용자 정보 동기화 완료 - ${userInfo.name}');
-    } else {
-      print('AuthWrapper: Firestore에서 사용자 정보를 찾을 수 없음');
-    }
-  } catch (e) {
-    print('AuthWrapper: 사용자 정보 동기화 실패: $e');
-  }
-}
-
-// 사용자 설정 상태 확인
+// 사용자 설정 상태 확인 (Firestore만 확인, 서버에 없으면 반드시 초기 설정 화면으로)
 Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
   try {
     final userData = await AuthService.instance.getUserFromFirestore(uid);
-    if (userData != null) {
-      final userInfo = UserInfo.fromJson(userData);
-      final hasElectiveSetup = userData['hasElectiveSetup'] == true;
-      
-      return {
-        'hasSetup': true,
-        'userInfo': userInfo,
-        'hasElectiveSetup': hasElectiveSetup,
-      };
-    } else {
-      return {
-        'hasSetup': false,
-        'userInfo': null,
-        'hasElectiveSetup': false,
-      };
+    if (userData == null) {
+      await UserService.instance.clearUserInfo();
+      return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false};
     }
-  } catch (e) {
-    print('사용자 설정 확인 실패: $e');
+    
+    // 필수 필드 확인
+    final grade = userData['grade'] as int?;
+    final classNum = userData['classNum'] as int?;
+    final number = userData['number'] as int?;
+    final name = userData['name'] as String? ?? '';
+    
+    // 필수 필드가 없거나 name이 비어있으면 로컬 데이터 삭제하고 설정 미완료
+    if (grade == null || classNum == null || number == null || name.isEmpty) {
+      await UserService.instance.clearUserInfo();
+      return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false};
+    }
+    
+    // 설정 완료 - Firestore 데이터로 로컬 동기화
+    final userInfo = UserInfo.fromJson(userData);
+    final hasElectiveSetup = userData['hasElectiveSetup'] == true;
+    
+    // 로컬에 저장 (Firestore가 source of truth)
+    await UserService.instance.saveUserInfo(userInfo);
+    
     return {
-      'hasSetup': false,
-      'userInfo': null,
-      'hasElectiveSetup': false,
+      'hasSetup': true,
+      'userInfo': userInfo,
+      'hasElectiveSetup': hasElectiveSetup,
     };
+  } catch (e) {
+    // 에러 발생 시에도 로컬 데이터 삭제하고 설정 미완료로 처리
+    await UserService.instance.clearUserInfo();
+    return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false};
   }
 }
 
@@ -172,70 +166,41 @@ class AuthWrapper extends StatelessWidget {
         // 로그인된 사용자가 있는지 확인
         if (snapshot.hasData) {
           final user = snapshot.data!;
-          return FutureBuilder<bool>(
-            future: UserService.instance.doesUserExist(user.uid),
-            builder: (context, userSnapshot) {
-              if (userSnapshot.connectionState == ConnectionState.waiting) {
+          return FutureBuilder<Map<String, dynamic>>(
+            future: _checkUserSetup(user.uid),
+            builder: (context, setupSnapshot) {
+              if (setupSnapshot.connectionState == ConnectionState.waiting) {
                 return const Scaffold(
                   body: Center(child: CircularProgressIndicator()),
                 );
               }
-
-              if (userSnapshot.hasData && userSnapshot.data!) {
-                return FutureBuilder<Map<String, dynamic>>(
-                  future: _checkUserSetup(user.uid),
-                  builder: (context, setupSnapshot) {
-                    if (setupSnapshot.connectionState == ConnectionState.waiting) {
-                      return const Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    
-                    final setupInfo = setupSnapshot.data;
-                    if (setupInfo == null) {
-                      return const Scaffold(
-                        body: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-                    
-                    final hasSetup = setupInfo['hasSetup'] as bool;
-                    final userInfo = setupInfo['userInfo'] as UserInfo?;
-                    final hasElectiveSetup = setupInfo['hasElectiveSetup'] as bool;
-                    
-                    if (!hasSetup || userInfo == null) {
-                      return InitialSetupScreen(
-                        userEmail: user.email ?? '',
-                        uid: user.uid,
-                      );
-                    }
-                    
-                    if (userInfo.grade > 1 && !hasElectiveSetup) {
-                      return InitialSetupScreen(
-                        userEmail: user.email ?? '',
-                        uid: user.uid,
-                      );
-                    }
-                    
-                    return FutureBuilder<void>(
-                      future: _syncUserInfo(user.uid),
-                      builder: (context, syncSnapshot) {
-                        if (syncSnapshot.connectionState == ConnectionState.waiting) {
-                          return const Scaffold(
-                            body: Center(child: CircularProgressIndicator()),
-                          );
-                        }
-                        return const MainScreen();
-                      },
-                    );
-                  },
+              
+              final setupInfo = setupSnapshot.data;
+              if (setupInfo == null) {
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
                 );
-              } else {
-                // 정보 없음 -> 초기 설정 화면
+              }
+              
+              final hasSetup = setupInfo['hasSetup'] as bool;
+              final userInfo = setupInfo['userInfo'] as UserInfo?;
+              final hasElectiveSetup = setupInfo['hasElectiveSetup'] as bool;
+              
+              if (!hasSetup || userInfo == null) {
                 return InitialSetupScreen(
                   userEmail: user.email ?? '',
                   uid: user.uid,
                 );
               }
+              
+              if (userInfo.grade > 1 && !hasElectiveSetup) {
+                return InitialSetupScreen(
+                  userEmail: user.email ?? '',
+                  uid: user.uid,
+                );
+              }
+              
+              return const MainScreen();
             },
           );
         } else {

@@ -124,10 +124,25 @@ class BusService {
                 // busRouteList가 배열인지 객체인지 확인
                 if (busRouteList is List) {
                   print('성공! 조회된 버스 노선 수: ${busRouteList.length}');
-                  return busRouteList.map((route) => BusRoute.fromJson(Map<String, dynamic>.from(route))).toList();
+                  final routes = busRouteList
+                      .map((route) => BusRoute.fromJson(Map<String, dynamic>.from(route)))
+                      .where((route) {
+                    // "똑버스" 또는 "순환"이 포함된 버스명 제외
+                    final routeName = route.routeName;
+                    return !routeName.contains('똑버스') && !routeName.contains('순환');
+                  }).toList();
+                  print('필터링 후 버스 노선 수: ${routes.length}');
+                  return routes;
                 } else if (busRouteList is Map) {
                   print('성공! 단일 버스 노선 조회');
-                  return [BusRoute.fromJson(Map<String, dynamic>.from(busRouteList))];
+                  final route = BusRoute.fromJson(Map<String, dynamic>.from(busRouteList));
+                  // "똑버스" 또는 "순환"이 포함된 버스명 제외
+                  final routeName = route.routeName;
+                  if (routeName.contains('똑버스') || routeName.contains('순환')) {
+                    print('필터링된 버스: $routeName');
+                    return [];
+                  }
+                  return [route];
                 }
               } else {
                 print('버스 노선 데이터가 없습니다.');

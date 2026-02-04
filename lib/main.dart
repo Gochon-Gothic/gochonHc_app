@@ -84,17 +84,35 @@ class _MainScreenState extends State<MainScreen> {
 
   Future<void> _loadUserInfo() async {
     try {
-      var loadedUserInfo = await UserService.instance.getUserInfo();
-      if (loadedUserInfo == null) {
-        final currentUser = AuthService.instance.currentUser;
-        if (currentUser != null) {
-          final userData = await AuthService.instance.getUserFromFirestore(currentUser.uid);
-          if (userData != null) {
-            loadedUserInfo = UserInfo.fromJson(userData);
+      final currentUser = AuthService.instance.currentUser;
+      if (currentUser != null) {
+        final userData = await AuthService.instance.getUserFromFirestore(currentUser.uid);
+        if (userData != null) {
+          final grade = userData['grade'] as int?;
+          final classNum = userData['classNum'] as int?;
+          final number = userData['number'] as int?;
+          final name = userData['name'] as String? ?? '';
+          
+          if (grade != null && classNum != null && number != null && name.isNotEmpty) {
+            final loadedUserInfo = UserInfo.fromJson(userData);
             await UserService.instance.saveUserInfo(loadedUserInfo);
+            if (mounted) {
+              setState(() {
+                userInfo = loadedUserInfo;
+                isLoading = false;
+              });
+            }
+            return;
           }
         }
+        
+        // Firestore에 필수 필드가 없으면 로컬 데이터 삭제
+        await UserService.instance.clearUserInfo();
       }
+      
+      // Firestore에 데이터가 없으면 로컬에서 확인 (fallback)
+      var loadedUserInfo = await UserService.instance.getUserInfo();
+      
       if (mounted) {
         setState(() {
           userInfo = loadedUserInfo;
