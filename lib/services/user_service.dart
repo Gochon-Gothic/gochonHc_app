@@ -24,14 +24,22 @@ class UserService {
   Future<UserInfo?> getUserInfo() async {
     final prefs = await PreferenceManager.instance.getSharedPreferences();
     final userInfoJson = prefs.getString(_userInfoKey);
-    print('UserService: Retrieved userInfoJson: $userInfoJson'); // Debug print
     if (userInfoJson != null) {
       try {
         final json = jsonDecode(userInfoJson) as Map<String, dynamic>;
-        print('UserService: Decoded userInfoJson: $json'); // Debug print
+        final name = json['name'] as String? ?? '';
+        final grade = json['grade'] as int?;
+        final classNum = json['classNum'] as int?;
+        final number = json['number'] as int?;
+        
+        // 필수 필드가 모두 있고 name이 비어있지 않아야 함
+        if (grade == null || classNum == null || number == null || name.isEmpty) {
+          await clearUserInfo();
+          return null;
+        }
+        
         return UserInfo.fromJson(json);
       } catch (e) {
-        print('UserService: Error decoding userInfoJson: $e'); // Debug print
         return null;
       }
     }

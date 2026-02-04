@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -27,6 +28,7 @@ class InitialSetupScreen extends StatefulWidget {
 
 class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _scrollController = ScrollController();
   final _nameController = TextEditingController();
   final _gradeController = TextEditingController();
   final _classController = TextEditingController();
@@ -35,22 +37,45 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final _classFocusNode = FocusNode();
   final _studentNumberFocusNode = FocusNode();
   final _nameFocusNode = FocusNode();
+  final _gradeKey = GlobalKey();
+  final _classKey = GlobalKey();
+  final _numberKey = GlobalKey();
+  final _nameKey = GlobalKey();
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    // 수정 모드인 경우 기존 정보로 컨트롤러 초기화
     if (widget.existingUserInfo != null) {
       _nameController.text = widget.existingUserInfo!.name;
       _gradeController.text = widget.existingUserInfo!.grade.toString();
       _classController.text = widget.existingUserInfo!.classNum.toString();
       _studentNumberController.text = widget.existingUserInfo!.number.toString();
     }
+    
+    // FocusNode 리스너 추가 - 포커스 변경 시 해당 필드로 스크롤
+    _gradeFocusNode.addListener(() => _scrollToField(_gradeKey));
+    _classFocusNode.addListener(() => _scrollToField(_classKey));
+    _studentNumberFocusNode.addListener(() => _scrollToField(_numberKey));
+    _nameFocusNode.addListener(() => _scrollToField(_nameKey));
+  }
+  
+  void _scrollToField(GlobalKey key) {
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (key.currentContext != null) {
+        Scrollable.ensureVisible(
+          key.currentContext!,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeInOut,
+          alignment: 0.5, // 화면 중앙으로
+        );
+      }
+    });
   }
 
   @override
   void dispose() {
+    _scrollController.dispose();
     _nameController.dispose();
     _gradeController.dispose();
     _classController.dispose();
@@ -112,6 +137,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 grade: userInfo.grade,
                 classNum: userInfo.classNum,
                 isEditMode: widget.existingUserInfo != null, // 수정 모드 플래그 전달
+                isFromLogin: widget.existingUserInfo == null, // 초기 로그인인 경우
               ),
             ),
           );
@@ -207,7 +233,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
-      resizeToAvoidBottomInset: false,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
@@ -215,6 +241,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
+          controller: _scrollController,
           padding: ResponsiveHelper.horizontalPadding(context, 20.0),
           child: Form(
             key: _formKey,
@@ -247,10 +274,12 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 ),
                 ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
+                  key: _gradeKey,
                   controller: _gradeController,
                   focusNode: _gradeFocusNode,
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.text,
                   textInputAction: TextInputAction.next,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onFieldSubmitted: (_) {
                     FocusScope.of(context).requestFocus(_classFocusNode);
                   },
@@ -319,8 +348,15 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 ),
                 ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
+                  key: _classKey,
                   controller: _classController,
-                  keyboardType: TextInputType.number,
+                  focusNode: _classFocusNode,
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onFieldSubmitted: (_) {
+                    FocusScope.of(context).requestFocus(_studentNumberFocusNode);
+                  },
                   decoration: InputDecoration(
                     hintText: '반을 입력하세요(숫자만)',
                     hintStyle: ResponsiveHelper.textStyle(
@@ -386,8 +422,15 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 ),
                 ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
+                  key: _numberKey,
                   controller: _studentNumberController,
-                  keyboardType: TextInputType.number,
+                  focusNode: _studentNumberFocusNode,
+                  keyboardType: TextInputType.text,
+                  textInputAction: TextInputAction.next,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  onFieldSubmitted: (_) {
+                    FocusScope.of(context).requestFocus(_nameFocusNode);
+                  },
                   decoration: InputDecoration(
                     hintText:
                         '번호를 입력하세요(숫자만)',
@@ -456,7 +499,14 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 ),
                 ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
+                  key: _nameKey,
                   controller: _nameController,
+                  focusNode: _nameFocusNode,
+                  textInputAction: TextInputAction.done,
+                  onFieldSubmitted: (_) {
+                    _nameFocusNode.unfocus();
+                    _completeSetup();
+                  },
                   decoration: InputDecoration(
                     hintText: '이름을 입력하세요',
                     hintStyle: ResponsiveHelper.textStyle(

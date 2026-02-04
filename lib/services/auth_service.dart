@@ -202,15 +202,133 @@ class AuthService {
     }
   }
 
+  // 재인증 수행
+  Future<void> _reauthenticate() async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      throw Exception('로그인된 사용자가 없습니다.');
+    }
+
+    // 사용자의 로그인 제공자 확인
+    final providerData = user.providerData;
+    if (providerData.isEmpty) {
+      throw Exception('로그인 제공자 정보를 찾을 수 없습니다.');
+    }
+
+    final providerId = providerData.first.providerId;
+    
+    if (providerId == 'google.com') {
+      // Google 재인증
+      try {
+        final googleUser = await _googleSignIn.signIn();
+        if (googleUser == null) {
+          throw Exception('Google 재인증이 취소되었습니다.');
+        }
+        final googleAuth = await googleUser.authentication;
+        final credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        await user.reauthenticateWithCredential(credential);
+      } catch (e) {
+        throw Exception('Google 재인증 실패: $e');
+      }
+    } else if (providerId == 'apple.com') {
+      // Apple 재인증
+      try {
+        final rawNonce = _generateNonce();
+        final nonce = sha256.convert(utf8.encode(rawNonce)).toString();
+        
+        final appleCredential = await SignInWithApple.getAppleIDCredential(
+          scopes: [
+            AppleIDAuthorizationScopes.email,
+            AppleIDAuthorizationScopes.fullName,
+          ],
+          nonce: nonce,
+        );
+        
+        if (appleCredential.identityToken == null) {
+          throw Exception('Apple identityToken이 null입니다.');
+        }
+        
+        final credential = OAuthProvider("apple.com").credential(
+          idToken: appleCredential.identityToken!,
+          rawNonce: rawNonce,
+          accessToken: appleCredential.authorizationCode,
+        );
+        
+        await user.reauthenticateWithCredential(credential);
+      } catch (e) {
+        throw Exception('Apple 재인증 실패: $e');
+      }
+    } else {
+      throw Exception('지원하지 않는 로그인 방식입니다: $providerId');
+    }
+  }
+
   Future<void> deleteAccount() async {
     try {
       final user = _auth.currentUser;
-      if (user != null) {
-        await _firestore.collection('users').doc(user.uid).delete();
-        await _googleSignIn.signOut();
-        await user.delete();
+      if (user == null) {
+        throw Exception('로그인된 사용자가 없습니다.');
       }
+
+      // 1. 재인증 수행 (계정 삭제 전 필수)
+      try {
+        await _reauthenticate();
+      } catch (e) {
+        // 재인증 실패 시 사용자에게 명확한 메시지 전달
+        if (e.toString().contains('취소')) {
+          throw Exception('재인증이 취소되었습니다. 계정 삭제를 취소합니다.');
+        }
+        throw Exception('재인증이 필요합니다. 다시 로그인 후 시도해주세요: $e');
+      }
+
+      final uid = user.uid;
+      
+      // 2. Firestore에서 사용자 데이터 삭제
+      try {
+        await _firestore.collection('users').doc(uid).delete();
+      } catch (e) {
+        print('Firestore 삭제 실패: $e');
+        // Firestore 삭제 실패해도 계속 진행
+      }
+      
+      // 3. Google Sign-In 로그아웃 (Google 로그인인 경우)
+      try {
+        if (await _googleSignIn.isSignedIn()) {
+          await _googleSignIn.signOut();
+        }
+      } catch (e) {
+        print('Google Sign-In 로그아웃 실패: $e');
+        // Google 로그아웃 실패해도 계속 진행
+      }
+      
+      // 4. 로컬 사용자 정보 삭제
+      try {
+        await UserService.instance.clearUserInfo();
+      } catch (e) {
+        print('로컬 데이터 삭제 실패: $e');
+        // 로컬 삭제 실패해도 계속 진행
+      }
+      
+      // 5. Firebase Auth 계정 삭제 (재인증 후 가능)
+      await user.delete();
+      
+      // 6. Firebase Auth 로그아웃
+      await _auth.signOut();
     } catch (e) {
+      print('계정 삭제 에러: $e');
+      if (e is FirebaseAuthException) {
+        if (e.code == 'requires-recent-login') {
+          throw Exception('보안을 위해 재인증이 필요합니다. 다시 시도해주세요.');
+        }
+        throw Exception('계정 삭제 실패: ${e.message ?? e.code}');
+      }
+      // 이미 Exception인 경우 그대로 전달
+      if (e is Exception) {
+        rethrow;
+      }
       throw Exception('계정 삭제 실패: $e');
     }
   }

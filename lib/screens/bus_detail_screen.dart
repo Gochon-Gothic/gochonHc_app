@@ -389,7 +389,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
         '도착정보 없음',
         style: TextStyle(
           fontSize: 14,
-          color: isDark ? Colors.grey[400] : Colors.grey,
+          color: isDark ? (Colors.grey[200] ?? Colors.grey).withOpacity(0.6) : Colors.grey.withOpacity(0.6),
         ),
       );
     }
@@ -403,7 +403,9 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
               arrival.arrivalTime1,
               style: TextStyle(
                 fontSize: 14,
-                color: textColor,
+                color: arrival.arrivalTime1 == '도착정보 없음'
+                    ? (isDark ? (Colors.grey[200] ?? Colors.grey).withOpacity(0.6) : Colors.grey.withOpacity(0.6))
+                    : textColor,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -435,7 +437,9 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                 arrival.arrivalTime2,
                 style: TextStyle(
                   fontSize: 14,
-                  color: textColor,
+                  color: arrival.arrivalTime2 == '도착정보 없음'
+                      ? (isDark ? (Colors.grey[400] ?? Colors.grey).withOpacity(0.6) : Colors.grey.withOpacity(0.6))
+                      : textColor,
                   fontWeight: FontWeight.w500,
                 ),
               ),

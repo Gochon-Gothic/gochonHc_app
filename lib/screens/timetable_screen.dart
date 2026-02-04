@@ -40,6 +40,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
   String? _myGrade; // 나의 시간표일 때의 학년
   String? _myClass; // 나의 시간표일 때의 반
   Map<int, int>? _classCounts; // 학년별 반 수 (스프레드시트에서 로드)
+  Map<String, String>? _grade1SubjectMap; // 1학년 과목명 -> 줄임말 매핑
+  Map<String, dynamic>? _grade2SubjectData; // 2학년 과목 데이터 (공통과목 + 선택과목)
+  Map<String, dynamic>? _grade3SubjectData; // 3학년 과목 데이터 (공통과목 + 선택과목)
   DateTime getCurrentWeekStart() {
     // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
@@ -175,7 +178,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         selectedGradeNotifier: selectedGradeNotifier,
         selectedClassNotifier: selectedClassNotifier,
       ),
-    ).then((_) {
+    ).then((_) async {
       // 모달이 닫힌 후 선택된 반으로 시간표 불러오기
       final finalGrade = selectedGradeNotifier.value + 1; // 1-based
       final finalClass = selectedClassNotifier.value + 1; // 1-based
@@ -184,10 +187,32 @@ class _TimetableScreenState extends State<TimetableScreen> {
         selectedGrade = finalGrade.toString();
         selectedClass = finalClass.toString();
       });
+      
+      // 학년별 과목 정보 불러오기
+      if (finalGrade == 1) {
+        _grade1SubjectMap = await GSheetService.getGrade1Subjects();
+        _grade2SubjectData = null;
+        _grade3SubjectData = null;
+      } else if (finalGrade == 2) {
+        _grade1SubjectMap = null;
+        _grade2SubjectData = await GSheetService.getGrade2Subjects();
+        _grade3SubjectData = null;
+      } else if (finalGrade == 3) {
+        _grade1SubjectMap = null;
+        _grade2SubjectData = null;
+        _grade3SubjectData = await GSheetService.getGrade3Subjects();
+      } else {
+        _grade1SubjectMap = null;
+        _grade2SubjectData = null;
+        _grade3SubjectData = null;
+      }
+      
       // 마지막 선택 반 정보 저장
       _saveLastSelectedClass();
       // 캐시가 있으면 즉시 표시, 없으면 로딩 표시
-      loadTimetable(showLoading: false);
+      if (mounted) {
+        loadTimetable(showLoading: false);
+      }
       
       selectedGradeNotifier.dispose();
       selectedClassNotifier.dispose();
@@ -221,6 +246,26 @@ class _TimetableScreenState extends State<TimetableScreen> {
         } else {
           _electiveSubjects = null; // 반별 시간표일 때는 선택과목 적용 안함
         }
+        
+        // 학년별 과목 정보 불러오기
+        if (userInfo.grade == 1) {
+          _grade1SubjectMap = await GSheetService.getGrade1Subjects();
+          _grade2SubjectData = null;
+          _grade3SubjectData = null;
+        } else if (userInfo.grade == 2) {
+          _grade1SubjectMap = null;
+          _grade2SubjectData = await GSheetService.getGrade2Subjects();
+          _grade3SubjectData = null;
+        } else if (userInfo.grade == 3) {
+          _grade1SubjectMap = null;
+          _grade2SubjectData = null;
+          _grade3SubjectData = await GSheetService.getGrade3Subjects();
+        } else {
+          _grade1SubjectMap = null;
+          _grade2SubjectData = null;
+          _grade3SubjectData = null;
+        }
+        
         loadTimetable();
       }
     } else {
@@ -246,13 +291,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
   
   // 나의 시간표 <-> 반별 시간표 전환
-  void _toggleTimetableMode() {
+  void _toggleTimetableMode() async {
+    String? newGrade;
     setState(() {
       _isMyTimetable = !_isMyTimetable;
       if (_isMyTimetable) {
         // 나의 시간표로 전환
         selectedGrade = _myGrade;
         selectedClass = _myClass;
+        newGrade = _myGrade;
         // 선택과목 데이터 다시 불러오기
         final currentUser = AuthService.instance.currentUser;
         if (currentUser != null) {
@@ -266,7 +313,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
           });
         } else {
           _electiveSubjects = null;
-          loadTimetable();
         }
       } else {
         // 반별 시간표로 전환
@@ -276,15 +322,39 @@ class _TimetableScreenState extends State<TimetableScreen> {
           // 로그인된 경우: 자신의 학년/반 표시
           selectedGrade = _myGrade;
           selectedClass = _myClass;
+          newGrade = _myGrade;
         } else {
           // 로그인 안된 경우: 1-1 반 표시
           selectedGrade = '1';
           selectedClass = '1';
+          newGrade = '1';
         }
         _electiveSubjects = null; // 선택과목 적용 안함
-        loadTimetable();
       }
     });
+    
+    // 학년별 과목 정보 불러오기
+    if (newGrade == '1') {
+      _grade1SubjectMap = await GSheetService.getGrade1Subjects();
+      _grade2SubjectData = null;
+      _grade3SubjectData = null;
+    } else if (newGrade == '2') {
+      _grade1SubjectMap = null;
+      _grade2SubjectData = await GSheetService.getGrade2Subjects();
+      _grade3SubjectData = null;
+    } else if (newGrade == '3') {
+      _grade1SubjectMap = null;
+      _grade2SubjectData = null;
+      _grade3SubjectData = await GSheetService.getGrade3Subjects();
+    } else {
+      _grade1SubjectMap = null;
+      _grade2SubjectData = null;
+      _grade3SubjectData = null;
+    }
+    
+    if (mounted) {
+      loadTimetable();
+    }
   }
   int getPeriodCount(int dayIndex) {
     switch (dayIndex) {
@@ -345,6 +415,25 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Future<void> loadTimetable({bool showLoading = true}) async {
     try {
       if (!mounted) return;
+      
+      // 학년별 과목 정보 불러오기
+      if (selectedGrade == '1') {
+        _grade1SubjectMap = await GSheetService.getGrade1Subjects();
+        _grade2SubjectData = null;
+        _grade3SubjectData = null;
+      } else if (selectedGrade == '2') {
+        _grade1SubjectMap = null;
+        _grade2SubjectData = await GSheetService.getGrade2Subjects();
+        _grade3SubjectData = null;
+      } else if (selectedGrade == '3') {
+        _grade1SubjectMap = null;
+        _grade2SubjectData = null;
+        _grade3SubjectData = await GSheetService.getGrade3Subjects();
+      } else {
+        _grade1SubjectMap = null;
+        _grade2SubjectData = null;
+        _grade3SubjectData = null;
+      }
       
       final prefs = await SharedPreferences.getInstance();
       final cacheKey =
@@ -584,14 +673,98 @@ class _TimetableScreenState extends State<TimetableScreen> {
           
           // 지필평가가 포함된 경우 선택과목 적용하지 않음
           if (!subject.contains('지필평가')) {
-            // 선택과목 적용: 해당 과목이 선택과목에 있으면 교체
-            if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
-              final setNum = getSetNumber(subject);
-              if (setNum != null) {
-                final clean = cleanSubject(subject, setNum);
-                final key = '$setNum-$clean';
-                if (_electiveSubjects!.containsKey(key)) {
-                  subject = _electiveSubjects![key]!;
+            // 1학년인 경우: 구글 시트에서 가져온 과목명 -> 줄임말 변환
+            if (selectedGrade == '1' && _grade1SubjectMap != null && _grade1SubjectMap!.isNotEmpty) {
+              for (var entry in _grade1SubjectMap!.entries) {
+                final subjectName = entry.key;
+                final abbreviation = entry.value;
+                if (subject.contains(subjectName)) {
+                  subject = abbreviation;
+                  break;
+                }
+              }
+            }
+            // 2학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
+            else if (selectedGrade == '2' && _grade2SubjectData != null) {
+              bool matched = false;
+              
+              // 선택과목 먼저 확인 (선택과목이 공통과목보다 우선)
+              if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+                final electiveSets = _grade2SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
+                if (electiveSets != null) {
+                  for (var setEntry in electiveSets.entries) {
+                    final setNum = setEntry.key;
+                    final setData = setEntry.value;
+                    final subjects = setData['subjects'] as Map<String, String>?;
+                    if (subjects != null) {
+                      for (var subEntry in subjects.entries) {
+                        if (subject.contains(subEntry.key)) {
+                          final key = '$setNum-${subEntry.key}';
+                          if (_electiveSubjects!.containsKey(key)) {
+                            subject = _electiveSubjects![key]!;
+                            matched = true;
+                            break;
+                          }
+                        }
+                      }
+                      if (matched) break;
+                    }
+                  }
+                }
+              }
+              
+              // 선택과목에 매칭되지 않으면 공통과목 확인
+              if (!matched) {
+                final commonSubjects = _grade2SubjectData!['common'] as Map<String, String>?;
+                if (commonSubjects != null && commonSubjects.isNotEmpty) {
+                  for (var entry in commonSubjects.entries) {
+                    if (subject.contains(entry.key)) {
+                      subject = entry.value;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            // 3학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
+            else if (selectedGrade == '3' && _grade3SubjectData != null) {
+              bool matched = false;
+              
+              // 선택과목 먼저 확인 (선택과목이 공통과목보다 우선)
+              if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+                final electiveSets = _grade3SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
+                if (electiveSets != null) {
+                  for (var setEntry in electiveSets.entries) {
+                    final setNum = setEntry.key;
+                    final setData = setEntry.value;
+                    final subjects = setData['subjects'] as Map<String, String>?;
+                    if (subjects != null) {
+                      for (var subEntry in subjects.entries) {
+                        if (subject.contains(subEntry.key)) {
+                          final key = '$setNum-${subEntry.key}';
+                          if (_electiveSubjects!.containsKey(key)) {
+                            subject = _electiveSubjects![key]!;
+                            matched = true;
+                            break;
+                          }
+                        }
+                      }
+                      if (matched) break;
+                    }
+                  }
+                }
+              }
+              
+              // 선택과목에 매칭되지 않으면 공통과목 확인
+              if (!matched) {
+                final commonSubjects = _grade3SubjectData!['common'] as Map<String, String>?;
+                if (commonSubjects != null && commonSubjects.isNotEmpty) {
+                  for (var entry in commonSubjects.entries) {
+                    if (subject.contains(entry.key)) {
+                      subject = entry.value;
+                      break;
+                    }
+                  }
                 }
               }
             }
@@ -710,7 +883,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     if (subject.contains('체육전공 실기')) return '체전';
     if (subject.contains('전국연합')) return '모고';
     if (subject.contains('자율')) return '창체';
-    if (subject.contains('한국사')) return '한국사';
+    if (subject.contains('한국사')) return '한사1';
 
     // 기타: 2글자 이하, 3글자 이하 등 자동 축약
     String result;
@@ -1230,7 +1403,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           child: Padding(
                             padding: ResponsiveHelper.horizontalPadding(context, 8),
                             child: Text(
-                              shortenSubject(cell),
+                              // 1학년, 2학년, 3학년은 이미 parseAndSetTimetable에서 줄임말로 변환되었으므로 shortenSubject 호출 안함
+                              (selectedGrade == '1' || selectedGrade == '2' || selectedGrade == '3') ? cell : shortenSubject(cell),
                               textAlign: TextAlign.center,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,

@@ -5,6 +5,8 @@ import '../theme_colors.dart';
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../utils/responsive_helper.dart';
+import 'elective_setup_screen.dart';
+import '../models/user_info.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -15,6 +17,22 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _isDeleting = false;
+  UserInfo? _userInfo;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserInfo();
+  }
+
+  Future<void> _loadUserInfo() async {
+    final userInfo = await UserService.instance.getUserInfo();
+    if (mounted) {
+      setState(() {
+        _userInfo = userInfo;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -125,6 +143,43 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+                  // 선택과목 설정 버튼 (2-3학년인 경우에만 표시)
+                  if (_userInfo != null && _userInfo!.grade > 1) ...[
+                    Divider(height: ResponsiveHelper.height(context, 1)),
+                    ListTile(
+                      leading: Icon(Icons.school, color: textColor.withValues(alpha: 0.7)),
+                      title: Text(
+                        '선택과목 설정',
+                        style: ResponsiveHelper.textStyle(
+                          context,
+                          fontSize: 16,
+                          color: textColor,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.arrow_forward_ios,
+                        size: ResponsiveHelper.width(context, 16),
+                        color: textColor.withValues(alpha: 0.7),
+                      ),
+                      onTap: () {
+                        final currentUser = AuthService.instance.currentUser;
+                        if (currentUser != null) {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ElectiveSetupScreen(
+                                userEmail: currentUser.email ?? '',
+                                uid: currentUser.uid,
+                                grade: _userInfo!.grade,
+                                classNum: _userInfo!.classNum,
+                                isEditMode: true,
+                                isFromLogin: false,
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
