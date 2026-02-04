@@ -42,7 +42,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Map<int, int>? _classCounts; // 학년별 반 수 (스프레드시트에서 로드)
   Map<String, String>? _grade1SubjectMap; // 1학년 과목명 -> 줄임말 매핑
   Map<String, dynamic>? _grade2SubjectData; // 2학년 과목 데이터 (공통과목 + 선택과목)
-  Map<String, dynamic>? _grade3SubjectData; // 3학년 과목 데이터 (공통과목 + 선택과목)
+  Map<String, String>? _grade3SubjectData; // 3학년 과목 데이터 (공통과목 + 선택과목)
   DateTime getCurrentWeekStart() {
     // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
@@ -630,6 +630,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
     // 날짜별로 모의고사 여부 체크를 위한 Map
     final Map<String, bool> isMockExamDay = {};
 
+    // Helper function to normalize subject names for comparison
+    String normalize(String s) => s.replaceAll(RegExp(r'[\s·\-]'), '').toLowerCase(); // Added .toLowerCase() for case insensitivity
+
     // 선택과목 세트 정의 (elective_setup_screen.dart와 동일)
     const set1 = ['지구과학Ⅰ', '물리학Ⅰ', '화학Ⅰ', '생명과학Ⅰ', '경제', '한국지리', '세계사', '윤리와 사상', '정치와 법'];
     const set2 = ['음악 연주', '미술 창작'];
@@ -640,7 +643,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
     // 과목이 어느 세트에 속하는지 확인하는 함수
     int? getSetNumber(String subject) {
       for (int i = 0; i < allSets.length; i++) {
-        if (allSets[i].any((s) => subject.contains(s))) {
+        // Use normalized comparison here as well
+        if (allSets[i].any((s) => normalize(subject).contains(normalize(s)))) {
           return i + 1; // 세트 번호는 1부터 시작
         }
       }
@@ -652,7 +656,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       final set = [null, set1, set2, set3, set4][setNumber];
       if (set != null) {
         return set.firstWhere(
-          (s) => s.isNotEmpty && subject.contains(s),
+          (s) => normalize(subject).contains(normalize(s)), // Use normalized comparison
           orElse: () => subject,
         );
       }
@@ -675,10 +679,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
           if (!subject.contains('지필평가')) {
             // 1학년인 경우: 구글 시트에서 가져온 과목명 -> 줄임말 변환
             if (selectedGrade == '1' && _grade1SubjectMap != null && _grade1SubjectMap!.isNotEmpty) {
+              final normalizedApiSubject = normalize(subject);
               for (var entry in _grade1SubjectMap!.entries) {
                 final subjectName = entry.key;
                 final abbreviation = entry.value;
-                if (subject.contains(subjectName)) {
+                if (normalizedApiSubject.startsWith(normalize(subjectName))) { // Use startsWith for robustness
                   subject = abbreviation;
                   break;
                 }
@@ -686,86 +691,67 @@ class _TimetableScreenState extends State<TimetableScreen> {
             }
             // 2학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
             else if (selectedGrade == '2' && _grade2SubjectData != null) {
-              bool matched = false;
+              String? abbreviatedSubject;
+              final normalizedApiSubject = normalize(subject);
               
-              // 선택과목 먼저 확인 (선택과목이 공통과목보다 우선)
+              // 1. 선택과목 먼저 확인 (사용자 선택 우선)
               if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
-                final electiveSets = _grade2SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
-                if (electiveSets != null) {
-                  for (var setEntry in electiveSets.entries) {
-                    final setNum = setEntry.key;
-                    final setData = setEntry.value;
-                    final subjects = setData['subjects'] as Map<String, String>?;
-                    if (subjects != null) {
-                      for (var subEntry in subjects.entries) {
-                        if (subject.contains(subEntry.key)) {
-                          final key = '$setNum-${subEntry.key}';
-                          if (_electiveSubjects!.containsKey(key)) {
-                            subject = _electiveSubjects![key]!;
-                            matched = true;
-                            break;
-                          }
-                        }
-                      }
-                      if (matched) break;
-                    }
+                for (var entry in _electiveSubjects!.entries) {
+                  final userSelectedSubjectName = entry.key.split('-').last;
+                  if (normalizedApiSubject.startsWith(normalize(userSelectedSubjectName))) {
+                    abbreviatedSubject = entry.value;
+                    break;
                   }
                 }
               }
               
-              // 선택과목에 매칭되지 않으면 공통과목 확인
-              if (!matched) {
+              // 2. 선택과목에 매칭되지 않으면 공통과목 확인
+              if (abbreviatedSubject == null) {
                 final commonSubjects = _grade2SubjectData!['common'] as Map<String, String>?;
                 if (commonSubjects != null && commonSubjects.isNotEmpty) {
                   for (var entry in commonSubjects.entries) {
-                    if (subject.contains(entry.key)) {
-                      subject = entry.value;
+                    if (normalizedApiSubject.startsWith(normalize(entry.key))) {
+                      abbreviatedSubject = entry.value;
                       break;
                     }
                   }
                 }
+              }
+
+              if (abbreviatedSubject != null) {
+                subject = abbreviatedSubject;
               }
             }
             // 3학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
             else if (selectedGrade == '3' && _grade3SubjectData != null) {
-              bool matched = false;
-              
-              // 선택과목 먼저 확인 (선택과목이 공통과목보다 우선)
+              String? abbreviatedSubject;
+              final normalizedApiSubject = normalize(subject);
+
+              // 1. _electiveSubjects에서 먼저 찾아봅니다 (사용자 선택 우선)
               if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
-                final electiveSets = _grade3SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
-                if (electiveSets != null) {
-                  for (var setEntry in electiveSets.entries) {
-                    final setNum = setEntry.key;
-                    final setData = setEntry.value;
-                    final subjects = setData['subjects'] as Map<String, String>?;
-                    if (subjects != null) {
-                      for (var subEntry in subjects.entries) {
-                        if (subject.contains(subEntry.key)) {
-                          final key = '$setNum-${subEntry.key}';
-                          if (_electiveSubjects!.containsKey(key)) {
-                            subject = _electiveSubjects![key]!;
-                            matched = true;
-                            break;
-                          }
-                        }
-                      }
-                      if (matched) break;
-                    }
+                for (var entry in _electiveSubjects!.entries) {
+                  final userSelectedSubjectName = entry.key.split('-').last;
+                  if (normalizedApiSubject.startsWith(normalize(userSelectedSubjectName))) { // Use startsWith
+                    abbreviatedSubject = entry.value;
+                    break;
+                  }
+                }
+              }
+
+              // 2. _electiveSubjects에 없으면 _grade3SubjectData에서 찾습니다.
+              if (abbreviatedSubject == null) {
+                for (var entry in _grade3SubjectData!.entries) {
+                  final fullSubjectName = entry.key;
+                  final abbreviation = entry.value;
+                  if (normalizedApiSubject.startsWith(normalize(fullSubjectName))) { // Use startsWith
+                    abbreviatedSubject = abbreviation;
+                    break;
                   }
                 }
               }
               
-              // 선택과목에 매칭되지 않으면 공통과목 확인
-              if (!matched) {
-                final commonSubjects = _grade3SubjectData!['common'] as Map<String, String>?;
-                if (commonSubjects != null && commonSubjects.isNotEmpty) {
-                  for (var entry in commonSubjects.entries) {
-                    if (subject.contains(entry.key)) {
-                      subject = entry.value;
-                      break;
-                    }
-                  }
-                }
+              if (abbreviatedSubject != null) {
+                subject = abbreviatedSubject;
               }
             }
           }
