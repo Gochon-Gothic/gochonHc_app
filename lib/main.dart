@@ -171,7 +171,7 @@ class _MainScreenState extends State<MainScreen> {
           .map((row) => row as Map<String, dynamic>)
           .where((row) {
             final name = (row['EVENT_NM'] as String).replaceAll(' ', '');
-            return !name.contains('토요휴업일');
+            return !name.contains('토요휴업일') && !name.contains('방학');
           })
           .toList()
         ..sort((a, b) => (a['AA_YMD'] as String).compareTo(b['AA_YMD'] as String));

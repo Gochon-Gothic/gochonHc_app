@@ -116,7 +116,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       
       final Map<String, List<String>> filtered = {};
       map.forEach((k, v) {
-        final f = v.where((e) => !e.contains('겨울방학') && !e.contains('여름방학') && !e.contains('토요휴업일')).toList();
+        final f = v.where((e) => !e.contains('방학') && !e.contains('토요휴업일')).toList();
         if (f.isNotEmpty) filtered[k] = f;
       });
       setState(() {
