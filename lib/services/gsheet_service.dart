@@ -130,37 +130,28 @@ class GSheetService {
     try {
       final url = Uri.parse('$_serviceUrl?action=getGrade2Subjects');
       var response = await http.get(url);
-
       if (response.statusCode == 302) {
         final redirectUrl = response.headers['location'];
         if (redirectUrl != null) {
           response = await http.get(Uri.parse(redirectUrl));
         }
       }
-
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
-
-        // 공통과목: B열(과목명) -> C열(줄임말)
         final Map<String, String> commonSubjects = {};
         List<dynamic> commonData = [];
-
         if (decodedData is Map) {
           commonData = decodedData['common'] as List<dynamic>? ?? [];
         } else if (decodedData is List) {
-          // Apps Script가 직접 리스트를 반환하는 경우 (공통과목만)
           commonData = decodedData;
         }
-
         for (var row in commonData) {
           String subjectName = '';
           String abbreviation = '';
-
           if (row is Map) {
             subjectName = row['B']?.toString().trim() ?? '';
             abbreviation = row['C']?.toString().trim() ?? '';
           } else if (row is List) {
-            // 배열 형식: [null, '과목명', '줄임말'] 또는 ['과목명', '줄임말']
             if (row.length >= 3) {
               subjectName = row[1]?.toString().trim() ?? '';
               abbreviation = row[2]?.toString().trim() ?? '';
@@ -169,72 +160,49 @@ class GSheetService {
               abbreviation = row[1]?.toString().trim() ?? '';
             }
           }
-
-          // 공백행이 나오면 중단
-          if (subjectName.isEmpty && abbreviation.isEmpty) {
-            break;
-          }
-
+          if (subjectName.isEmpty && abbreviation.isEmpty) break;
           if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
             commonSubjects[subjectName] = abbreviation;
           }
         }
-
-        // 선택과목: 세트별로 과목명 -> 줄임말 매핑, 세트 이름 포함
         final Map<int, Map<String, dynamic>> electiveSets = {};
-
         if (decodedData is Map && decodedData.containsKey('elective')) {
-          final Map<String, dynamic> electiveData =
-              decodedData['elective'] as Map<String, dynamic>? ?? {};
-
+          final Map<String, dynamic> electiveData = decodedData['elective'] as Map<String, dynamic>? ?? {};
           electiveData.forEach((setNumStr, setData) {
             final setNum = int.tryParse(setNumStr);
             if (setNum == null) return;
-
             String setName = '세트$setNum';
             final Map<String, String> subjectMap = {};
             List<dynamic> subjects = [];
-
             if (setData is Map) {
               setName = setData['setName']?.toString().trim() ?? setName;
               subjects = setData['subjects'] as List<dynamic>? ?? [];
             } else if (setData is List) {
               subjects = setData;
             }
-
-            // 3행부터 시작 (인덱스 0이 1행이므로 인덱스 2부터가 3행)
-            // 하지만 Apps Script가 이미 3행부터 반환한다면 그대로 사용
             int startIndex = 0;
             if (subjects.isNotEmpty) {
-              // 첫 번째 행이 세트 이름인지 확인 (줄임말 열의 2행)
-              // 만약 첫 번째 행에 과목명이 없고 줄임말만 있다면 그것은 세트 이름
               var firstRow = subjects[0];
               if (firstRow is List && firstRow.length >= 2) {
                 String firstSubject = firstRow[0]?.toString().trim() ?? '';
                 String firstAbbr = firstRow[1]?.toString().trim() ?? '';
-                // 첫 번째 행에 과목명이 없고 줄임말만 있으면 세트 이름으로 간주
                 if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
                   setName = firstAbbr;
-                  startIndex = 1; // 3행부터 시작 (인덱스 1부터)
+                  startIndex = 1;
                 }
               } else if (firstRow is Map) {
-                String firstSubject =
-                    firstRow['subject']?.toString().trim() ?? '';
-                String firstAbbr =
-                    firstRow['abbreviation']?.toString().trim() ?? '';
+                String firstSubject = firstRow['subject']?.toString().trim() ?? '';
+                String firstAbbr = firstRow['abbreviation']?.toString().trim() ?? '';
                 if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
                   setName = firstAbbr;
                   startIndex = 1;
                 }
               }
             }
-
-            // 3행부터 데이터 처리 (startIndex부터 시작)
             for (int i = startIndex; i < subjects.length; i++) {
               var row = subjects[i];
               String subjectName = '';
               String abbreviation = '';
-
               if (row is Map) {
                 subjectName = row['subject']?.toString().trim() ?? '';
                 abbreviation = row['abbreviation']?.toString().trim() ?? '';
@@ -244,27 +212,17 @@ class GSheetService {
                   abbreviation = row[1]?.toString().trim() ?? '';
                 }
               }
-
-              // 공백행이 나오면 중단 (과목명과 줄임말이 모두 비어있으면)
-              if (subjectName.isEmpty && abbreviation.isEmpty) {
-                break;
-              }
-
-              // 과목명과 줄임말이 모두 있어야만 추가
+              if (subjectName.isEmpty && abbreviation.isEmpty) break;
               if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
                 subjectMap[subjectName] = abbreviation;
               }
             }
-
             electiveSets[setNum] = {'setName': setName, 'subjects': subjectMap};
           });
         }
-
         return {'common': commonSubjects, 'elective': electiveSets};
       } else {
-        throw Exception(
-          'API 서버로부터 2학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}',
-        );
+        throw Exception('API 서버로부터 2학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}');
       }
     } catch (e) {
       return {
@@ -275,81 +233,174 @@ class GSheetService {
   }
 
   // 3학년 과목 정보 가져오기 (공통과목 + 선택과목)
-  static Future<Map<String, String>> getGrade3Subjects({
+  static Future<Map<String, dynamic>> getGrade3Subjects({
     bool forceRefresh = true,
   }) async {
-    final prefs = await SharedPreferences.getInstance();
-    const cacheKey = 'grade3_subjects_cache';
-    const lastUpdateKey = 'grade3_subjects_last_update';
-    const cacheExpiry = 60 * 60 * 1000; // 1시간 (밀리초)
-    final now = DateTime.now().millisecondsSinceEpoch;
-
-    if (!forceRefresh) {
-      final cachedData = prefs.getString(cacheKey);
-      final lastUpdate = prefs.getInt(lastUpdateKey) ?? 0;
-
-      if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
-        try {
-          final Map<String, dynamic> decodedData = json.decode(cachedData);
-          return decodedData.cast<String, String>();
-        } catch (_) {
-          // 캐시 데이터가 손상된 경우, 새로 가져오기 위해 진행
-        }
-      }
-    }
-
     try {
       final url = Uri.parse('$_serviceUrl?action=getGrade3Subjects');
       var response = await http.get(url);
-
       if (response.statusCode == 302) {
         final redirectUrl = response.headers['location'];
         if (redirectUrl != null) {
           response = await http.get(Uri.parse(redirectUrl));
         }
       }
-
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
-        final Map<String, String> allSubjects = {};
-
+        print('=== 3학년 시트 원본 데이터 ===');
+        print('Response body: ${response.body}');
+        print('Decoded data type: ${decodedData.runtimeType}');
+        print('Decoded data: $decodedData');
+        final Map<String, String> commonSubjects = {};
         if (decodedData is Map) {
-          // Common subjects
-          final Map<String, dynamic> commonData =
-              decodedData['common'] as Map<String, dynamic>? ?? {};
-          commonData.forEach((key, value) {
-            if (key is String && value is String) {
-              allSubjects[key] = value;
-            }
-          });
-
-          // Elective subjects
-          final Map<String, dynamic> electiveData =
-              decodedData['elective'] as Map<String, dynamic>? ?? {};
-          electiveData.forEach((setNumStr, setData) {
-            if (setData is Map && setData.containsKey('subjects')) {
-              final Map<String, dynamic> subjectsInSet =
-                  setData['subjects'] as Map<String, dynamic>? ?? {};
-              subjectsInSet.forEach((key, value) {
-                if (key is String && value is String) {
-                  allSubjects[key] = value;
+          final commonValue = decodedData['common'];
+          if (commonValue is Map) {
+            commonValue.forEach((key, value) {
+              if (key is String && value is String) {
+                commonSubjects[key] = value;
+              }
+            });
+          } else if (commonValue is List) {
+            for (var row in commonValue) {
+              String subjectName = '';
+              String abbreviation = '';
+              if (row is Map) {
+                subjectName = row['B']?.toString().trim() ?? '';
+                abbreviation = row['C']?.toString().trim() ?? '';
+              } else if (row is List) {
+                if (row.length >= 3) {
+                  subjectName = row[1]?.toString().trim() ?? '';
+                  abbreviation = row[2]?.toString().trim() ?? '';
+                } else if (row.length >= 2) {
+                  subjectName = row[0]?.toString().trim() ?? '';
+                  abbreviation = row[1]?.toString().trim() ?? '';
                 }
-              });
+              }
+              if (subjectName.isEmpty && abbreviation.isEmpty) break;
+              if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
+                commonSubjects[subjectName] = abbreviation;
+              }
             }
-          });
+          }
+        } else if (decodedData is List) {
+          for (var row in decodedData) {
+            String subjectName = '';
+            String abbreviation = '';
+            if (row is Map) {
+              subjectName = row['B']?.toString().trim() ?? '';
+              abbreviation = row['C']?.toString().trim() ?? '';
+            } else if (row is List) {
+              if (row.length >= 3) {
+                subjectName = row[1]?.toString().trim() ?? '';
+                abbreviation = row[2]?.toString().trim() ?? '';
+              } else if (row.length >= 2) {
+                subjectName = row[0]?.toString().trim() ?? '';
+                abbreviation = row[1]?.toString().trim() ?? '';
+              }
+            }
+            if (subjectName.isEmpty && abbreviation.isEmpty) break;
+            if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
+              commonSubjects[subjectName] = abbreviation;
+            }
+          }
         }
-
-        await prefs.setString(cacheKey, json.encode(allSubjects));
-        await prefs.setInt(lastUpdateKey, now);
-
-        return allSubjects;
+        print('=== 3학년 공통과목 ===');
+        print('Common subjects count: ${commonSubjects.length}');
+        commonSubjects.forEach((key, value) {
+          print('  $key -> $value');
+        });
+        final Map<int, Map<String, dynamic>> electiveSets = {};
+        if (decodedData is Map && decodedData.containsKey('elective')) {
+          final electiveValue = decodedData['elective'];
+          print('=== 3학년 선택과목 원본 데이터 ===');
+          print('Elective data type: ${electiveValue.runtimeType}');
+          print('Elective data: $electiveValue');
+          if (electiveValue is Map) {
+            electiveValue.forEach((setNumStr, setData) {
+              final setNum = int.tryParse(setNumStr);
+              if (setNum == null) return;
+              if (setData is Map) {
+                String setName = setData['setName']?.toString().trim() ?? '세트$setNum';
+                final subjectsValue = setData['subjects'];
+                if (subjectsValue is Map) {
+                  final Map<String, String> subjectMap = {};
+                  subjectsValue.forEach((key, value) {
+                    if (key is String && value is String) {
+                      subjectMap[key] = value;
+                    }
+                  });
+                  electiveSets[setNum] = {'setName': setName, 'subjects': subjectMap};
+                } else if (subjectsValue is List) {
+                  final Map<String, String> subjectMap = {};
+                  List<dynamic> subjects = subjectsValue;
+                  int startIndex = 0;
+                  if (subjects.isNotEmpty) {
+                    var firstRow = subjects[0];
+                    if (firstRow is List && firstRow.length >= 2) {
+                      String firstSubject = firstRow[0]?.toString().trim() ?? '';
+                      String firstAbbr = firstRow[1]?.toString().trim() ?? '';
+                      if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
+                        setName = firstAbbr;
+                        startIndex = 1;
+                      }
+                    } else if (firstRow is Map) {
+                      String firstSubject = firstRow['subject']?.toString().trim() ?? '';
+                      String firstAbbr = firstRow['abbreviation']?.toString().trim() ?? '';
+                      if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
+                        setName = firstAbbr;
+                        startIndex = 1;
+                      }
+                    }
+                  }
+                  for (int i = startIndex; i < subjects.length; i++) {
+                    var row = subjects[i];
+                    String subjectName = '';
+                    String abbreviation = '';
+                    if (row is Map) {
+                      subjectName = row['subject']?.toString().trim() ?? '';
+                      abbreviation = row['abbreviation']?.toString().trim() ?? '';
+                    } else if (row is List) {
+                      if (row.length >= 2) {
+                        subjectName = row[0]?.toString().trim() ?? '';
+                        abbreviation = row[1]?.toString().trim() ?? '';
+                      }
+                    }
+                    if (subjectName.isEmpty && abbreviation.isEmpty) break;
+                    if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
+                      subjectMap[subjectName] = abbreviation;
+                    }
+                  }
+                  electiveSets[setNum] = {'setName': setName, 'subjects': subjectMap};
+                }
+              }
+            });
+          }
+        }
+        print('=== 3학년 선택과목 세트 ===');
+        print('Elective sets count: ${electiveSets.length}');
+        electiveSets.forEach((setNum, setData) {
+          print('세트 $setNum: ${setData['setName']}');
+          final subjects = setData['subjects'] as Map<String, String>?;
+          if (subjects != null) {
+            subjects.forEach((key, value) {
+              print('  $key -> $value');
+            });
+          }
+        });
+        final result = {'common': commonSubjects, 'elective': electiveSets};
+        print('=== 3학년 최종 반환 데이터 ===');
+        print('Result: $result');
+        return result;
       } else {
-        throw Exception(
-          'API 서버로부터 3학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}',
-        );
+        throw Exception('API 서버로부터 3학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}');
       }
     } catch (e) {
-      return {}; // 오류 발생 시 빈 맵 반환
+      print('=== 3학년 데이터 로드 에러 ===');
+      print('Error: $e');
+      return {
+        'common': <String, String>{},
+        'elective': <int, Map<String, dynamic>>{},
+      };
     }
   }
 
@@ -360,44 +411,34 @@ class GSheetService {
     try {
       final url = Uri.parse('$_serviceUrl?action=getGrade1Subjects');
       var response = await http.get(url);
-
       if (response.statusCode == 302) {
         final redirectUrl = response.headers['location'];
         if (redirectUrl != null) {
           response = await http.get(Uri.parse(redirectUrl));
         }
       }
-
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
         final Map<String, String> subjects = {};
-
         if (decodedData is Map) {
-          // 데이터가 Map<String, dynamic> 형태일 경우
           decodedData.forEach((key, value) {
             if (key is String && value is String) {
               subjects[key] = value;
             }
           });
         } else if (decodedData is List) {
-          // 데이터가 List 형태일 경우 (예: [[과목1, 줄임말1], [과목2, 줄임말2]])
           for (var item in decodedData) {
-            if (item is List &&
-                item.length >= 2 &&
-                item[0] is String &&
-                item[1] is String) {
+            if (item is List && item.length >= 2 && item[0] is String && item[1] is String) {
               subjects[item[0]] = item[1];
             }
           }
         }
         return subjects;
       } else {
-        throw Exception(
-          'API 서버로부터 1학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}',
-        );
+        throw Exception('API 서버로부터 1학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}');
       }
     } catch (e) {
-      return {}; // 오류 발생 시 빈 맵 반환
+      return {};
     }
   }
 }
