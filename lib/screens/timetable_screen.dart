@@ -23,6 +23,7 @@ class TimetableScreen extends StatefulWidget {
 
 class _TimetableScreenState extends State<TimetableScreen> {
   List<List<String>> timetable = List.generate(5, (_) => List.filled(7, ''));
+  List<dynamic>? _rawTimetableData; // API 원본 데이터 저장
   bool isLoading = true;
   String? error;
   String? selectedGrade;
@@ -42,7 +43,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Map<int, int>? _classCounts; // 학년별 반 수 (스프레드시트에서 로드)
   Map<String, String>? _grade1SubjectMap; // 1학년 과목명 -> 줄임말 매핑
   Map<String, dynamic>? _grade2SubjectData; // 2학년 과목 데이터 (공통과목 + 선택과목)
-  Map<String, String>? _grade3SubjectData; // 3학년 과목 데이터 (공통과목 + 선택과목)
+  Map<String, dynamic>? _grade3SubjectData; // 3학년 과목 데이터 (공통과목 + 선택과목)
   DateTime getCurrentWeekStart() {
     // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
@@ -625,42 +626,28 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   // 시간표 데이터 파싱 및 설정 (코드 재사용성 향상)
   void parseAndSetTimetable(List<dynamic> timetableData) {
+    // 원본 데이터 저장 (리스트 뷰에서 사용)
+    _rawTimetableData = timetableData;
+    
     // 시간표 데이터 파싱
     final newTimetable = List.generate(5, (dayIndex) => List.filled(7, ''));
     // 날짜별로 모의고사 여부 체크를 위한 Map
     final Map<String, bool> isMockExamDay = {};
 
-    // Helper function to normalize subject names for comparison
-    String normalize(String s) => s.replaceAll(RegExp(r'[\s·\-]'), '').toLowerCase(); // Added .toLowerCase() for case insensitivity
-
-    // 선택과목 세트 정의 (elective_setup_screen.dart와 동일)
-    const set1 = ['지구과학Ⅰ', '물리학Ⅰ', '화학Ⅰ', '생명과학Ⅰ', '경제', '한국지리', '세계사', '윤리와 사상', '정치와 법'];
-    const set2 = ['음악 연주', '미술 창작'];
-    const set3 = ['일본어Ⅰ', '프로그래밍', '중국어Ⅰ'];
-    const set4 = ['기하', '고전 읽기', '영어권 문화'];
-    final allSets = [set1, set2, set3, set4];
-
-    // 과목이 어느 세트에 속하는지 확인하는 함수
-    int? getSetNumber(String subject) {
-      for (int i = 0; i < allSets.length; i++) {
-        // Use normalized comparison here as well
-        if (allSets[i].any((s) => normalize(subject).contains(normalize(s)))) {
-          return i + 1; // 세트 번호는 1부터 시작
-        }
-      }
-      return null;
+    // Helper function to normalize subject names for comparison (띄어쓰기만 제거)
+    String normalize(String? s) {
+      if (s == null || s.isEmpty) return '';
+      return s.replaceAll(RegExp(r'\s+'), ''); // 띄어쓰기만 제거 (소문자 변환 없음)
     }
-
-    // 세트 내의 정확한 과목명 반환
-    String cleanSubject(String subject, int setNumber) {
-      final set = [null, set1, set2, set3, set4][setNumber];
-      if (set != null) {
-        return set.firstWhere(
-          (s) => normalize(subject).contains(normalize(s)), // Use normalized comparison
-          orElse: () => subject,
-        );
+    
+    // 안전한 contains 비교 함수
+    bool safeContains(String? source, String? target) {
+      if (source == null || target == null || source.isEmpty || target.isEmpty) {
+        return false;
       }
-      return subject;
+      final normalizedSource = normalize(source);
+      final normalizedTarget = normalize(target);
+      return normalizedSource.contains(normalizedTarget);
     }
 
     for (var item in timetableData) {
@@ -679,26 +666,30 @@ class _TimetableScreenState extends State<TimetableScreen> {
           if (!subject.contains('지필평가')) {
             // 1학년인 경우: 구글 시트에서 가져온 과목명 -> 줄임말 변환
             if (selectedGrade == '1' && _grade1SubjectMap != null && _grade1SubjectMap!.isNotEmpty) {
-              final normalizedApiSubject = normalize(subject);
+              bool found = false;
               for (var entry in _grade1SubjectMap!.entries) {
                 final subjectName = entry.key;
                 final abbreviation = entry.value;
-                if (normalizedApiSubject.startsWith(normalize(subjectName))) { // Use startsWith for robustness
+                if (safeContains(subject, subjectName)) {
                   subject = abbreviation;
+                  found = true;
                   break;
                 }
+              }
+              if (!found) {
+                // 줄임말에 포함되지 않는 경우 3글자로 줄이기
+                subject = _shortenToThreeChars(subject);
               }
             }
             // 2학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
             else if (selectedGrade == '2' && _grade2SubjectData != null) {
               String? abbreviatedSubject;
-              final normalizedApiSubject = normalize(subject);
               
               // 1. 선택과목 먼저 확인 (사용자 선택 우선)
               if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
                 for (var entry in _electiveSubjects!.entries) {
                   final userSelectedSubjectName = entry.key.split('-').last;
-                  if (normalizedApiSubject.startsWith(normalize(userSelectedSubjectName))) {
+                  if (safeContains(subject, userSelectedSubjectName)) {
                     abbreviatedSubject = entry.value;
                     break;
                   }
@@ -710,9 +701,28 @@ class _TimetableScreenState extends State<TimetableScreen> {
                 final commonSubjects = _grade2SubjectData!['common'] as Map<String, String>?;
                 if (commonSubjects != null && commonSubjects.isNotEmpty) {
                   for (var entry in commonSubjects.entries) {
-                    if (normalizedApiSubject.startsWith(normalize(entry.key))) {
+                    if (safeContains(subject, entry.key)) {
                       abbreviatedSubject = entry.value;
                       break;
+                    }
+                  }
+                }
+              }
+              
+              // 3. 공통과목에도 없으면 선택과목 세트에서 확인
+              if (abbreviatedSubject == null) {
+                final electiveSets = _grade2SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
+                if (electiveSets != null && electiveSets.isNotEmpty) {
+                  for (var setEntry in electiveSets.entries) {
+                    final subjects = setEntry.value['subjects'] as Map<String, String>?;
+                    if (subjects != null) {
+                      for (var entry in subjects.entries) {
+                        if (safeContains(subject, entry.key)) {
+                          abbreviatedSubject = entry.value;
+                          break;
+                        }
+                      }
+                      if (abbreviatedSubject != null) break;
                     }
                   }
                 }
@@ -720,43 +730,71 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
               if (abbreviatedSubject != null) {
                 subject = abbreviatedSubject;
+              } else {
+                // 줄임말에 포함되지 않는 경우 3글자로 줄이기
+                subject = _shortenToThreeChars(subject);
               }
             }
             // 3학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
-            else if (selectedGrade == '3' && _grade3SubjectData != null) {
+            else if (selectedGrade == '3') {
               String? abbreviatedSubject;
-              final normalizedApiSubject = normalize(subject);
-
-              // 1. _electiveSubjects에서 먼저 찾아봅니다 (사용자 선택 우선)
-              if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
-                for (var entry in _electiveSubjects!.entries) {
-                  final userSelectedSubjectName = entry.key.split('-').last;
-                  if (normalizedApiSubject.startsWith(normalize(userSelectedSubjectName))) { // Use startsWith
-                    abbreviatedSubject = entry.value;
-                    break;
-                  }
-                }
-              }
-
-              // 2. _electiveSubjects에 없으면 _grade3SubjectData에서 찾습니다.
-              if (abbreviatedSubject == null) {
-                for (var entry in _grade3SubjectData!.entries) {
-                  final fullSubjectName = entry.key;
-                  final abbreviation = entry.value;
-                  if (normalizedApiSubject.startsWith(normalize(fullSubjectName))) { // Use startsWith
-                    abbreviatedSubject = abbreviation;
-                    break;
-                  }
-                }
-              }
               
+              // _grade3SubjectData가 있는 경우에만 처리
+              if (_grade3SubjectData != null) {
+                // 1. 선택과목 먼저 확인 (사용자 선택 우선)
+                if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+                  for (var entry in _electiveSubjects!.entries) {
+                    final userSelectedSubjectName = entry.key.split('-').last;
+                    if (safeContains(subject, userSelectedSubjectName)) {
+                      abbreviatedSubject = entry.value;
+                      break;
+                    }
+                  }
+                }
+                
+                // 2. 선택과목에 매칭되지 않으면 공통과목 확인
+                if (abbreviatedSubject == null) {
+                  final commonSubjects = _grade3SubjectData!['common'] as Map<String, String>?;
+                  if (commonSubjects != null && commonSubjects.isNotEmpty) {
+                    for (var entry in commonSubjects.entries) {
+                      if (safeContains(subject, entry.key)) {
+                        abbreviatedSubject = entry.value;
+                        break;
+                      }
+                    }
+                  }
+                }
+                
+                // 3. 공통과목에도 없으면 선택과목 세트에서 확인
+                if (abbreviatedSubject == null) {
+                  final electiveSets = _grade3SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
+                  if (electiveSets != null && electiveSets.isNotEmpty) {
+                    for (var setEntry in electiveSets.entries) {
+                      final subjects = setEntry.value['subjects'] as Map<String, String>?;
+                      if (subjects != null) {
+                        for (var entry in subjects.entries) {
+                          if (safeContains(subject, entry.key)) {
+                            abbreviatedSubject = entry.value;
+                            break;
+                          }
+                        }
+                        if (abbreviatedSubject != null) break;
+                      }
+                    }
+                  }
+                }
+              }
+
               if (abbreviatedSubject != null) {
                 subject = abbreviatedSubject;
+              } else {
+                // 줄임말에 포함되지 않는 경우 3글자로 줄이기
+                subject = _shortenToThreeChars(subject);
               }
             }
           }
           
-          newTimetable[day][period] = subject;
+          newTimetable[day][period] = subject; // 줄임말 적용된 버전
         }
       }
     }
@@ -775,9 +813,39 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     if (mounted) {
       setState(() {
-        timetable = newTimetable;
+        timetable = newTimetable; // 줄임말 적용된 버전
       });
     }
+  }
+  
+  // 리스트 뷰용: 원본 데이터에서 특정 요일/교시의 과목명 가져오기
+  String? _getOriginalSubject(int dayIdx, int periodIndex) {
+    if (_rawTimetableData == null) return null;
+    
+    for (var item in _rawTimetableData!) {
+      final date = item['ALL_TI_YMD'].toString();
+      final day = DateTime.parse(date).weekday - 1;
+      if (day == dayIdx && day >= 0 && day < 5) {
+        final period = int.parse(item['PERIO']) - 1;
+        if (period == periodIndex && period >= 0 && period < 7) {
+          return item['ITRT_CNTNT']?.toString();
+        }
+      }
+    }
+    return null;
+  }
+
+  // 줄임말에 포함되지 않는 과목을 3글자로 줄이는 함수
+  String _shortenToThreeChars(String subject) {
+    final cleaned = subject.trim();
+    if (cleaned.isEmpty) return cleaned;
+    
+    // 한글, 영문, 숫자 등 모든 문자를 포함하여 3글자 추출
+    // 한글은 1글자 = 1문자이므로 간단히 substring 사용
+    if (cleaned.length >= 3) {
+      return cleaned.substring(0, 3);
+    }
+    return cleaned;
   }
 
   var dayoff = [
@@ -1435,14 +1503,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
             child: Column(
               children: [
                 ...periods.where((info) {
-                  final subject = (dayIdx < timetable.length && info.periodIndex < timetable[dayIdx].length)
-                      ? timetable[dayIdx][info.periodIndex]
-                      : '';
-                  return subject.isNotEmpty;
+                  final subject = _getOriginalSubject(dayIdx, info.periodIndex);
+                  return subject != null && subject.isNotEmpty;
                 }).map((info) {
-                  final subject = (dayIdx < timetable.length && info.periodIndex < timetable[dayIdx].length)
-                      ? timetable[dayIdx][info.periodIndex]
-                      : '';
+                  final subject = _getOriginalSubject(dayIdx, info.periodIndex) ?? '';
                   final listItemBgColor = isDark 
                       ? cardColor 
                       : const Color(0xFFF5F5F5);
