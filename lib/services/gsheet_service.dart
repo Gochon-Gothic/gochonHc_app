@@ -8,6 +8,27 @@ class GSheetService {
   static const String _serviceUrl =
       'https://script.google.com/macros/s/AKfycbwBJPHOmeOXjVzjqW2icvxGR4kqwFn45oNVK-f91G2V7yGmtEAc_JWwNPpjCi8QlUvD/exec';
 
+  // yyyy/M/d 형식의 문자열을 DateTime(날짜만)으로 파싱
+  static DateTime? _parseSheetDate(String? text) {
+    if (text == null || text.trim().isEmpty) return null;
+    try {
+      final parts = text.split('/');
+      if (parts.length != 3) return null;
+      final year = int.parse(parts[0]);
+      final month = int.parse(parts[1]);
+      final day = int.parse(parts[2]);
+      return DateTime(year, month, day);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  // KST(UTC+9) 기준 오늘 날짜(연·월·일만)
+  static DateTime _todayKstDate() {
+    final nowKst = DateTime.now().toUtc().add(const Duration(hours: 9));
+    return DateTime(nowKst.year, nowKst.month, nowKst.day);
+  }
+
   static Future<List<Notice>> getNotices({
     int limit = 3,
     bool forceRefresh = false,
@@ -127,6 +148,38 @@ class GSheetService {
   static Future<Map<String, dynamic>> getGrade2Subjects({
     bool forceRefresh = true,
   }) async {
+    const cacheKey = 'grade2_subjects_cache';
+    const appliedDateKey = 'grade2_subjects_applied_date';
+    final prefs = await SharedPreferences.getInstance();
+
+    // 캐시된 데이터 우선 로드
+    Map<String, dynamic>? cachedResult;
+    final cachedJson = prefs.getString(cacheKey);
+    if (cachedJson != null && cachedJson.isNotEmpty) {
+      try {
+        final decoded = json.decode(cachedJson) as Map<String, dynamic>;
+        // common: Map<String, String>
+        final common = Map<String, String>.from(decoded['common'] ?? {});
+        // elective: Map<String, dynamic> with int keys
+        final Map<String, dynamic> electiveDynamic =
+            Map<String, dynamic>.from(decoded['elective'] ?? {});
+        final Map<int, Map<String, dynamic>> elective = {};
+        electiveDynamic.forEach((key, value) {
+          final setNum = int.tryParse(key);
+          if (setNum != null && value is Map<String, dynamic>) {
+            elective[setNum] = value;
+          }
+        });
+        cachedResult = {'common': common, 'elective': elective};
+      } catch (_) {
+        cachedResult = null;
+      }
+    }
+
+    if (!forceRefresh && cachedResult != null) {
+      return cachedResult;
+    }
+
     try {
       final url = Uri.parse('$_serviceUrl?action=getGrade2Subjects');
       var response = await http.get(url);
@@ -138,89 +191,251 @@ class GSheetService {
       }
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
+
+        // 시트의 D열 3행 텍스트(예: 2026/3/2)가 있다고 가정하고 읽기 (없으면 null)
+        String? sheetDateText;
+        if (decodedData is Map && decodedData['sheetDate'] is String) {
+          sheetDateText = decodedData['sheetDate'] as String;
+        }
+        final DateTime? sheetDate = _parseSheetDate(sheetDateText);
+        final DateTime today = _todayKstDate();
+        final String? appliedText = prefs.getString(appliedDateKey);
+
+        // 공통과목 파싱
         final Map<String, String> commonSubjects = {};
-        List<dynamic> commonData = [];
         if (decodedData is Map) {
-          commonData = decodedData['common'] as List<dynamic>? ?? [];
-        } else if (decodedData is List) {
-          commonData = decodedData;
-        }
-        for (var row in commonData) {
-          String subjectName = '';
-          String abbreviation = '';
-          if (row is Map) {
-            subjectName = row['B']?.toString().trim() ?? '';
-            abbreviation = row['C']?.toString().trim() ?? '';
-          } else if (row is List) {
-            if (row.length >= 3) {
-              subjectName = row[1]?.toString().trim() ?? '';
-              abbreviation = row[2]?.toString().trim() ?? '';
-            } else if (row.length >= 2) {
-              subjectName = row[0]?.toString().trim() ?? '';
-              abbreviation = row[1]?.toString().trim() ?? '';
-            }
-          }
-          if (subjectName.isEmpty && abbreviation.isEmpty) break;
-          if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
-            commonSubjects[subjectName] = abbreviation;
-          }
-        }
-        final Map<int, Map<String, dynamic>> electiveSets = {};
-        if (decodedData is Map && decodedData.containsKey('elective')) {
-          final Map<String, dynamic> electiveData = decodedData['elective'] as Map<String, dynamic>? ?? {};
-          electiveData.forEach((setNumStr, setData) {
-            final setNum = int.tryParse(setNumStr);
-            if (setNum == null) return;
-            String setName = '세트$setNum';
-            final Map<String, String> subjectMap = {};
-            List<dynamic> subjects = [];
-            if (setData is Map) {
-              setName = setData['setName']?.toString().trim() ?? setName;
-              subjects = setData['subjects'] as List<dynamic>? ?? [];
-            } else if (setData is List) {
-              subjects = setData;
-            }
-            int startIndex = 0;
-            if (subjects.isNotEmpty) {
-              var firstRow = subjects[0];
-              if (firstRow is List && firstRow.length >= 2) {
-                String firstSubject = firstRow[0]?.toString().trim() ?? '';
-                String firstAbbr = firstRow[1]?.toString().trim() ?? '';
-                if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
-                  setName = firstAbbr;
-                  startIndex = 1;
-                }
-              } else if (firstRow is Map) {
-                String firstSubject = firstRow['subject']?.toString().trim() ?? '';
-                String firstAbbr = firstRow['abbreviation']?.toString().trim() ?? '';
-                if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
-                  setName = firstAbbr;
-                  startIndex = 1;
-                }
+          final commonValue = decodedData['common'];
+          if (commonValue is Map) {
+            commonValue.forEach((key, value) {
+              if (key is String && value is String) {
+                commonSubjects[key] = value;
               }
-            }
-            for (int i = startIndex; i < subjects.length; i++) {
-              var row = subjects[i];
+            });
+          } else if (commonValue is List) {
+            for (var row in commonValue) {
               String subjectName = '';
               String abbreviation = '';
               if (row is Map) {
-                subjectName = row['subject']?.toString().trim() ?? '';
-                abbreviation = row['abbreviation']?.toString().trim() ?? '';
+                subjectName = row['B']?.toString().trim() ?? '';
+                abbreviation = row['C']?.toString().trim() ?? '';
               } else if (row is List) {
-                if (row.length >= 2) {
+                if (row.length >= 3) {
+                  subjectName = row[1]?.toString().trim() ?? '';
+                  abbreviation = row[2]?.toString().trim() ?? '';
+                } else if (row.length >= 2) {
                   subjectName = row[0]?.toString().trim() ?? '';
                   abbreviation = row[1]?.toString().trim() ?? '';
                 }
               }
               if (subjectName.isEmpty && abbreviation.isEmpty) break;
               if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
-                subjectMap[subjectName] = abbreviation;
+                commonSubjects[subjectName] = abbreviation;
               }
             }
-            electiveSets[setNum] = {'setName': setName, 'subjects': subjectMap};
-          });
+          }
+        } else if (decodedData is List) {
+          for (var row in decodedData) {
+            String subjectName = '';
+            String abbreviation = '';
+            if (row is Map) {
+              subjectName = row['B']?.toString().trim() ?? '';
+              abbreviation = row['C']?.toString().trim() ?? '';
+            } else if (row is List) {
+              if (row.length >= 3) {
+                subjectName = row[1]?.toString().trim() ?? '';
+                abbreviation = row[2]?.toString().trim() ?? '';
+              } else if (row.length >= 2) {
+                subjectName = row[0]?.toString().trim() ?? '';
+                abbreviation = row[1]?.toString().trim() ?? '';
+              }
+            }
+            if (subjectName.isEmpty && abbreviation.isEmpty) break;
+            if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
+              commonSubjects[subjectName] = abbreviation;
+            }
+          }
         }
-        return {'common': commonSubjects, 'elective': electiveSets};
+
+        // 선택과목 세트 파싱 (requiredCount 지원)
+        final Map<int, Map<String, dynamic>> electiveSets = {};
+        if (decodedData is Map && decodedData.containsKey('elective')) {
+          final electiveValue = decodedData['elective'];
+          if (electiveValue is Map) {
+            electiveValue.forEach((setNumStr, setData) {
+              final setNum = int.tryParse(setNumStr);
+              if (setNum == null) return;
+              if (setData is Map) {
+                String setName =
+                    setData['setName']?.toString().trim() ?? '세트$setNum';
+                int? requiredCount;
+                final rcVal = setData['requiredCount'];
+                if (rcVal is int) {
+                  requiredCount = rcVal;
+                } else if (rcVal is String) {
+                  requiredCount = int.tryParse(rcVal);
+                }
+
+                final subjectsValue = setData['subjects'];
+                if (subjectsValue is Map) {
+                  final Map<String, String> subjectMap = {};
+                  subjectsValue.forEach((key, value) {
+                    if (key is String && value is String) {
+                      subjectMap[key] = value;
+                    }
+                  });
+                  electiveSets[setNum] = {
+                    'setName': setName,
+                    'subjects': subjectMap,
+                    if (requiredCount != null) 'requiredCount': requiredCount,
+                  };
+                } else if (subjectsValue is List) {
+                  final Map<String, String> subjectMap = {};
+                  List<dynamic> subjects = subjectsValue;
+                  int startIndex = 0;
+                  if (subjects.isNotEmpty) {
+                    var firstRow = subjects[0];
+                    if (firstRow is List && firstRow.length >= 2) {
+                      String firstSubject =
+                          firstRow[0]?.toString().trim() ?? '';
+                      String firstAbbr =
+                          firstRow[1]?.toString().trim() ?? '';
+                      if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
+                        setName = firstAbbr;
+                        startIndex = 1;
+                      }
+                    } else if (firstRow is Map) {
+                      String firstSubject =
+                          firstRow['subject']?.toString().trim() ?? '';
+                      String firstAbbr =
+                          firstRow['abbreviation']?.toString().trim() ?? '';
+                      if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
+                        setName = firstAbbr;
+                        startIndex = 1;
+                      }
+                    }
+                  }
+                  for (int i = startIndex; i < subjects.length; i++) {
+                    var row = subjects[i];
+                    String subjectName = '';
+                    String abbreviation = '';
+                    if (row is Map) {
+                      subjectName =
+                          row['subject']?.toString().trim() ?? '';
+                      abbreviation =
+                          row['abbreviation']?.toString().trim() ?? '';
+                    } else if (row is List) {
+                      if (row.length >= 2) {
+                        subjectName = row[0]?.toString().trim() ?? '';
+                        abbreviation = row[1]?.toString().trim() ?? '';
+                      }
+                    }
+                    if (subjectName.isEmpty && abbreviation.isEmpty) break;
+                    if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
+                      subjectMap[subjectName] = abbreviation;
+                    }
+                  }
+                  electiveSets[setNum] = {
+                    'setName': setName,
+                    'subjects': subjectMap,
+                    if (requiredCount != null) 'requiredCount': requiredCount,
+                  };
+                }
+              } else if (setData is List) {
+                final Map<String, String> subjectMap = {};
+                List<dynamic> subjects = setData;
+                String setName = '세트$setNum';
+                int startIndex = 0;
+                if (subjects.isNotEmpty) {
+                  var firstRow = subjects[0];
+                  if (firstRow is List && firstRow.length >= 2) {
+                    String firstSubject =
+                        firstRow[0]?.toString().trim() ?? '';
+                    String firstAbbr =
+                        firstRow[1]?.toString().trim() ?? '';
+                    if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
+                      setName = firstAbbr;
+                      startIndex = 1;
+                    }
+                  } else if (firstRow is Map) {
+                    String firstSubject =
+                        firstRow['subject']?.toString().trim() ?? '';
+                    String firstAbbr =
+                        firstRow['abbreviation']?.toString().trim() ?? '';
+                    if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
+                      setName = firstAbbr;
+                      startIndex = 1;
+                    }
+                  }
+                }
+                for (int i = startIndex; i < subjects.length; i++) {
+                  var row = subjects[i];
+                  String subjectName = '';
+                  String abbreviation = '';
+                  if (row is Map) {
+                    subjectName = row['subject']?.toString().trim() ?? '';
+                    abbreviation =
+                        row['abbreviation']?.toString().trim() ?? '';
+                  } else if (row is List) {
+                    if (row.length >= 2) {
+                      subjectName = row[0]?.toString().trim() ?? '';
+                      abbreviation = row[1]?.toString().trim() ?? '';
+                    }
+                  }
+                  if (subjectName.isEmpty && abbreviation.isEmpty) break;
+                  if (subjectName.isNotEmpty && abbreviation.isNotEmpty) {
+                    subjectMap[subjectName] = abbreviation;
+                  }
+                }
+                electiveSets[setNum] = {
+                  'setName': setName,
+                  'subjects': subjectMap,
+                };
+              }
+            });
+          }
+        }
+
+        final result = {'common': commonSubjects, 'elective': electiveSets};
+
+        // 시트 날짜 기준 업데이트 여부 결정
+        bool shouldApplyNow = true;
+        if (sheetDate != null) {
+          if (appliedText == sheetDateText) {
+            // 이미 이 날짜 기준으로 데이터가 적용된 상태
+            shouldApplyNow = false;
+          } else if (sheetDate.isAfter(today) && cachedResult != null) {
+            // 오늘보다 미래 날짜면, 기존 캐시를 유지하고 해당 날짜가 되면 갱신
+            shouldApplyNow = false;
+          }
+        }
+
+        if (shouldApplyNow) {
+          await prefs.setString(cacheKey, json.encode({
+            'common': commonSubjects,
+            'elective': electiveSets.map(
+              (key, value) => MapEntry(key.toString(), value),
+            ),
+          }));
+          if (sheetDateText != null) {
+            await prefs.setString(appliedDateKey, sheetDateText);
+          }
+          return result;
+        } else if (cachedResult != null) {
+          // 캐시 유지
+          return cachedResult;
+        } else {
+          // 캐시가 없으면 새 데이터 사용
+          await prefs.setString(cacheKey, json.encode({
+            'common': commonSubjects,
+            'elective': electiveSets.map(
+              (key, value) => MapEntry(key.toString(), value),
+            ),
+          }));
+          if (sheetDateText != null) {
+            await prefs.setString(appliedDateKey, sheetDateText);
+          }
+          return result;
+        }
       } else {
         throw Exception('API 서버로부터 2학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}');
       }
@@ -236,6 +451,36 @@ class GSheetService {
   static Future<Map<String, dynamic>> getGrade3Subjects({
     bool forceRefresh = true,
   }) async {
+    const cacheKey = 'grade3_subjects_cache';
+    const appliedDateKey = 'grade3_subjects_applied_date';
+    final prefs = await SharedPreferences.getInstance();
+
+    // 캐시된 데이터 우선 로드
+    Map<String, dynamic>? cachedResult;
+    final cachedJson = prefs.getString(cacheKey);
+    if (cachedJson != null && cachedJson.isNotEmpty) {
+      try {
+        final decoded = json.decode(cachedJson) as Map<String, dynamic>;
+        final common = Map<String, String>.from(decoded['common'] ?? {});
+        final Map<String, dynamic> electiveDynamic =
+            Map<String, dynamic>.from(decoded['elective'] ?? {});
+        final Map<int, Map<String, dynamic>> elective = {};
+        electiveDynamic.forEach((key, value) {
+          final setNum = int.tryParse(key);
+          if (setNum != null && value is Map<String, dynamic>) {
+            elective[setNum] = value;
+          }
+        });
+        cachedResult = {'common': common, 'elective': elective};
+      } catch (_) {
+        cachedResult = null;
+      }
+    }
+
+    if (!forceRefresh && cachedResult != null) {
+      return cachedResult;
+    }
+
     try {
       final url = Uri.parse('$_serviceUrl?action=getGrade3Subjects');
       var response = await http.get(url);
@@ -251,6 +496,15 @@ class GSheetService {
         print('Response body: ${response.body}');
         print('Decoded data type: ${decodedData.runtimeType}');
         print('Decoded data: $decodedData');
+
+        String? sheetDateText;
+        if (decodedData is Map && decodedData['sheetDate'] is String) {
+          sheetDateText = decodedData['sheetDate'] as String;
+        }
+        final DateTime? sheetDate = _parseSheetDate(sheetDateText);
+        final DateTime today = _todayKstDate();
+        final String? appliedText = prefs.getString(appliedDateKey);
+
         final Map<String, String> commonSubjects = {};
         if (decodedData is Map) {
           final commonValue = decodedData['common'];
@@ -309,6 +563,7 @@ class GSheetService {
         commonSubjects.forEach((key, value) {
           print('  $key -> $value');
         });
+
         final Map<int, Map<String, dynamic>> electiveSets = {};
         if (decodedData is Map && decodedData.containsKey('elective')) {
           final electiveValue = decodedData['elective'];
@@ -320,7 +575,15 @@ class GSheetService {
               final setNum = int.tryParse(setNumStr);
               if (setNum == null) return;
               if (setData is Map) {
-                String setName = setData['setName']?.toString().trim() ?? '세트$setNum';
+                String setName =
+                    setData['setName']?.toString().trim() ?? '세트$setNum';
+                int? requiredCount;
+                final rcVal = setData['requiredCount'];
+                if (rcVal is int) {
+                  requiredCount = rcVal;
+                } else if (rcVal is String) {
+                  requiredCount = int.tryParse(rcVal);
+                }
                 final subjectsValue = setData['subjects'];
                 if (subjectsValue is Map) {
                   final Map<String, String> subjectMap = {};
@@ -329,7 +592,11 @@ class GSheetService {
                       subjectMap[key] = value;
                     }
                   });
-                  electiveSets[setNum] = {'setName': setName, 'subjects': subjectMap};
+                  electiveSets[setNum] = {
+                    'setName': setName,
+                    'subjects': subjectMap,
+                    if (requiredCount != null) 'requiredCount': requiredCount,
+                  };
                 } else if (subjectsValue is List) {
                   final Map<String, String> subjectMap = {};
                   List<dynamic> subjects = subjectsValue;
@@ -337,15 +604,19 @@ class GSheetService {
                   if (subjects.isNotEmpty) {
                     var firstRow = subjects[0];
                     if (firstRow is List && firstRow.length >= 2) {
-                      String firstSubject = firstRow[0]?.toString().trim() ?? '';
-                      String firstAbbr = firstRow[1]?.toString().trim() ?? '';
+                      String firstSubject =
+                          firstRow[0]?.toString().trim() ?? '';
+                      String firstAbbr =
+                          firstRow[1]?.toString().trim() ?? '';
                       if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
                         setName = firstAbbr;
                         startIndex = 1;
                       }
                     } else if (firstRow is Map) {
-                      String firstSubject = firstRow['subject']?.toString().trim() ?? '';
-                      String firstAbbr = firstRow['abbreviation']?.toString().trim() ?? '';
+                      String firstSubject =
+                          firstRow['subject']?.toString().trim() ?? '';
+                      String firstAbbr =
+                          firstRow['abbreviation']?.toString().trim() ?? '';
                       if (firstSubject.isEmpty && firstAbbr.isNotEmpty) {
                         setName = firstAbbr;
                         startIndex = 1;
@@ -357,8 +628,10 @@ class GSheetService {
                     String subjectName = '';
                     String abbreviation = '';
                     if (row is Map) {
-                      subjectName = row['subject']?.toString().trim() ?? '';
-                      abbreviation = row['abbreviation']?.toString().trim() ?? '';
+                      subjectName =
+                          row['subject']?.toString().trim() ?? '';
+                      abbreviation =
+                          row['abbreviation']?.toString().trim() ?? '';
                     } else if (row is List) {
                       if (row.length >= 2) {
                         subjectName = row[0]?.toString().trim() ?? '';
@@ -370,7 +643,11 @@ class GSheetService {
                       subjectMap[subjectName] = abbreviation;
                     }
                   }
-                  electiveSets[setNum] = {'setName': setName, 'subjects': subjectMap};
+                  electiveSets[setNum] = {
+                    'setName': setName,
+                    'subjects': subjectMap,
+                    if (requiredCount != null) 'requiredCount': requiredCount,
+                  };
                 }
               }
             });
@@ -387,10 +664,46 @@ class GSheetService {
             });
           }
         });
+
         final result = {'common': commonSubjects, 'elective': electiveSets};
         print('=== 3학년 최종 반환 데이터 ===');
         print('Result: $result');
-        return result;
+
+        // 시트 날짜 기준 업데이트 여부 결정
+        bool shouldApplyNow = true;
+        if (sheetDate != null) {
+          if (appliedText == sheetDateText) {
+            shouldApplyNow = false;
+          } else if (sheetDate.isAfter(today) && cachedResult != null) {
+            shouldApplyNow = false;
+          }
+        }
+
+        if (shouldApplyNow) {
+          await prefs.setString(cacheKey, json.encode({
+            'common': commonSubjects,
+            'elective': electiveSets.map(
+              (key, value) => MapEntry(key.toString(), value),
+            ),
+          }));
+          if (sheetDateText != null) {
+            await prefs.setString(appliedDateKey, sheetDateText);
+          }
+          return result;
+        } else if (cachedResult != null) {
+          return cachedResult;
+        } else {
+          await prefs.setString(cacheKey, json.encode({
+            'common': commonSubjects,
+            'elective': electiveSets.map(
+              (key, value) => MapEntry(key.toString(), value),
+            ),
+          }));
+          if (sheetDateText != null) {
+            await prefs.setString(appliedDateKey, sheetDateText);
+          }
+          return result;
+        }
       } else {
         throw Exception('API 서버로부터 3학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}');
       }
@@ -408,6 +721,25 @@ class GSheetService {
   static Future<Map<String, String>> getGrade1Subjects({
     bool forceRefresh = true,
   }) async {
+    const cacheKey = 'grade1_subjects_cache';
+    const appliedDateKey = 'grade1_subjects_applied_date';
+    final prefs = await SharedPreferences.getInstance();
+
+    Map<String, String>? cachedSubjects;
+    final cachedJson = prefs.getString(cacheKey);
+    if (cachedJson != null && cachedJson.isNotEmpty) {
+      try {
+        cachedSubjects =
+            Map<String, String>.from(json.decode(cachedJson) as Map);
+      } catch (_) {
+        cachedSubjects = null;
+      }
+    }
+
+    if (!forceRefresh && cachedSubjects != null) {
+      return cachedSubjects;
+    }
+
     try {
       final url = Uri.parse('$_serviceUrl?action=getGrade1Subjects');
       var response = await http.get(url);
@@ -419,6 +751,15 @@ class GSheetService {
       }
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
+
+        String? sheetDateText;
+        if (decodedData is Map && decodedData['sheetDate'] is String) {
+          sheetDateText = decodedData['sheetDate'] as String;
+        }
+        final DateTime? sheetDate = _parseSheetDate(sheetDateText);
+        final DateTime today = _todayKstDate();
+        final String? appliedText = prefs.getString(appliedDateKey);
+
         final Map<String, String> subjects = {};
         if (decodedData is Map) {
           decodedData.forEach((key, value) {
@@ -428,12 +769,39 @@ class GSheetService {
           });
         } else if (decodedData is List) {
           for (var item in decodedData) {
-            if (item is List && item.length >= 2 && item[0] is String && item[1] is String) {
+            if (item is List &&
+                item.length >= 2 &&
+                item[0] is String &&
+                item[1] is String) {
               subjects[item[0]] = item[1];
             }
           }
         }
-        return subjects;
+
+        bool shouldApplyNow = true;
+        if (sheetDate != null) {
+          if (appliedText == sheetDateText) {
+            shouldApplyNow = false;
+          } else if (sheetDate.isAfter(today) && cachedSubjects != null) {
+            shouldApplyNow = false;
+          }
+        }
+
+        if (shouldApplyNow) {
+          await prefs.setString(cacheKey, json.encode(subjects));
+          if (sheetDateText != null) {
+            await prefs.setString(appliedDateKey, sheetDateText);
+          }
+          return subjects;
+        } else if (cachedSubjects != null) {
+          return cachedSubjects;
+        } else {
+          await prefs.setString(cacheKey, json.encode(subjects));
+          if (sheetDateText != null) {
+            await prefs.setString(appliedDateKey, sheetDateText);
+          }
+          return subjects;
+        }
       } else {
         throw Exception('API 서버로부터 1학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}');
       }

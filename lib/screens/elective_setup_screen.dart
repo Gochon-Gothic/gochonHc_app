@@ -35,6 +35,8 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   Map<int, List<ElectiveSlot>> _slotsBySet = {}; // 세트별로 그룹화된 슬롯
   final Map<String, String> _selections = {}; // key: 'set-slotKey', value: 선택한 과목
   Map<int, String> _setNames = {}; // 세트 번호 -> 세트 이름 (구글 시트에서 가져옴)
+  final Map<int, int> _setRequiredCounts = {}; // 세트 번호 -> 선택해야 하는 과목 수 (구글 시트에서 가져옴)
+  final Map<int, List<String>> _sheetSubjectsBySet = {}; // 세트 번호 -> 시트에서 온 과목 리스트
   String? _error;
 
   static const _apiKey = '2cf24c119b434f93b2f916280097454a';
@@ -104,11 +106,16 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
           electiveSets.forEach((setNum, setData) {
             final setName = setData['setName'] as String?;
             final subjects = setData['subjects'] as Map<String, String>?;
+            final requiredCount = setData['requiredCount'] as int?;
             if (setName != null) {
               _setNames[setNum] = setName;
             }
             if (subjects != null) {
               gsheetElectiveSubjects![setNum] = subjects;
+              _sheetSubjectsBySet[setNum] = subjects.keys.toList();
+            }
+            if (requiredCount != null && requiredCount > 0) {
+              _setRequiredCounts[setNum] = requiredCount;
             }
           });
         }
@@ -279,28 +286,43 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
 
   // 모든 세트의 과목 리스트 가져오기
   List<String> _getAllSubjectsInSet(int setNumber) {
+    // 2,3학년: 구글 시트에서 온 과목 리스트 사용
+    if ((widget.grade == 2 || widget.grade == 3) &&
+        _sheetSubjectsBySet[setNumber] != null &&
+        _sheetSubjectsBySet[setNumber]!.isNotEmpty) {
+      return _sheetSubjectsBySet[setNumber]!;
+    }
+
+    // (하위 호환용) 시트 데이터가 없을 때만 로컬 상수 사용
     final set = [null, _set1, _set2, _set3, _set4][setNumber];
     return set?.where((s) => s.isNotEmpty).toList() ?? [];
   }
 
   Future<void> _complete() async {
-    // 모든 세트의 모든 슬롯이 선택되었는지 확인
-    int totalSlots = 0;
-    int selectedSlots = 0;
-    for (var slots in _slotsBySet.values) {
-      totalSlots += slots.length;
+    // 세트별로 선택 개수 검증 (시트에서 가져온 requiredCount 우선)
+    for (final entry in _slotsBySet.entries) {
+      final setNum = entry.key;
+      final slots = entry.value;
+      if (slots.isEmpty) continue;
+
+      final requiredCount =
+          _setRequiredCounts[setNum] ?? slots.length; // 기본값: 슬롯 수
+
+      int selectedCount = 0;
       for (var slot in slots) {
-        final subjectName = slot.subjects.isNotEmpty ? slot.subjects.first : '';
+        final subjectName =
+            slot.subjects.isNotEmpty ? slot.subjects.first : '';
         final key = '${slot.setNumber}-$subjectName';
         if (_selections.containsKey(key)) {
-          selectedSlots++;
+          selectedCount++;
         }
       }
-    }
 
-    if (totalSlots != selectedSlots) {
-      _showSnackBar('모든 선택과목을 선택해주세요.');
-      return;
+      if (selectedCount != requiredCount) {
+        _showSnackBar(
+            '세트 $setNum에서 $requiredCount개의 과목을 선택해야 합니다. (현재 $selectedCount개)');
+        return;
+      }
     }
 
     setState(() => _isLoading = true);
