@@ -44,7 +44,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Map<String, dynamic>? _grade3SubjectData; // 3학년 과목 데이터 (공통과목 + 선택과목)
   DateTime getCurrentWeekStart() {
     // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
-    final now = DateTime.now().toUtc().add(const Duration(hours: 9));
+    final now = DateTime(2026, 2, 2);
     final weekday = now.weekday;
 
     // 토요일(6) 또는 일요일(7)이면 다음주 월요일부터
@@ -61,7 +61,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   void initState() {
     super.initState();
     currentWeekStart = getCurrentWeekStart();
-    
+
     // 로그인 상태 확인하여 초기 모드 설정
     final currentUser = AuthService.instance.currentUser;
     if (currentUser == null) {
@@ -70,17 +70,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
       // 저장된 마지막 선택 반 정보 불러오기
       _loadLastSelectedClass();
     }
-    
+
     _loadClassCounts();
     _initMyClassAndLoad();
     // 리스트 모드 기본 선택 요일: 오늘(월~금) 아니면 월요일
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
     final todayIdx = now.weekday - 1;
     _selectedListDayIndex = (todayIdx >= 0 && todayIdx < 5) ? todayIdx : 0;
-    
+
     // PageController 리스너 추가 (캡슐 애니메이션을 위해)
     _dayController.addListener(_onPageControllerChanged);
-    
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_dayController.hasClients) {
         _dayController.jumpToPage(_selectedListDayIndex ?? 0);
@@ -94,7 +94,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       final prefs = await SharedPreferences.getInstance();
       final lastGrade = prefs.getString('last_selected_grade');
       final lastClass = prefs.getString('last_selected_class');
-      
+
       if (lastGrade != null && lastClass != null) {
         setState(() {
           selectedGrade = lastGrade;
@@ -147,46 +147,55 @@ class _TimetableScreenState extends State<TimetableScreen> {
   // 반 선택 메뉴 표시
   void _showClassPicker(BuildContext context, bool isDark, Color textColor) {
     if (_classCounts == null) return;
-    
+
     // 현재 선택된 학년과 반
     final currentGrade = int.tryParse(selectedGrade ?? '1') ?? 1;
     final currentClass = int.tryParse(selectedClass ?? '1') ?? 1;
-    
+
     // 학년별 반 수 가져오기
     final maxClassForCurrentGrade = _classCounts![currentGrade] ?? 11;
-    
+
     // 학년과 반을 별도로 관리
-    final ValueNotifier<int> selectedGradeNotifier = ValueNotifier<int>(currentGrade - 1); // 0-based
-    final ValueNotifier<int> selectedClassNotifier = ValueNotifier<int>((currentClass - 1).clamp(0, maxClassForCurrentGrade - 1)); // 0-based
-    
+    final ValueNotifier<int> selectedGradeNotifier = ValueNotifier<int>(
+      currentGrade - 1,
+    ); // 0-based
+    final ValueNotifier<int> selectedClassNotifier = ValueNotifier<int>(
+      (currentClass - 1).clamp(0, maxClassForCurrentGrade - 1),
+    ); // 0-based
+
     // 학년 휠 컨트롤러
-    final FixedExtentScrollController gradeController = FixedExtentScrollController(initialItem: currentGrade - 1);
-    
+    final FixedExtentScrollController gradeController =
+        FixedExtentScrollController(initialItem: currentGrade - 1);
+
     // 반 휠 컨트롤러를 동적으로 관리하기 위한 StatefulWidget 사용
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
-      builder: (context) => _ClassPickerWidget(
-        isDark: isDark,
-        textColor: textColor,
-        classCounts: _classCounts!,
-        initialGrade: currentGrade - 1,
-        initialClass: (currentClass - 1).clamp(0, maxClassForCurrentGrade - 1),
-        gradeController: gradeController,
-        selectedGradeNotifier: selectedGradeNotifier,
-        selectedClassNotifier: selectedClassNotifier,
-      ),
+      builder:
+          (context) => _ClassPickerWidget(
+            isDark: isDark,
+            textColor: textColor,
+            classCounts: _classCounts!,
+            initialGrade: currentGrade - 1,
+            initialClass: (currentClass - 1).clamp(
+              0,
+              maxClassForCurrentGrade - 1,
+            ),
+            gradeController: gradeController,
+            selectedGradeNotifier: selectedGradeNotifier,
+            selectedClassNotifier: selectedClassNotifier,
+          ),
     ).then((_) async {
       // 모달이 닫힌 후 선택된 반으로 시간표 불러오기
       final finalGrade = selectedGradeNotifier.value + 1; // 1-based
       final finalClass = selectedClassNotifier.value + 1; // 1-based
-      
+
       setState(() {
         selectedGrade = finalGrade.toString();
         selectedClass = finalClass.toString();
       });
-      
+
       // 학년별 과목 정보 불러오기
       if (finalGrade == 1) {
         _grade1SubjectMap = await GSheetService.getGrade1Subjects();
@@ -205,14 +214,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
         _grade2SubjectData = null;
         _grade3SubjectData = null;
       }
-      
+
       // 마지막 선택 반 정보 저장
       _saveLastSelectedClass();
       // 캐시가 있으면 즉시 표시, 없으면 로딩 표시
       if (mounted) {
         loadTimetable(showLoading: false);
       }
-      
+
       selectedGradeNotifier.dispose();
       selectedClassNotifier.dispose();
       gradeController.dispose();
@@ -240,12 +249,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
         if (_isMyTimetable) {
           final currentUser = AuthService.instance.currentUser;
           if (currentUser != null) {
-            _electiveSubjects = await UserService.instance.getElectiveSubjects(currentUser.uid);
+            _electiveSubjects = await UserService.instance.getElectiveSubjects(
+              currentUser.uid,
+            );
           }
         } else {
           _electiveSubjects = null; // 반별 시간표일 때는 선택과목 적용 안함
         }
-        
+
         // 학년별 과목 정보 불러오기
         if (userInfo.grade == 1) {
           _grade1SubjectMap = await GSheetService.getGrade1Subjects();
@@ -264,7 +275,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           _grade2SubjectData = null;
           _grade3SubjectData = null;
         }
-        
+
         loadTimetable();
       }
     } else {
@@ -288,7 +299,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       }
     }
   }
-  
+
   // 나의 시간표 <-> 반별 시간표 전환
   void _toggleTimetableMode() async {
     String? newGrade;
@@ -302,7 +313,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
         // 선택과목 데이터 다시 불러오기
         final currentUser = AuthService.instance.currentUser;
         if (currentUser != null) {
-          UserService.instance.getElectiveSubjects(currentUser.uid).then((subjects) {
+          UserService.instance.getElectiveSubjects(currentUser.uid).then((
+            subjects,
+          ) {
             if (mounted) {
               setState(() {
                 _electiveSubjects = subjects;
@@ -331,7 +344,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         _electiveSubjects = null; // 선택과목 적용 안함
       }
     });
-    
+
     // 학년별 과목 정보 불러오기
     if (newGrade == '1') {
       _grade1SubjectMap = await GSheetService.getGrade1Subjects();
@@ -350,11 +363,12 @@ class _TimetableScreenState extends State<TimetableScreen> {
       _grade2SubjectData = null;
       _grade3SubjectData = null;
     }
-    
+
     if (mounted) {
       loadTimetable();
     }
   }
+
   int getPeriodCount(int dayIndex) {
     switch (dayIndex) {
       case 0: // 월
@@ -364,17 +378,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
         return 6;
     }
   }
+
   String getDateRange() {
     final weekStart = currentWeekStart;
-    final weekEnd = weekStart.add(const Duration(days: 4)); 
+    final weekEnd = weekStart.add(const Duration(days: 4));
     final formatter = DateFormat('yyyyMMdd');
     return '${formatter.format(weekStart)}:${formatter.format(weekEnd)}';
   }
+
   List<DateTime> getWeekDates() {
     final monday = currentWeekStart;
     final sunday = monday.subtract(const Duration(days: 1));
     return List.generate(7, (i) => sunday.add(Duration(days: i)));
   }
+
   void _toggleView() {
     setState(() {
       _isTableView = !_isTableView;
@@ -414,7 +431,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Future<void> loadTimetable({bool showLoading = true}) async {
     try {
       if (!mounted) return;
-      
+
       // 학년별 과목 정보 불러오기
       if (selectedGrade == '1') {
         _grade1SubjectMap = await GSheetService.getGrade1Subjects();
@@ -433,7 +450,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         _grade2SubjectData = null;
         _grade3SubjectData = null;
       }
-      
+
       final prefs = await SharedPreferences.getInstance();
       final cacheKey =
           'timetable_${selectedGrade}_${selectedClass}_${getDateRange()}';
@@ -445,9 +462,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
               .add(const Duration(hours: 9))
               .millisecondsSinceEpoch;
       final cacheExpiry = 3600000; // 1시간 (밀리초)
-      
+
       bool hasValidCache = false;
-      
+
       // 캐시가 있으면 (유효하든 오래되었든) 일단 표시
       if (cachedData != null) {
         try {
@@ -461,7 +478,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               isLoading = false;
               error = null;
             });
-            
+
             // 캐시가 유효하면 백그라운드 업데이트, 오래되었으면 즉시 업데이트
             if ((now - lastUpdate) < cacheExpiry) {
               // 캐시가 유효하면 백그라운드에서만 업데이트
@@ -470,7 +487,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               // 캐시가 오래되었으면 백그라운드에서 업데이트하되, 사용자는 기존 데이터를 볼 수 있음
               updateTimetableInBackground();
             }
-            
+
             // 캐시가 유효하면 여기서 종료
             if ((now - lastUpdate) < cacheExpiry) {
               return;
@@ -480,7 +497,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           // 캐시 파싱 실패 시 API 호출로 진행
         }
       }
-      
+
       // 캐시가 없거나 만료된 경우에만 로딩 표시
       // (캐시가 있어서 이미 표시했다면 로딩 표시 안함)
       if (showLoading && !hasValidCache) {
@@ -489,7 +506,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
           error = null;
         });
       }
-      
+
       await fetchTimetableFromAPI(prefs, cacheKey);
     } catch (e) {
       if (!mounted) return;
@@ -498,6 +515,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       });
     }
   }
+
   Future<void> fetchTimetableFromAPI(
     SharedPreferences prefs,
     String cacheKey,
@@ -513,13 +531,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
       );
 
       // 타임아웃 설정 (10초)
-      final response = await http.get(url).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('시간표 로딩 시간이 초과되었습니다.');
-        },
-      );
-      
+      final response = await http
+          .get(url)
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw TimeoutException('시간표 로딩 시간이 초과되었습니다.');
+            },
+          );
+
       if (response.statusCode != 200) {
         if (!mounted) return;
         setState(() {
@@ -558,7 +578,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         });
         return;
       }
-      
+
       parseAndSetTimetable(timetableData);
 
       if (!mounted) return;
@@ -584,6 +604,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       });
     }
   }
+
   Future<void> updateTimetableInBackground() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -618,72 +639,77 @@ class _TimetableScreenState extends State<TimetableScreen> {
           }
         }
       }
-    } catch (e) {
-    }
+    } catch (e) {}
   }
 
   // 시간표 데이터 파싱 및 설정 (코드 재사용성 향상)
+  // 시간표 데이터 파싱 및 설정 (수정된 버전)
   void parseAndSetTimetable(List<dynamic> timetableData) {
     // 원본 데이터 저장 (리스트 뷰에서 사용)
     _rawTimetableData = timetableData;
-    
+
     // 시간표 데이터 파싱
     final newTimetable = List.generate(5, (dayIndex) => List.filled(7, ''));
     // 날짜별로 모의고사 여부 체크를 위한 Map
     final Map<String, bool> isMockExamDay = {};
 
-    // Helper function to normalize subject names for comparison (띄어쓰기만 제거)
+    // Helper function to normalize subject names for comparison (특수문자, 공백, 로마 숫자 처리)
     String normalize(String? s) {
       if (s == null || s.isEmpty) return '';
-      return s.replaceAll(RegExp(r'\s+'), ''); // 띄어쓰기만 제거 (소문자 변환 없음)
+      return s
+          .replaceAll(RegExp(r'[\s·\-\[\]()]'), '')
+          .replaceAll('Ⅰ', '1')
+          .replaceAll('Ⅱ', '2');
     }
-    
+
     // 안전한 contains 비교 함수
     bool safeContains(String? source, String? target) {
-      if (source == null || target == null || source.isEmpty || target.isEmpty) {
+      if (source == null ||
+          target == null ||
+          source.isEmpty ||
+          target.isEmpty) {
         return false;
       }
-      final normalizedSource = normalize(source);
-      final normalizedTarget = normalize(target);
-      return normalizedSource.contains(normalizedTarget);
+      return normalize(source).contains(normalize(target));
     }
 
     for (var item in timetableData) {
       final date = item['ALL_TI_YMD'].toString();
       final day = DateTime.parse(date).weekday - 1; // 0: 월요일
+
       // 모의고사 체크
       if (item['ITRT_CNTNT'].toString().contains('전국연합')) {
         isMockExamDay[date] = true;
       }
+
       if (day >= 0 && day < 5) {
         final period = int.parse(item['PERIO']) - 1;
         if (period >= 0 && period < 7) {
           String subject = item['ITRT_CNTNT'];
-          
+
           // 지필평가가 포함된 경우 선택과목 적용하지 않음
           if (!subject.contains('지필평가')) {
-            // 1학년인 경우: 구글 시트에서 가져온 과목명 -> 줄임말 변환
-            if (selectedGrade == '1' && _grade1SubjectMap != null && _grade1SubjectMap!.isNotEmpty) {
+            // [1학년] -------------------------------------------------------
+            if (selectedGrade == '1' &&
+                _grade1SubjectMap != null &&
+                _grade1SubjectMap!.isNotEmpty) {
               bool found = false;
               for (var entry in _grade1SubjectMap!.entries) {
-                final subjectName = entry.key;
-                final abbreviation = entry.value;
-                if (safeContains(subject, subjectName)) {
-                  subject = abbreviation;
+                if (safeContains(subject, entry.key)) {
+                  subject = entry.value;
                   found = true;
                   break;
                 }
               }
               if (!found) {
-                // 줄임말에 포함되지 않는 경우 3글자로 줄이기
                 subject = _shortenToThreeChars(subject);
               }
             }
-            // 2학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
+            // [2학년] -------------------------------------------------------
             else if (selectedGrade == '2' && _grade2SubjectData != null) {
               String? abbreviatedSubject;
-              
-              // 1. 선택과목 먼저 확인 (사용자 선택 우선)
+
+              // 1. 선택과목 (사용자 선택) 확인
               if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
                 for (var entry in _electiveSubjects!.entries) {
                   final userSelectedSubjectName = entry.key.split('-').last;
@@ -693,35 +719,37 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   }
                 }
               }
-              
-              // 2. 선택과목에 매칭되지 않으면 공통과목 확인
+
+              // 2. 공통과목 확인 (타입 캐스팅 안전하게 수정됨)
               if (abbreviatedSubject == null) {
-                final commonSubjects = _grade2SubjectData!['common'] as Map<String, String>?;
-                if (commonSubjects != null && commonSubjects.isNotEmpty) {
-                  for (var entry in commonSubjects.entries) {
-                    if (safeContains(subject, entry.key)) {
-                      abbreviatedSubject = entry.value;
+                final commonData = _grade2SubjectData!['common'];
+                if (commonData is Map) {
+                  for (var entry in commonData.entries) {
+                    if (safeContains(subject, entry.key.toString())) {
+                      abbreviatedSubject = entry.value.toString();
                       break;
                     }
                   }
                 }
               }
-              
-              // 3. 공통과목에도 없으면 선택과목 세트에서 확인
+
+              // 3. 선택과목 세트 확인 (타입 캐스팅 안전하게 수정됨)
               if (abbreviatedSubject == null) {
-                final electiveSets = _grade2SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
-                if (electiveSets != null && electiveSets.isNotEmpty) {
-                  for (var setEntry in electiveSets.entries) {
-                    final subjects = setEntry.value['subjects'] as Map<String, String>?;
-                    if (subjects != null) {
+                final electiveSets = _grade2SubjectData!['elective'];
+                // JSON의 키는 String이므로 Map<String, dynamic>으로 처리하거나 dynamic으로 받아서 순회
+                if (electiveSets is Map) {
+                  for (var setEntry in electiveSets.values) {
+                    // setEntry는 각 세트 객체 {setName:..., subjects:...}
+                    if (setEntry is Map && setEntry['subjects'] is Map) {
+                      final subjects = setEntry['subjects'] as Map;
                       for (var entry in subjects.entries) {
-                        if (safeContains(subject, entry.key)) {
-                          abbreviatedSubject = entry.value;
+                        if (safeContains(subject, entry.key.toString())) {
+                          abbreviatedSubject = entry.value.toString();
                           break;
                         }
                       }
-                      if (abbreviatedSubject != null) break;
                     }
+                    if (abbreviatedSubject != null) break;
                   }
                 }
               }
@@ -729,56 +757,53 @@ class _TimetableScreenState extends State<TimetableScreen> {
               if (abbreviatedSubject != null) {
                 subject = abbreviatedSubject;
               } else {
-                // 줄임말에 포함되지 않는 경우 3글자로 줄이기
                 subject = _shortenToThreeChars(subject);
               }
             }
-            // 3학년인 경우: 구글 시트에서 가져온 공통과목 및 선택과목 처리
-            else if (selectedGrade == '3') {
+            // [3학년] -------------------------------------------------------
+            else if (selectedGrade == '3' && _grade3SubjectData != null) {
               String? abbreviatedSubject;
-              
-              // _grade3SubjectData가 있는 경우에만 처리
-              if (_grade3SubjectData != null) {
-                // 1. 선택과목 먼저 확인 (사용자 선택 우선)
-                if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
-                  for (var entry in _electiveSubjects!.entries) {
-                    final userSelectedSubjectName = entry.key.split('-').last;
-                    if (safeContains(subject, userSelectedSubjectName)) {
-                      abbreviatedSubject = entry.value;
+
+              // 1. 선택과목 (사용자 선택)
+              if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+                for (var entry in _electiveSubjects!.entries) {
+                  final userSelectedSubjectName = entry.key.split('-').last;
+                  if (safeContains(subject, userSelectedSubjectName)) {
+                    abbreviatedSubject = entry.value;
+                    break;
+                  }
+                }
+              }
+
+              // 2. 공통과목 (타입 캐스팅 안전하게 수정됨)
+              if (abbreviatedSubject == null) {
+                final commonData = _grade3SubjectData!['common'];
+                if (commonData is Map) {
+                  for (var entry in commonData.entries) {
+                    if (safeContains(subject, entry.key.toString())) {
+                      abbreviatedSubject = entry.value.toString();
                       break;
                     }
                   }
                 }
-                
-                // 2. 선택과목에 매칭되지 않으면 공통과목 확인
-                if (abbreviatedSubject == null) {
-                  final commonSubjects = _grade3SubjectData!['common'] as Map<String, String>?;
-                  if (commonSubjects != null && commonSubjects.isNotEmpty) {
-                    for (var entry in commonSubjects.entries) {
-                      if (safeContains(subject, entry.key)) {
-                        abbreviatedSubject = entry.value;
-                        break;
-                      }
-                    }
-                  }
-                }
-                
-                // 3. 공통과목에도 없으면 선택과목 세트에서 확인
-                if (abbreviatedSubject == null) {
-                  final electiveSets = _grade3SubjectData!['elective'] as Map<int, Map<String, dynamic>>?;
-                  if (electiveSets != null && electiveSets.isNotEmpty) {
-                    for (var setEntry in electiveSets.entries) {
-                      final subjects = setEntry.value['subjects'] as Map<String, String>?;
-                      if (subjects != null) {
-                        for (var entry in subjects.entries) {
-                          if (safeContains(subject, entry.key)) {
-                            abbreviatedSubject = entry.value;
-                            break;
-                          }
+              }
+
+              // 3. 선택과목 세트 (타입 캐스팅 안전하게 수정됨)
+              if (abbreviatedSubject == null) {
+                final electiveSets = _grade3SubjectData!['elective'];
+                // Map<int, ...> 가 아니라 Map 혹은 Map<String, dynamic>으로 처리
+                if (electiveSets is Map) {
+                  for (var setEntry in electiveSets.values) {
+                    if (setEntry is Map && setEntry['subjects'] is Map) {
+                      final subjects = setEntry['subjects'] as Map;
+                      for (var entry in subjects.entries) {
+                        if (safeContains(subject, entry.key.toString())) {
+                          abbreviatedSubject = entry.value.toString();
+                          break;
                         }
-                        if (abbreviatedSubject != null) break;
                       }
                     }
+                    if (abbreviatedSubject != null) break;
                   }
                 }
               }
@@ -786,16 +811,17 @@ class _TimetableScreenState extends State<TimetableScreen> {
               if (abbreviatedSubject != null) {
                 subject = abbreviatedSubject;
               } else {
-                // 줄임말에 포함되지 않는 경우 3글자로 줄이기
                 subject = _shortenToThreeChars(subject);
               }
             }
           }
-          
-          newTimetable[day][period] = subject; // 줄임말 적용된 버전
+
+          newTimetable[day][period] = subject;
         }
       }
     }
+
+    // 모의고사 날짜 처리
     for (var item in timetableData) {
       final date = item['ALL_TI_YMD'].toString();
       if (isMockExamDay[date] == true) {
@@ -811,15 +837,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     if (mounted) {
       setState(() {
-        timetable = newTimetable; // 줄임말 적용된 버전
+        timetable = newTimetable;
       });
     }
   }
-  
+
   // 리스트 뷰용: 원본 데이터에서 특정 요일/교시의 과목명 가져오기
   String? _getOriginalSubject(int dayIdx, int periodIndex) {
     if (_rawTimetableData == null) return null;
-    
+
     for (var item in _rawTimetableData!) {
       final date = item['ALL_TI_YMD'].toString();
       final day = DateTime.parse(date).weekday - 1;
@@ -939,7 +965,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return result;
   }
 
-
   @override
   void dispose() {
     _dayController.removeListener(_onPageControllerChanged);
@@ -1047,7 +1072,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       children: [
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
+                          transitionBuilder: (
+                            Widget child,
+                            Animation<double> animation,
+                          ) {
                             return FadeTransition(
                               opacity: animation,
                               child: SizeTransition(
@@ -1057,25 +1085,32 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               ),
                             );
                           },
-                          child: (!_isMyTimetable && AuthService.instance.currentUser != null)
-                              ? Padding(
-                                  key: const ValueKey('left_arrow'),
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: GestureDetector(
-                                    onTap: _toggleTimetableMode,
-                                    child: Icon(
-                                      Icons.arrow_back_ios,
-                                      size: 20,
-                                      color: textColor.withValues(alpha: 0.8),
+                          child:
+                              (!_isMyTimetable &&
+                                      AuthService.instance.currentUser != null)
+                                  ? Padding(
+                                    key: const ValueKey('left_arrow'),
+                                    padding: const EdgeInsets.only(right: 8),
+                                    child: GestureDetector(
+                                      onTap: _toggleTimetableMode,
+                                      child: Icon(
+                                        Icons.arrow_back_ios,
+                                        size: 20,
+                                        color: textColor.withValues(alpha: 0.8),
+                                      ),
                                     ),
+                                  )
+                                  : const SizedBox.shrink(
+                                    key: ValueKey('left_empty'),
                                   ),
-                                )
-                              : const SizedBox.shrink(key: ValueKey('left_empty')),
                         ),
                         // 제목 텍스트
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
+                          transitionBuilder: (
+                            Widget child,
+                            Animation<double> animation,
+                          ) {
                             return FadeTransition(
                               opacity: animation,
                               child: SlideTransition(
@@ -1101,7 +1136,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         ),
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
+                          transitionBuilder: (
+                            Widget child,
+                            Animation<double> animation,
+                          ) {
                             return FadeTransition(
                               opacity: animation,
                               child: SizeTransition(
@@ -1111,20 +1149,30 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               ),
                             );
                           },
-                          child: (_isMyTimetable && AuthService.instance.currentUser != null)
-                              ? Padding(
-                                  key: const ValueKey('right_arrow'),
-                                  padding: ResponsiveHelper.padding(context, left: 8),
-                                  child: GestureDetector(
-                                    onTap: _toggleTimetableMode,
-                                    child: Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: ResponsiveHelper.width(context, 20),
-                                      color: textColor.withValues(alpha: 0.8),
+                          child:
+                              (_isMyTimetable &&
+                                      AuthService.instance.currentUser != null)
+                                  ? Padding(
+                                    key: const ValueKey('right_arrow'),
+                                    padding: ResponsiveHelper.padding(
+                                      context,
+                                      left: 8,
                                     ),
+                                    child: GestureDetector(
+                                      onTap: _toggleTimetableMode,
+                                      child: Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: ResponsiveHelper.width(
+                                          context,
+                                          20,
+                                        ),
+                                        color: textColor.withValues(alpha: 0.8),
+                                      ),
+                                    ),
+                                  )
+                                  : const SizedBox.shrink(
+                                    key: ValueKey('right_empty'),
                                   ),
-                                )
-                              : const SizedBox.shrink(key: ValueKey('right_empty')),
                         ),
                       ],
                     ),
@@ -1132,7 +1180,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     // 반 선택 텍스트 (반별 시간표 모드일 때만 표시)
                     AnimatedSwitcher(
                       duration: const Duration(milliseconds: 200),
-                      transitionBuilder: (Widget child, Animation<double> animation) {
+                      transitionBuilder: (
+                        Widget child,
+                        Animation<double> animation,
+                      ) {
                         return FadeTransition(
                           opacity: animation,
                           child: SlideTransition(
@@ -1144,22 +1195,30 @@ class _TimetableScreenState extends State<TimetableScreen> {
                           ),
                         );
                       },
-                      child: !_isMyTimetable
-                          ? GestureDetector(
-                              key: const ValueKey('class_text'),
-                              onTap: () => _showClassPicker(context, isDark, textColor),
-                              child: Text(
-                                '${selectedGrade ?? '1'}학년 ${selectedClass ?? '1'}반',
-                                style: ResponsiveHelper.textStyle(
-                                  context,
-                                  fontSize: 27,
-                                  color: textColor,
-                                  fontWeight: FontWeight.w800,
-                                  height: 1,
+                      child:
+                          !_isMyTimetable
+                              ? GestureDetector(
+                                key: const ValueKey('class_text'),
+                                onTap:
+                                    () => _showClassPicker(
+                                      context,
+                                      isDark,
+                                      textColor,
+                                    ),
+                                child: Text(
+                                  '${selectedGrade ?? '1'}학년 ${selectedClass ?? '1'}반',
+                                  style: ResponsiveHelper.textStyle(
+                                    context,
+                                    fontSize: 27,
+                                    color: textColor,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1,
+                                  ),
                                 ),
+                              )
+                              : const SizedBox.shrink(
+                                key: ValueKey('class_text_empty'),
                               ),
-                            )
-                          : const SizedBox.shrink(key: ValueKey('class_text_empty')),
                     ),
                     // 주간 텍스트
                     Row(
@@ -1169,7 +1228,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         // 왼쪽 화살표 (다음주일 때만 표시)
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
+                          transitionBuilder: (
+                            Widget child,
+                            Animation<double> animation,
+                          ) {
                             return FadeTransition(
                               opacity: animation,
                               child: SizeTransition(
@@ -1179,22 +1241,31 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               ),
                             );
                           },
-                          child: _isNextWeek()
-                              ? Padding(
-                                  key: const ValueKey('left_arrow'),
-                                  padding: ResponsiveHelper.padding(context, right: 0),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.arrow_back_ios,
-                                      size: ResponsiveHelper.width(context, 16),
+                          child:
+                              _isNextWeek()
+                                  ? Padding(
+                                    key: const ValueKey('left_arrow'),
+                                    padding: ResponsiveHelper.padding(
+                                      context,
+                                      right: 0,
                                     ),
-                                    color: textColor.withValues(alpha: 0.6),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: _goToPreviousWeek,
+                                    child: IconButton(
+                                      icon: Icon(
+                                        Icons.arrow_back_ios,
+                                        size: ResponsiveHelper.width(
+                                          context,
+                                          16,
+                                        ),
+                                      ),
+                                      color: textColor.withValues(alpha: 0.6),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: _goToPreviousWeek,
+                                    ),
+                                  )
+                                  : const SizedBox.shrink(
+                                    key: ValueKey('left_empty'),
                                   ),
-                                )
-                              : const SizedBox.shrink(key: ValueKey('left_empty')),
                         ),
                         Text(
                           '${DateFormat('MM/dd').format(currentWeekStart)}~${DateFormat('MM/dd').format(currentWeekStart.add(const Duration(days: 4)))}',
@@ -1209,7 +1280,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
                         // 오른쪽 화살표 (이번주일 때만 표시)
                         AnimatedSwitcher(
                           duration: const Duration(milliseconds: 200),
-                          transitionBuilder: (Widget child, Animation<double> animation) {
+                          transitionBuilder: (
+                            Widget child,
+                            Animation<double> animation,
+                          ) {
                             return FadeTransition(
                               opacity: animation,
                               child: SizeTransition(
@@ -1219,22 +1293,31 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               ),
                             );
                           },
-                          child: !_isNextWeek()
-                              ? Padding(
-                                  key: const ValueKey('right_arrow'),
-                                  padding: ResponsiveHelper.padding(context, left: 0),
-                                  child: IconButton(
-                                    icon: Icon(
-                                      Icons.arrow_forward_ios,
-                                      size: ResponsiveHelper.width(context, 16),
+                          child:
+                              !_isNextWeek()
+                                  ? Padding(
+                                    key: const ValueKey('right_arrow'),
+                                    padding: ResponsiveHelper.padding(
+                                      context,
+                                      left: 0,
                                     ),
-                                    color: textColor.withValues(alpha: 0.6),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: _goToNextWeek,
+                                    child: IconButton(
+                                      icon: Icon(
+                                        Icons.arrow_forward_ios,
+                                        size: ResponsiveHelper.width(
+                                          context,
+                                          16,
+                                        ),
+                                      ),
+                                      color: textColor.withValues(alpha: 0.6),
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: _goToNextWeek,
+                                    ),
+                                  )
+                                  : const SizedBox.shrink(
+                                    key: ValueKey('right_empty'),
                                   ),
-                                )
-                              : const SizedBox.shrink(key: ValueKey('right_empty')),
                         ),
                       ],
                     ),
@@ -1261,7 +1344,15 @@ class _TimetableScreenState extends State<TimetableScreen> {
                   controller: _dayController,
                   dates: getWeekDates(),
                   textColor: textColor,
-                  selectedIndex: (_selectedListDayIndex ?? ((DateTime.now().toUtc().add(const Duration(hours: 9)).weekday - 1).clamp(0, 4))) + 1,
+                  selectedIndex:
+                      (_selectedListDayIndex ??
+                          ((DateTime.now()
+                                      .toUtc()
+                                      .add(const Duration(hours: 9))
+                                      .weekday -
+                                  1)
+                              .clamp(0, 4))) +
+                      1,
                   isDark: isDark,
                   onTapDay: (dowIndex) {
                     final idx = dowIndex - 1; // 월=0
@@ -1269,9 +1360,9 @@ class _TimetableScreenState extends State<TimetableScreen> {
                       setState(() => _selectedListDayIndex = idx);
                       if (_dayController.hasClients) {
                         _dayController.animateToPage(
-                          idx, 
-                          duration: const Duration(milliseconds: 350), 
-                          curve: Curves.easeInOutCubic
+                          idx,
+                          duration: const Duration(milliseconds: 350),
+                          curve: Curves.easeInOutCubic,
                         );
                       }
                     }
@@ -1292,7 +1383,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
                     fontSize: 12,
                     fontWeight: FontWeight.w400,
                     shadows: [
-                      Shadow(offset: const Offset(2, 3), blurRadius: 3, color: Colors.black.withValues(alpha: 0.20)),
+                      Shadow(
+                        offset: const Offset(2, 3),
+                        blurRadius: 3,
+                        color: Colors.black.withValues(alpha: 0.20),
+                      ),
                     ],
                   ),
                 ),
@@ -1302,18 +1397,19 @@ class _TimetableScreenState extends State<TimetableScreen> {
           const SizedBox(height: 7),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 200),
-            child: isLoading
-                ? _buildLoadingView(textColor)
-                : (_isTableView
-                    ? _buildTableView(isDark, textColor)
-                    : _buildListView(cardColor, textColor, isDark)),
+            child:
+                isLoading
+                    ? _buildLoadingView(textColor)
+                    : (_isTableView
+                        ? _buildTableView(isDark, textColor)
+                        : _buildListView(cardColor, textColor, isDark)),
           ),
           const SizedBox(height: 32),
         ],
       ),
     );
   }
-  
+
   Widget _buildLoadingView(Color textColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -1341,112 +1437,142 @@ class _TimetableScreenState extends State<TimetableScreen> {
       ),
     );
   }
-  
+
   Widget _buildTableView(bool isDark, Color textColor) {
     return Padding(
       padding: ResponsiveHelper.horizontalPadding(context, 16),
       child: Column(
         children: [
-          LayoutBuilder(builder: (context, constraints) {
-            final double gap = ResponsiveHelper.width(context, 8);
-            final double itemWidth = (constraints.maxWidth - gap * 4) / 5;
-            return Row(
-              children: List.generate(5, (i) {
-                final bool topLeft = i == 0;
-                final bool topRight = i == 4;
-                return Container(
-                  width: itemWidth,
-                  height: ResponsiveHelper.height(context, 36),
-                  margin: EdgeInsets.only(right: i == 4 ? 0 : gap),
-                  decoration: const BoxDecoration(color: Colors.transparent),
-                  child: CustomPaint(
-                    painter: _CornerPainter(
-                      fill: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
-                      radius: ResponsiveHelper.width(context, 12),
-                      topLeft: topLeft,
-                      topRight: topRight,
-                      bottomLeft: false,
-                      bottomRight: false,
-                    ),
-                    child: Center(
-                      child: Text(
-                        const ['월', '화', '수', '목', '금'][i],
-                        style: ResponsiveHelper.textStyle(
-                          context,
-                          fontSize: 15,
-                          color: isDark ? AppColors.darkText : const Color(0xFF30302E),
-                          fontWeight: FontWeight.w700,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final double gap = ResponsiveHelper.width(context, 8);
+              final double itemWidth = (constraints.maxWidth - gap * 4) / 5;
+              return Row(
+                children: List.generate(5, (i) {
+                  final bool topLeft = i == 0;
+                  final bool topRight = i == 4;
+                  return Container(
+                    width: itemWidth,
+                    height: ResponsiveHelper.height(context, 36),
+                    margin: EdgeInsets.only(right: i == 4 ? 0 : gap),
+                    decoration: const BoxDecoration(color: Colors.transparent),
+                    child: CustomPaint(
+                      painter: _CornerPainter(
+                        fill:
+                            isDark
+                                ? const Color(0xFF1E1E1E)
+                                : const Color(0xFFF5F5F5),
+                        radius: ResponsiveHelper.width(context, 12),
+                        topLeft: topLeft,
+                        topRight: topRight,
+                        bottomLeft: false,
+                        bottomRight: false,
+                      ),
+                      child: Center(
+                        child: Text(
+                          const ['월', '화', '수', '목', '금'][i],
+                          style: ResponsiveHelper.textStyle(
+                            context,
+                            fontSize: 15,
+                            color:
+                                isDark
+                                    ? AppColors.darkText
+                                    : const Color(0xFF30302E),
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                );
-              }),
-            );
-          }),
+                  );
+                }),
+              );
+            },
+          ),
           ResponsiveHelper.verticalSpace(context, 8),
           ...List.generate(7, (row) {
-            return LayoutBuilder(builder: (context, constraints) {
-              final double gap = ResponsiveHelper.width(context, 8);
-              final double itemWidth = (constraints.maxWidth - gap * 4) / 5;
-              return Padding(
-                padding: ResponsiveHelper.padding(context, bottom: 8),
-                child: Row(
-                  children: List.generate(5, (dayIdx) {
-                    final int lastIndex = getPeriodCount(dayIdx) - 1; // 0-based
-                    if (row == 6 && lastIndex == 5) {
-                      return SizedBox(width: itemWidth + (dayIdx == 4 ? 0 : gap));
-                    }
-                    String cell = '';
-                    if (dayIdx < timetable.length && row < timetable[dayIdx].length) {
-                      cell = timetable[dayIdx][row];
-                    }
-                    final bool bottomLeft = dayIdx == 0 && row == lastIndex;
-                    final bool bottomRight = dayIdx == 4 && row == lastIndex;
-                    return Container(
-                      width: itemWidth,
-                      height: ResponsiveHelper.height(context, 50),
-                      margin: EdgeInsets.only(right: dayIdx == 4 ? 0 : gap),
-                      decoration: const BoxDecoration(color: Colors.transparent),
-                      child: CustomPaint(
-                        painter: _CornerPainter(
-                          fill: isDark ? const Color(0xFF1E1E1E) : const Color(0xFFF5F5F5),
-                          radius: ResponsiveHelper.width(context, 12),
-                          topLeft: false,
-                          topRight: false,
-                          bottomLeft: bottomLeft,
-                          bottomRight: bottomRight,
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final double gap = ResponsiveHelper.width(context, 8);
+                final double itemWidth = (constraints.maxWidth - gap * 4) / 5;
+                return Padding(
+                  padding: ResponsiveHelper.padding(context, bottom: 8),
+                  child: Row(
+                    children: List.generate(5, (dayIdx) {
+                      final int lastIndex =
+                          getPeriodCount(dayIdx) - 1; // 0-based
+                      if (row == 6 && lastIndex == 5) {
+                        return SizedBox(
+                          width: itemWidth + (dayIdx == 4 ? 0 : gap),
+                        );
+                      }
+                      String cell = '';
+                      if (dayIdx < timetable.length &&
+                          row < timetable[dayIdx].length) {
+                        cell = timetable[dayIdx][row];
+                      }
+                      final bool bottomLeft = dayIdx == 0 && row == lastIndex;
+                      final bool bottomRight = dayIdx == 4 && row == lastIndex;
+                      return Container(
+                        width: itemWidth,
+                        height: ResponsiveHelper.height(context, 50),
+                        margin: EdgeInsets.only(right: dayIdx == 4 ? 0 : gap),
+                        decoration: const BoxDecoration(
+                          color: Colors.transparent,
                         ),
-                        child: Center(
-                          child: Padding(
-                            padding: ResponsiveHelper.horizontalPadding(context, 8),
-                            child: Text(
-                              // 1학년, 2학년, 3학년은 이미 parseAndSetTimetable에서 줄임말로 변환되었으므로 shortenSubject 호출 안함
-                              (selectedGrade == '1' || selectedGrade == '2' || selectedGrade == '3') ? cell : shortenSubject(cell),
-                              textAlign: TextAlign.center,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: ResponsiveHelper.textStyle(
+                        child: CustomPaint(
+                          painter: _CornerPainter(
+                            fill:
+                                isDark
+                                    ? const Color(0xFF1E1E1E)
+                                    : const Color(0xFFF5F5F5),
+                            radius: ResponsiveHelper.width(context, 12),
+                            topLeft: false,
+                            topRight: false,
+                            bottomLeft: bottomLeft,
+                            bottomRight: bottomRight,
+                          ),
+                          child: Center(
+                            child: Padding(
+                              padding: ResponsiveHelper.horizontalPadding(
                                 context,
-                                fontSize: 15,
-                                color: isDark ? AppColors.darkText : const Color(0xFF30302E),
-                                fontWeight: FontWeight.w600,
-                                height: 1.1,
+                                8,
+                              ),
+                              child: Text(
+                                // 1학년, 2학년, 3학년은 이미 parseAndSetTimetable에서 줄임말로 변환되었으므로 shortenSubject 호출 안함
+                                (selectedGrade == '1' ||
+                                        selectedGrade == '2' ||
+                                        selectedGrade == '3')
+                                    ? cell
+                                    : shortenSubject(cell),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: ResponsiveHelper.textStyle(
+                                  context,
+                                  fontSize: 15,
+                                  color:
+                                      isDark
+                                          ? AppColors.darkText
+                                          : const Color(0xFF30302E),
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.1,
+                                ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    );
-                  }),
-                ),
-              );
-            });
+                      );
+                    }),
+                  ),
+                );
+              },
+            );
           }),
         ],
       ),
     );
   }
+
   Widget _buildListView(Color cardColor, Color textColor, bool isDark) {
     return SizedBox(
       height: ResponsiveHelper.height(context, 500), // 적절한 고정 높이 설정
@@ -1466,61 +1592,68 @@ class _TimetableScreenState extends State<TimetableScreen> {
             padding: ResponsiveHelper.horizontalPadding(context, 16),
             child: Column(
               children: [
-                ...periods.where((info) {
-                  final subject = _getOriginalSubject(dayIdx, info.periodIndex);
-                  return subject != null && subject.isNotEmpty;
-                }).map((info) {
-                  final subject = _getOriginalSubject(dayIdx, info.periodIndex) ?? '';
-                  final listItemBgColor = isDark 
-                      ? cardColor 
-                      : const Color(0xFFF5F5F5);
-                  
-                  return Container(
-                    width: double.infinity,
-                    margin: ResponsiveHelper.padding(context, bottom: 8),
-                    padding: ResponsiveHelper.padding(context, all: 5),
-                    decoration: const BoxDecoration(color: Colors.transparent),
-                    child: CustomPaint(
-                      painter: _OuterCornersPainter(
-                        fill: listItemBgColor,
-                        radius: ResponsiveHelper.width(context, 20),
-                      ),
-                      child: Padding(
-                        padding: ResponsiveHelper.padding(
-                          context,
-                          horizontal: 12,
-                          vertical: 10,
+                ...periods
+                    .where((info) {
+                      final subject = _getOriginalSubject(
+                        dayIdx,
+                        info.periodIndex,
+                      );
+                      return subject != null && subject.isNotEmpty;
+                    })
+                    .map((info) {
+                      final subject =
+                          _getOriginalSubject(dayIdx, info.periodIndex) ?? '';
+                      final listItemBgColor =
+                          isDark ? cardColor : const Color(0xFFF5F5F5);
+
+                      return Container(
+                        width: double.infinity,
+                        margin: ResponsiveHelper.padding(context, bottom: 8),
+                        padding: ResponsiveHelper.padding(context, all: 5),
+                        decoration: const BoxDecoration(
+                          color: Colors.transparent,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '${info.label} | ${_formatAmPm(info.start)} ${_formatAmPm(info.end)}',
-                              style: ResponsiveHelper.textStyle(
-                                context,
-                                fontSize: 13,
-                                color: textColor.withValues(alpha: 0.9),
-                                fontWeight: FontWeight.w400,
-                                height: 1.28,
-                              ),
+                        child: CustomPaint(
+                          painter: _OuterCornersPainter(
+                            fill: listItemBgColor,
+                            radius: ResponsiveHelper.width(context, 20),
+                          ),
+                          child: Padding(
+                            padding: ResponsiveHelper.padding(
+                              context,
+                              horizontal: 12,
+                              vertical: 10,
                             ),
-                            ResponsiveHelper.verticalSpace(context, 6),
-                            Text(
-                              _formatSubjectName(subject),
-                              style: ResponsiveHelper.textStyle(
-                                context,
-                                fontSize: 18,
-                                color: textColor,
-                                fontWeight: FontWeight.w600,
-                                height: 1.28,
-                              ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${info.label} | ${_formatAmPm(info.start)} ${_formatAmPm(info.end)}',
+                                  style: ResponsiveHelper.textStyle(
+                                    context,
+                                    fontSize: 13,
+                                    color: textColor.withValues(alpha: 0.9),
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.28,
+                                  ),
+                                ),
+                                ResponsiveHelper.verticalSpace(context, 6),
+                                Text(
+                                  _formatSubjectName(subject),
+                                  style: ResponsiveHelper.textStyle(
+                                    context,
+                                    fontSize: 18,
+                                    color: textColor,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.28,
+                                  ),
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
-                      ),
-                    ),
-                  );
-                }),
+                      );
+                    }),
               ],
             ),
           );
@@ -1533,13 +1666,48 @@ class _TimetableScreenState extends State<TimetableScreen> {
     // 월/금 7교시, 화/수/목 6교시
     final count = getPeriodCount(dayIdx);
     final base = [
-      _PeriodInfo(periodIndex: 0, label: '1교시', start: const TimeOfDay(hour: 9, minute: 0), end: const TimeOfDay(hour: 9, minute: 50)),
-      _PeriodInfo(periodIndex: 1, label: '2교시', start: const TimeOfDay(hour: 10, minute: 0), end: const TimeOfDay(hour: 10, minute: 50)),
-      _PeriodInfo(periodIndex: 2, label: '3교시', start: const TimeOfDay(hour: 11, minute: 0), end: const TimeOfDay(hour: 11, minute: 50)),
-      _PeriodInfo(periodIndex: 3, label: '4교시', start: const TimeOfDay(hour: 12, minute: 0), end: const TimeOfDay(hour: 12, minute: 50)),
-      _PeriodInfo(periodIndex: 4, label: '5교시', start: const TimeOfDay(hour: 14, minute: 0), end: const TimeOfDay(hour: 14, minute: 50)),
-      _PeriodInfo(periodIndex: 5, label: '6교시', start: const TimeOfDay(hour: 15, minute: 0), end: const TimeOfDay(hour: 15, minute: 50)),
-      _PeriodInfo(periodIndex: 6, label: '7교시', start: const TimeOfDay(hour: 16, minute: 0), end: const TimeOfDay(hour: 16, minute: 50)),
+      _PeriodInfo(
+        periodIndex: 0,
+        label: '1교시',
+        start: const TimeOfDay(hour: 9, minute: 0),
+        end: const TimeOfDay(hour: 9, minute: 50),
+      ),
+      _PeriodInfo(
+        periodIndex: 1,
+        label: '2교시',
+        start: const TimeOfDay(hour: 10, minute: 0),
+        end: const TimeOfDay(hour: 10, minute: 50),
+      ),
+      _PeriodInfo(
+        periodIndex: 2,
+        label: '3교시',
+        start: const TimeOfDay(hour: 11, minute: 0),
+        end: const TimeOfDay(hour: 11, minute: 50),
+      ),
+      _PeriodInfo(
+        periodIndex: 3,
+        label: '4교시',
+        start: const TimeOfDay(hour: 12, minute: 0),
+        end: const TimeOfDay(hour: 12, minute: 50),
+      ),
+      _PeriodInfo(
+        periodIndex: 4,
+        label: '5교시',
+        start: const TimeOfDay(hour: 14, minute: 0),
+        end: const TimeOfDay(hour: 14, minute: 50),
+      ),
+      _PeriodInfo(
+        periodIndex: 5,
+        label: '6교시',
+        start: const TimeOfDay(hour: 15, minute: 0),
+        end: const TimeOfDay(hour: 15, minute: 50),
+      ),
+      _PeriodInfo(
+        periodIndex: 6,
+        label: '7교시',
+        start: const TimeOfDay(hour: 16, minute: 0),
+        end: const TimeOfDay(hour: 16, minute: 50),
+      ),
     ];
     return base.take(count).toList(growable: false);
   }
@@ -1557,7 +1725,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (index != -1) {
         final afterIndex = index + '지필평가'.length;
         if (afterIndex < subject.length && subject[afterIndex] != ' ') {
-          return subject.substring(0, afterIndex) + ' ' + subject.substring(afterIndex);
+          return '${subject.substring(0, afterIndex)} ${subject.substring(afterIndex)}';
         }
       }
     }
@@ -1573,7 +1741,14 @@ class _WeekHeader extends StatelessWidget {
   final int? selectedIndex; // 0~6 (이미지처럼 선택 요일 하이라이트)
   final bool isDark;
 
-  const _WeekHeader({this.controller, required this.dates, required this.textColor, this.onTapDay, this.selectedIndex, this.isDark = false});
+  const _WeekHeader({
+    this.controller,
+    required this.dates,
+    required this.textColor,
+    this.onTapDay,
+    this.selectedIndex,
+    this.isDark = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1582,13 +1757,13 @@ class _WeekHeader extends StatelessWidget {
     final sidePadding = ResponsiveHelper.width(context, 13.0);
     final capsuleWidth = ResponsiveHelper.width(context, 44.0);
     final capsuleHeight = ResponsiveHelper.height(context, 60.0);
-    
+
     Color getDayColor(int index) {
       if (index == 0) return const Color.fromRGBO(236, 69, 69, 1);
       if (index == 6) return const Color.fromARGB(255, 203, 204, 208);
       return textColor;
     }
-    
+
     return Column(
       children: [
         SizedBox(
@@ -1596,13 +1771,15 @@ class _WeekHeader extends StatelessWidget {
           child: LayoutBuilder(
             builder: (context, constraints) {
               final totalItemWidth = 7 * itemWidth;
-              final gapBetweenDays = (constraints.maxWidth - totalItemWidth - (2 * sidePadding)) / 6;
+              final gapBetweenDays =
+                  (constraints.maxWidth - totalItemWidth - (2 * sidePadding)) /
+                  6;
               final startX = sidePadding;
-              
+
               final positions = List.generate(7, (i) {
                 return startX + i * (itemWidth + gapBetweenDays);
               });
-              
+
               return Stack(
                 children: [
                   ...List.generate(7, (i) {
@@ -1647,29 +1824,41 @@ class _WeekHeader extends StatelessWidget {
                       if (controller?.positions.isNotEmpty == true) {
                         page = (controller!.page ?? 0.0).clamp(0, 4);
                       }
-                      
+
                       final dayIndexDouble = page + 1.0;
                       final int lowerIndex = dayIndexDouble.floor().clamp(1, 5);
-                      final int upperIndex = (dayIndexDouble.ceil()).clamp(1, 5);
+                      final int upperIndex = (dayIndexDouble.ceil()).clamp(
+                        1,
+                        5,
+                      );
                       final double t = dayIndexDouble - lowerIndex;
-                      
-                      final double lowerX = positions[lowerIndex] + (itemWidth / 2);
-                      final double upperX = positions[upperIndex] + (itemWidth / 2);
+
+                      final double lowerX =
+                          positions[lowerIndex] + (itemWidth / 2);
+                      final double upperX =
+                          positions[upperIndex] + (itemWidth / 2);
                       final double centerX = lowerX + (upperX - lowerX) * t;
-                      final double leftForCapsule = centerX - (capsuleWidth / 2);
-                      final capsuleFill = isDark 
-                          ? const Color.fromRGBO(255, 255, 255, 0.12) 
-                          : const Color.fromRGBO(0, 0, 0, 0.08);
+                      final double leftForCapsule =
+                          centerX - (capsuleWidth / 2);
+                      final capsuleFill =
+                          isDark
+                              ? const Color.fromRGBO(255, 255, 255, 0.12)
+                              : const Color.fromRGBO(0, 0, 0, 0.08);
 
                       return Positioned(
                         left: leftForCapsule,
-                        top: (ResponsiveHelper.height(context, 80) - capsuleHeight) / 2,
+                        top:
+                            (ResponsiveHelper.height(context, 80) -
+                                capsuleHeight) /
+                            2,
                         width: capsuleWidth,
                         height: capsuleHeight,
                         child: Container(
                           decoration: BoxDecoration(
                             color: capsuleFill,
-                            borderRadius: BorderRadius.circular(ResponsiveHelper.width(context, 25)),
+                            borderRadius: BorderRadius.circular(
+                              ResponsiveHelper.width(context, 25),
+                            ),
                             border: Border.all(
                               color: const Color.fromRGBO(255, 255, 255, 0.35),
                               width: ResponsiveHelper.width(context, 1),
@@ -1694,8 +1883,14 @@ class _PeriodInfo {
   final String label; // '1교시' 등
   final TimeOfDay start;
   final TimeOfDay end;
-  const _PeriodInfo({required this.periodIndex, required this.label, required this.start, required this.end});
+  const _PeriodInfo({
+    required this.periodIndex,
+    required this.label,
+    required this.start,
+    required this.end,
+  });
 }
+
 class _OuterCornersPainter extends CustomPainter {
   final Color fill;
   final double radius;
@@ -1719,6 +1914,7 @@ class _OuterCornersPainter extends CustomPainter {
     return oldDelegate.fill != fill || oldDelegate.radius != radius;
   }
 }
+
 class _CornerPainter extends CustomPainter {
   final Color fill;
   final double radius;
@@ -1794,7 +1990,7 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
     super.initState();
     _currentGrade = widget.initialGrade;
     _createClassController();
-    
+
     // 학년 변경 리스너 추가
     widget.selectedGradeNotifier.addListener(_onGradeChanged);
   }
@@ -1804,14 +2000,18 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
     final selectedGrade = _currentGrade + 1; // 1-based
     final maxClass = widget.classCounts[selectedGrade] ?? 11;
     final currentClass = widget.selectedClassNotifier.value + 1; // 1-based
-    final adjustedClassIndex = (currentClass > maxClass) ? maxClass - 1 : (currentClass - 1);
-    
+    final adjustedClassIndex =
+        (currentClass > maxClass) ? maxClass - 1 : (currentClass - 1);
+
     _classController?.dispose();
     _classController = FixedExtentScrollController(
       initialItem: adjustedClassIndex.clamp(0, maxClass - 1),
     );
     if (mounted) {
-      widget.selectedClassNotifier.value = adjustedClassIndex.clamp(0, maxClass - 1);
+      widget.selectedClassNotifier.value = adjustedClassIndex.clamp(
+        0,
+        maxClass - 1,
+      );
     }
   }
 
@@ -1840,7 +2040,7 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
       builder: (context, selectedGradeIndex, _) {
         final selectedGrade = selectedGradeIndex + 1; // 1-based
         final maxClass = widget.classCounts[selectedGrade] ?? 11;
-        
+
         return ValueListenableBuilder<int>(
           valueListenable: widget.selectedClassNotifier,
           builder: (context, selectedClassIndex, __) {
@@ -1848,7 +2048,9 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
               height: MediaQuery.of(context).size.height * 0.5,
               decoration: BoxDecoration(
                 color: widget.isDark ? AppColors.darkCard : AppColors.lightCard,
-                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(20),
+                ),
               ),
               child: Column(
                 children: [
@@ -1895,19 +2097,26 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                             childDelegate: ListWheelChildBuilderDelegate(
                               childCount: 3,
                               builder: (context, index) {
-                                if (index < 0 || index >= 3) return const SizedBox();
+                                if (index < 0 || index >= 3)
+                                  return const SizedBox();
                                 final grade = index + 1;
                                 final isCenter = selectedGradeIndex == index;
-                                
+
                                 return Center(
                                   child: Text(
                                     '$grade 학년',
                                     style: TextStyle(
-                                      color: isCenter 
-                                          ? Colors.white 
-                                          : widget.textColor.withValues(alpha: 0.5),
+                                      color:
+                                          isCenter
+                                              ? Colors.white
+                                              : widget.textColor.withValues(
+                                                alpha: 0.5,
+                                              ),
                                       fontSize: isCenter ? 24 : 20,
-                                      fontWeight: isCenter ? FontWeight.w700 : FontWeight.w500,
+                                      fontWeight:
+                                          isCenter
+                                              ? FontWeight.w700
+                                              : FontWeight.w500,
                                     ),
                                   ),
                                 );
@@ -1917,42 +2126,56 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                         ),
                         // 반 휠
                         Expanded(
-                          child: _classController != null
-                              ? ListWheelScrollView.useDelegate(
-                                  controller: _classController!,
-                                  itemExtent: 50,
-                                  physics: const FixedExtentScrollPhysics(),
-                                  perspective: 0.003,
-                                  diameterRatio: 1.5,
-                                  squeeze: 1.0,
-                                  onSelectedItemChanged: (index) {
-                                    if (mounted && index >= 0 && index < maxClass) {
-                                      widget.selectedClassNotifier.value = index;
-                                    }
-                                  },
-                                  childDelegate: ListWheelChildBuilderDelegate(
-                                    childCount: maxClass,
-                                    builder: (context, index) {
-                                      if (index < 0 || index >= maxClass) return const SizedBox();
-                                      final classNum = index + 1;
-                                      final isCenter = selectedClassIndex == index;
-                                      
-                                      return Center(
-                                        child: Text(
-                                          '$classNum 반',
-                                          style: TextStyle(
-                                            color: isCenter 
-                                                ? Colors.white 
-                                                : widget.textColor.withValues(alpha: 0.5),
-                                            fontSize: isCenter ? 24 : 20,
-                                            fontWeight: isCenter ? FontWeight.w700 : FontWeight.w500,
-                                          ),
-                                        ),
-                                      );
+                          child:
+                              _classController != null
+                                  ? ListWheelScrollView.useDelegate(
+                                    controller: _classController!,
+                                    itemExtent: 50,
+                                    physics: const FixedExtentScrollPhysics(),
+                                    perspective: 0.003,
+                                    diameterRatio: 1.5,
+                                    squeeze: 1.0,
+                                    onSelectedItemChanged: (index) {
+                                      if (mounted &&
+                                          index >= 0 &&
+                                          index < maxClass) {
+                                        widget.selectedClassNotifier.value =
+                                            index;
+                                      }
                                     },
-                                  ),
-                                )
-                              : const SizedBox(),
+                                    childDelegate:
+                                        ListWheelChildBuilderDelegate(
+                                          childCount: maxClass,
+                                          builder: (context, index) {
+                                            if (index < 0 || index >= maxClass)
+                                              return const SizedBox();
+                                            final classNum = index + 1;
+                                            final isCenter =
+                                                selectedClassIndex == index;
+
+                                            return Center(
+                                              child: Text(
+                                                '$classNum 반',
+                                                style: TextStyle(
+                                                  color:
+                                                      isCenter
+                                                          ? Colors.white
+                                                          : widget.textColor
+                                                              .withValues(
+                                                                alpha: 0.5,
+                                                              ),
+                                                  fontSize: isCenter ? 24 : 20,
+                                                  fontWeight:
+                                                      isCenter
+                                                          ? FontWeight.w700
+                                                          : FontWeight.w500,
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                  )
+                                  : const SizedBox(),
                         ),
                       ],
                     ),
