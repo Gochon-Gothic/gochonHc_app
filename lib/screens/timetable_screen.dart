@@ -13,7 +13,6 @@ import '../services/auth_service.dart';
 import '../services/gsheet_service.dart';
 import '../utils/responsive_helper.dart';
 
-
 class TimetableScreen extends StatefulWidget {
   const TimetableScreen({super.key});
 
@@ -31,8 +30,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   DateTime currentWeekStart = DateTime.now().toUtc().add(
     const Duration(hours: 9),
   );
-  bool isNextWeek = false;
-  bool _isTableView = true; // true: 표, false: 리스트
+  bool _isTableView = true;
   int? _selectedListDayIndex; // 리스트 모드에서 선택된 요일(0:월~4:금)
   final Map<String, String> _shortenCache = {}; // 과목 축약 캐시
   final PageController _dayController = PageController();
@@ -839,10 +837,13 @@ class _TimetableScreenState extends State<TimetableScreen> {
   String _shortenToThreeChars(String subject) {
     final cleaned = subject.trim();
     if (cleaned.isEmpty) return cleaned;
-    
-    // 한글, 영문, 숫자 등 모든 문자를 포함하여 3글자 추출
-    // 한글은 1글자 = 1문자이므로 간단히 substring 사용
+    if (cleaned.length < 2) return cleaned;
     if (cleaned.length >= 3) {
+      final thirdChar = cleaned[2];
+      final specialChars = RegExp(r'[\s,.";·]');
+      if (specialChars.hasMatch(thirdChar)) {
+        return cleaned.substring(0, 2);
+      }
       return cleaned.substring(0, 3);
     }
     return cleaned;
@@ -866,27 +867,18 @@ class _TimetableScreenState extends State<TimetableScreen> {
   ];
 
   String shortenSubject(String subject) {
-    // 지필평가 체크를 캐시 체크 전에 가장 먼저 수행
     if (subject.contains('지필평가')) {
       _shortenCache[subject] = '지필';
       return '지필';
     }
-    
-    // 자기주도 체크
     if (subject.contains('자기주도')) {
       _shortenCache[subject] = '자습';
       return '자습';
     }
-    
-    // 캐시 체크
     if (_shortenCache.containsKey(subject)) return _shortenCache[subject]!;
-    
-    // 휴일 체크
     for (var holiday in dayoff) {
       if (subject.contains(holiday)) return '휴일';
     }
-
-    //과탐
     if (subject.contains('지구과학Ⅰ')) return '지구Ⅰ';
     if (subject.contains('지구과학Ⅱ')) return '지구ⅠⅠ';
     if (subject.contains('물리학Ⅰ')) return '물리Ⅰ';
@@ -895,11 +887,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
     if (subject.contains('화학Ⅱ')) return '화학ⅠⅠ';
     if (subject.contains('생명과학Ⅰ')) return '생명Ⅰ';
     if (subject.contains('생명과학Ⅱ')) return '생명ⅠⅠ';
-    //사탐
     if (subject.contains('여행지리')) return '여지';
     if (subject.contains('데이터')) return '머신';
     if (subject.contains('심화 국어')) return '심국';
     if (subject.contains('사회·문화')) return '사문';
+    if (subject.contains('사회문화')) return '사문';
     if (subject.contains('세계시민')) return '시민';
     if (subject.contains('실용 경제')) return '실경';
     if (subject.contains('동아시아사')) return '동사';
@@ -911,6 +903,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     if (subject.contains('정치와 법')) return '정법';
     if (subject.contains('스포츠 생활')) return '스생';
     if (subject.contains('체육 전공 실기 기초')) return '체전';
+    if (subject.contains('체육전공 실기')) return '체전';
     if (subject.contains('진로활동')) return '진로';
     if (subject.contains('프로그래밍')) return '프로';
     if (subject.contains('윤리와 사상')) return '윤사';
@@ -920,26 +913,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
     if (subject.contains('공통국어')) return '국어';
     if (subject.contains('과학탐구실험')) return '과탐실';
     if (subject.contains('영어권 문화')) return '영문';
-    if (subject.contains('한국지리')) return '한지';
     if (subject.contains('고전 읽기')) return '고전';
     if (subject.contains('화법과 작문')) return '화작';
     if (subject.contains('확률과 통계')) return '확통';
     if (subject.contains('언어와 매체')) return '언매';
     if (subject.contains('영어 독해와 작문')) return '영독';
-    if (subject.contains('심화 국어')) return '국어';
-    if (subject.contains('사회문화')) return '사문';
     if (subject.contains('운동과 건강')) return '운건';
     if (subject.contains('생활과 과학')) return '생과';
     if (subject.contains('미술 창작')) return '미창';
     if (subject.contains('음악 연주')) return '음연';
     if (subject.contains('미술 전공 실기')) return '미전';
     if (subject.contains('음악 전공')) return '음전';
-    if (subject.contains('체육전공 실기')) return '체전';
     if (subject.contains('전국연합')) return '모고';
     if (subject.contains('자율')) return '창체';
     if (subject.contains('한국사')) return '한사1';
-
-    // 기타: 2글자 이하, 3글자 이하 등 자동 축약
     String result;
     if (subject.length > 4) {
       result = subject.substring(0, 2);
@@ -952,29 +939,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
     return result;
   }
 
-  // 캐시 삭제 함수
-  Future<void> clearCache() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys();
-
-      // 시간표 관련 캐시만 삭제
-      for (final key in keys) {
-        if (key.startsWith('timetable_')) {
-          await prefs.remove(key);
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          // 캐시 삭제 후 새로 로드
-          loadTimetable();
-        });
-      }
-    } catch (e) {
-      // 캐시 삭제 실패 무시
-    }
-  }
 
   @override
   void dispose() {
