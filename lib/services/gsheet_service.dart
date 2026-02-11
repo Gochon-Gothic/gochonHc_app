@@ -146,7 +146,7 @@ class GSheetService {
 
   // 2학년 과목 정보 가져오기 (공통과목 + 선택과목)
   static Future<Map<String, dynamic>> getGrade2Subjects({
-    bool forceRefresh = true,
+    bool forceRefresh = false,
   }) async {
     const cacheKey = 'grade2_subjects_cache';
     const appliedDateKey = 'grade2_subjects_applied_date';
@@ -453,7 +453,7 @@ class GSheetService {
 
   // 3학년 과목 정보 가져오기 (공통과목 + 선택과목)
   static Future<Map<String, dynamic>> getGrade3Subjects({
-    bool forceRefresh = true,
+    bool forceRefresh = false,
   }) async {
     const cacheKey = 'grade3_subjects_cache';
     const appliedDateKey = 'grade3_subjects_applied_date';
@@ -730,7 +730,7 @@ class GSheetService {
 
   // 1학년 과목 정보 가져오기 (과목명 -> 줄임말 매핑)
   static Future<Map<String, String>> getGrade1Subjects({
-    bool forceRefresh = true,
+    bool forceRefresh = false,
   }) async {
     const cacheKey = 'grade1_subjects_cache';
     const appliedDateKey = 'grade1_subjects_applied_date';

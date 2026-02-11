@@ -1,7 +1,7 @@
+import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -196,25 +196,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
         selectedClass = finalClass.toString();
       });
 
-      // 학년별 과목 정보 불러오기
-      if (finalGrade == 1) {
-        _grade1SubjectMap = await GSheetService.getGrade1Subjects();
-        _grade2SubjectData = null;
-        _grade3SubjectData = null;
-      } else if (finalGrade == 2) {
-        _grade1SubjectMap = null;
-        _grade2SubjectData = await GSheetService.getGrade2Subjects();
-        _grade3SubjectData = null;
-      } else if (finalGrade == 3) {
-        _grade1SubjectMap = null;
-        _grade2SubjectData = null;
-        _grade3SubjectData = await GSheetService.getGrade3Subjects();
-      } else {
-        _grade1SubjectMap = null;
-        _grade2SubjectData = null;
-        _grade3SubjectData = null;
-      }
-
       // 마지막 선택 반 정보 저장
       _saveLastSelectedClass();
       // 캐시가 있으면 즉시 표시, 없으면 로딩 표시
@@ -257,25 +238,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
           _electiveSubjects = null; // 반별 시간표일 때는 선택과목 적용 안함
         }
 
-        // 학년별 과목 정보 불러오기
-        if (userInfo.grade == 1) {
-          _grade1SubjectMap = await GSheetService.getGrade1Subjects();
-          _grade2SubjectData = null;
-          _grade3SubjectData = null;
-        } else if (userInfo.grade == 2) {
-          _grade1SubjectMap = null;
-          _grade2SubjectData = await GSheetService.getGrade2Subjects();
-          _grade3SubjectData = null;
-        } else if (userInfo.grade == 3) {
-          _grade1SubjectMap = null;
-          _grade2SubjectData = null;
-          _grade3SubjectData = await GSheetService.getGrade3Subjects();
-        } else {
-          _grade1SubjectMap = null;
-          _grade2SubjectData = null;
-          _grade3SubjectData = null;
-        }
-
         loadTimetable();
       }
     } else {
@@ -302,66 +264,32 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   // 나의 시간표 <-> 반별 시간표 전환
   void _toggleTimetableMode() async {
-    String? newGrade;
     setState(() {
       _isMyTimetable = !_isMyTimetable;
       if (_isMyTimetable) {
-        // 나의 시간표로 전환
         selectedGrade = _myGrade;
         selectedClass = _myClass;
-        newGrade = _myGrade;
-        // 선택과목 데이터 다시 불러오기
-        final currentUser = AuthService.instance.currentUser;
-        if (currentUser != null) {
-          UserService.instance.getElectiveSubjects(currentUser.uid).then((
-            subjects,
-          ) {
-            if (mounted) {
-              setState(() {
-                _electiveSubjects = subjects;
-              });
-              loadTimetable();
-            }
-          });
-        } else {
-          _electiveSubjects = null;
-        }
+        _electiveSubjects = null;
       } else {
-        // 반별 시간표로 전환
-        // 로그인된 사용자는 자신의 학년/반, 아니면 1-1
         final currentUser = AuthService.instance.currentUser;
         if (currentUser != null && _myGrade != null && _myClass != null) {
-          // 로그인된 경우: 자신의 학년/반 표시
           selectedGrade = _myGrade;
           selectedClass = _myClass;
-          newGrade = _myGrade;
         } else {
-          // 로그인 안된 경우: 1-1 반 표시
           selectedGrade = '1';
           selectedClass = '1';
-          newGrade = '1';
         }
-        _electiveSubjects = null; // 선택과목 적용 안함
+        _electiveSubjects = null;
       }
     });
 
-    // 학년별 과목 정보 불러오기
-    if (newGrade == '1') {
-      _grade1SubjectMap = await GSheetService.getGrade1Subjects();
-      _grade2SubjectData = null;
-      _grade3SubjectData = null;
-    } else if (newGrade == '2') {
-      _grade1SubjectMap = null;
-      _grade2SubjectData = await GSheetService.getGrade2Subjects();
-      _grade3SubjectData = null;
-    } else if (newGrade == '3') {
-      _grade1SubjectMap = null;
-      _grade2SubjectData = null;
-      _grade3SubjectData = await GSheetService.getGrade3Subjects();
-    } else {
-      _grade1SubjectMap = null;
-      _grade2SubjectData = null;
-      _grade3SubjectData = null;
+    // 나의 시간표일 때: 선택과목 먼저 로드 (줄임말 적용에 필요)
+    if (_isMyTimetable) {
+      final currentUser = AuthService.instance.currentUser;
+      if (currentUser != null) {
+        _electiveSubjects = await UserService.instance.getElectiveSubjects(currentUser.uid);
+        if (mounted) setState(() {});
+      }
     }
 
     if (mounted) {
@@ -390,6 +318,24 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final monday = currentWeekStart;
     final sunday = monday.subtract(const Duration(days: 1));
     return List.generate(7, (i) => sunday.add(Duration(days: i)));
+  }
+
+  // NEIS 시간표 응답에서 실제 row 리스트를 안전하게 추출
+  List<dynamic>? _extractTimetableRows(dynamic decoded) {
+    if (decoded is! Map || decoded['hisTimetable'] is! List) return null;
+    final List<dynamic> list = decoded['hisTimetable'] as List<dynamic>;
+
+    List<dynamic>? rowsAt(int idx) {
+      if (idx < 0 || idx >= list.length) return null;
+      final item = list[idx];
+      if (item is Map && item['row'] is List) {
+        return item['row'] as List<dynamic>;
+      }
+      return null;
+    }
+
+    // 환경별 응답 차이를 고려해 우선순위 적용
+    return rowsAt(3) ?? rowsAt(2) ?? rowsAt(1);
   }
 
   void _toggleView() {
@@ -434,17 +380,23 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
       // 학년별 과목 정보 불러오기
       if (selectedGrade == '1') {
-        _grade1SubjectMap = await GSheetService.getGrade1Subjects();
+        _grade1SubjectMap = await GSheetService.getGrade1Subjects(
+          forceRefresh: false,
+        );
         _grade2SubjectData = null;
         _grade3SubjectData = null;
       } else if (selectedGrade == '2') {
         _grade1SubjectMap = null;
-        _grade2SubjectData = await GSheetService.getGrade2Subjects();
+        _grade2SubjectData = await GSheetService.getGrade2Subjects(
+          forceRefresh: false,
+        );
         _grade3SubjectData = null;
       } else if (selectedGrade == '3') {
         _grade1SubjectMap = null;
         _grade2SubjectData = null;
-        _grade3SubjectData = await GSheetService.getGrade3Subjects();
+        _grade3SubjectData = await GSheetService.getGrade3Subjects(
+          forceRefresh: false,
+        );
       } else {
         _grade1SubjectMap = null;
         _grade2SubjectData = null;
@@ -469,8 +421,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (cachedData != null) {
         try {
           final data = json.decode(cachedData);
-          if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
-            final timetableData = data['hisTimetable'][1]['row'] as List;
+          final timetableData = _extractTimetableRows(data);
+          if (timetableData != null) {
             parseAndSetTimetable(timetableData);
             if (!mounted) return;
             hasValidCache = true;
@@ -565,13 +517,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
             .millisecondsSinceEpoch,
       );
 
-      // API 응답에서 데이터 인덱스 확인 (에러 응답이 아닌 경우)
-      List<dynamic> timetableData;
-      if (data['hisTimetable'].length > 3) {
-        timetableData = data['hisTimetable'][3]['row'] as List;
-      } else if (data['hisTimetable'].length > 1) {
-        timetableData = data['hisTimetable'][1]['row'] as List;
-      } else {
+      final timetableData = _extractTimetableRows(data);
+      if (timetableData == null) {
         if (!mounted) return;
         setState(() {
           isLoading = false;
@@ -591,8 +538,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (cachedData != null) {
         try {
           final data = json.decode(cachedData);
-          if (data['hisTimetable'] != null && data['hisTimetable'].length > 1) {
-            final timetableData = data['hisTimetable'][1]['row'] as List;
+          final timetableData = _extractTimetableRows(data);
+          if (timetableData != null) {
             parseAndSetTimetable(timetableData);
           }
         } catch (_) {}
@@ -606,38 +553,48 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   Future<void> updateTimetableInBackground() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final cacheKey =
-          'timetable_${selectedGrade}_${selectedClass}_${getDateRange()}';
+    final capturedGrade = selectedGrade;
+    final capturedClass = selectedClass;
+    final capturedRange = getDateRange();
+    final cacheKey =
+        'timetable_${capturedGrade}_${capturedClass}_$capturedRange';
 
+    try {
       const apiKey = '2cf24c119b434f93b2f916280097454a';
       const eduOfficeCode = 'J10';
       const schoolCode = '7531375';
 
-      final dateRange = getDateRange();
       final url = Uri.parse(
-        'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=$selectedGrade&CLASS_NM=$selectedClass&TI_FROM_YMD=${dateRange.split(':')[0]}&TI_TO_YMD=${dateRange.split(':')[1]}',
+        'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=$capturedGrade&CLASS_NM=$capturedClass&TI_FROM_YMD=${capturedRange.split(':')[0]}&TI_TO_YMD=${capturedRange.split(':')[1]}',
       );
 
       final response = await http.get(url);
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['hisTimetable'] != null) {
-          await prefs.setString(cacheKey, response.body);
-          await prefs.setInt(
-            '${cacheKey}_lastUpdate',
-            DateTime.now()
-                .toUtc()
-                .add(const Duration(hours: 9))
-                .millisecondsSinceEpoch,
-          );
-          if (mounted) {
-            final timetableData = data['hisTimetable'][1]['row'] as List;
-            parseAndSetTimetable(timetableData);
-            setState(() {}); // UI 새로고침
-          }
-        }
+      if (response.statusCode != 200 || !mounted) return;
+
+      final data = json.decode(response.body);
+      if (data['hisTimetable'] == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(cacheKey, response.body);
+      await prefs.setInt(
+        '${cacheKey}_lastUpdate',
+        DateTime.now()
+            .toUtc()
+            .add(const Duration(hours: 9))
+            .millisecondsSinceEpoch,
+      );
+
+      // 사용자가 학년/반을 바꿨으면(예: 나의 시간표 ↔ 반별 전환) 이 결과로 덮어쓰지 않음
+      if (selectedGrade != capturedGrade ||
+          selectedClass != capturedClass ||
+          getDateRange() != capturedRange) {
+        return;
+      }
+
+      final timetableData = _extractTimetableRows(data);
+      if (timetableData != null && mounted) {
+        parseAndSetTimetable(timetableData);
+        setState(() {});
       }
     } catch (e) {}
   }
@@ -685,7 +642,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (day >= 0 && day < 5) {
         final period = int.parse(item['PERIO']) - 1;
         if (period >= 0 && period < 7) {
-          String subject = item['ITRT_CNTNT'];
+          String subject = item['ITRT_CNTNT']?.toString() ?? '';
 
           // 지필평가가 포함된 경우 선택과목 적용하지 않음
           if (!subject.contains('지필평가')) {
@@ -708,42 +665,44 @@ class _TimetableScreenState extends State<TimetableScreen> {
             // [2학년] -------------------------------------------------------
             else if (selectedGrade == '2' && _grade2SubjectData != null) {
               String? abbreviatedSubject;
+              String effectiveSubject = subject;
 
-              // 1. 선택과목 (사용자 선택) 확인
-              if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+              // 1. 나의 시간표에서 사용자 선택과목 오버랩(원과목 -> 선택과목)
+              if (_isMyTimetable &&
+                  _electiveSubjects != null &&
+                  _electiveSubjects!.isNotEmpty) {
                 for (var entry in _electiveSubjects!.entries) {
-                  final userSelectedSubjectName = entry.key.split('-').last;
-                  if (safeContains(subject, userSelectedSubjectName)) {
-                    abbreviatedSubject = entry.value;
+                  final originalSubjectName = entry.key.split('-').last;
+                  if (safeContains(subject, originalSubjectName)) {
+                    effectiveSubject = entry.value;
                     break;
                   }
                 }
               }
 
-              // 2. 공통과목 확인 (타입 캐스팅 안전하게 수정됨)
-              if (abbreviatedSubject == null) {
-                final commonData = _grade2SubjectData!['common'];
-                if (commonData is Map) {
-                  for (var entry in commonData.entries) {
-                    if (safeContains(subject, entry.key.toString())) {
-                      abbreviatedSubject = entry.value.toString();
-                      break;
-                    }
+              // 2. 공통과목 줄임말 확인
+              final commonData = _grade2SubjectData!['common'];
+              if (commonData is Map) {
+                for (var entry in commonData.entries) {
+                  if (safeContains(effectiveSubject, entry.key.toString())) {
+                    abbreviatedSubject = entry.value.toString();
+                    break;
                   }
                 }
               }
 
-              // 3. 선택과목 세트 확인 (타입 캐스팅 안전하게 수정됨)
+              // 3. 선택과목 세트 줄임말 확인
               if (abbreviatedSubject == null) {
                 final electiveSets = _grade2SubjectData!['elective'];
-                // JSON의 키는 String이므로 Map<String, dynamic>으로 처리하거나 dynamic으로 받아서 순회
                 if (electiveSets is Map) {
                   for (var setEntry in electiveSets.values) {
-                    // setEntry는 각 세트 객체 {setName:..., subjects:...}
                     if (setEntry is Map && setEntry['subjects'] is Map) {
                       final subjects = setEntry['subjects'] as Map;
                       for (var entry in subjects.entries) {
-                        if (safeContains(subject, entry.key.toString())) {
+                        if (safeContains(
+                          effectiveSubject,
+                          entry.key.toString(),
+                        )) {
                           abbreviatedSubject = entry.value.toString();
                           break;
                         }
@@ -757,47 +716,50 @@ class _TimetableScreenState extends State<TimetableScreen> {
               if (abbreviatedSubject != null) {
                 subject = abbreviatedSubject;
               } else {
-                subject = _shortenToThreeChars(subject);
+                subject = _shortenToThreeChars(effectiveSubject);
               }
             }
             // [3학년] -------------------------------------------------------
             else if (selectedGrade == '3' && _grade3SubjectData != null) {
               String? abbreviatedSubject;
+              String effectiveSubject = subject;
 
-              // 1. 선택과목 (사용자 선택)
-              if (_electiveSubjects != null && _electiveSubjects!.isNotEmpty) {
+              // 1. 나의 시간표에서 사용자 선택과목 오버랩(원과목 -> 선택과목)
+              if (_isMyTimetable &&
+                  _electiveSubjects != null &&
+                  _electiveSubjects!.isNotEmpty) {
                 for (var entry in _electiveSubjects!.entries) {
-                  final userSelectedSubjectName = entry.key.split('-').last;
-                  if (safeContains(subject, userSelectedSubjectName)) {
-                    abbreviatedSubject = entry.value;
+                  final originalSubjectName = entry.key.split('-').last;
+                  if (safeContains(subject, originalSubjectName)) {
+                    effectiveSubject = entry.value;
                     break;
                   }
                 }
               }
 
-              // 2. 공통과목 (타입 캐스팅 안전하게 수정됨)
-              if (abbreviatedSubject == null) {
-                final commonData = _grade3SubjectData!['common'];
-                if (commonData is Map) {
-                  for (var entry in commonData.entries) {
-                    if (safeContains(subject, entry.key.toString())) {
-                      abbreviatedSubject = entry.value.toString();
-                      break;
-                    }
+              // 2. 공통과목 줄임말
+              final commonData = _grade3SubjectData!['common'];
+              if (commonData is Map) {
+                for (var entry in commonData.entries) {
+                  if (safeContains(effectiveSubject, entry.key.toString())) {
+                    abbreviatedSubject = entry.value.toString();
+                    break;
                   }
                 }
               }
 
-              // 3. 선택과목 세트 (타입 캐스팅 안전하게 수정됨)
+              // 3. 선택과목 세트 줄임말
               if (abbreviatedSubject == null) {
                 final electiveSets = _grade3SubjectData!['elective'];
-                // Map<int, ...> 가 아니라 Map 혹은 Map<String, dynamic>으로 처리
                 if (electiveSets is Map) {
                   for (var setEntry in electiveSets.values) {
                     if (setEntry is Map && setEntry['subjects'] is Map) {
                       final subjects = setEntry['subjects'] as Map;
                       for (var entry in subjects.entries) {
-                        if (safeContains(subject, entry.key.toString())) {
+                        if (safeContains(
+                          effectiveSubject,
+                          entry.key.toString(),
+                        )) {
                           abbreviatedSubject = entry.value.toString();
                           break;
                         }
@@ -811,7 +773,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
               if (abbreviatedSubject != null) {
                 subject = abbreviatedSubject;
               } else {
-                subject = _shortenToThreeChars(subject);
+                subject = _shortenToThreeChars(effectiveSubject);
               }
             }
           }
@@ -843,6 +805,37 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   // 리스트 뷰용: 원본 데이터에서 특정 요일/교시의 과목명 가져오기
+  String _normalizeForOverlay(String? s) {
+    if (s == null || s.isEmpty) return '';
+    return s
+        .replaceAll(RegExp(r'[\s·\-\[\]()]'), '')
+        .replaceAll('Ⅰ', '1')
+        .replaceAll('Ⅱ', '2');
+  }
+
+  bool _safeContainsForOverlay(String? source, String? target) {
+    if (source == null || target == null || source.isEmpty || target.isEmpty) {
+      return false;
+    }
+    return _normalizeForOverlay(source).contains(_normalizeForOverlay(target));
+  }
+
+  // 나의 시간표(2·3학년) 리스트에서도 사용자 선택과목 오버랩 적용
+  String _applyMyElectiveOverlayForList(String subject) {
+    if (!_isMyTimetable) return subject;
+    if (selectedGrade != '2' && selectedGrade != '3') return subject;
+    if (_electiveSubjects == null || _electiveSubjects!.isEmpty) return subject;
+    if (subject.contains('지필평가')) return subject;
+
+    for (final entry in _electiveSubjects!.entries) {
+      final originalSubjectName = entry.key.split('-').last;
+      if (_safeContainsForOverlay(subject, originalSubjectName)) {
+        return entry.value; // 사용자가 선택한 과목명(풀네임)으로 오버랩
+      }
+    }
+    return subject;
+  }
+
   String? _getOriginalSubject(int dayIdx, int periodIndex) {
     if (_rawTimetableData == null) return null;
 
@@ -852,7 +845,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (day == dayIdx && day >= 0 && day < 5) {
         final period = int.parse(item['PERIO']) - 1;
         if (period == periodIndex && period >= 0 && period < 7) {
-          return item['ITRT_CNTNT']?.toString();
+          final raw = item['ITRT_CNTNT']?.toString() ?? '';
+          return _applyMyElectiveOverlayForList(raw);
         }
       }
     }
@@ -892,6 +886,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     '학교장',
   ];
 
+  // 1·2·3학년은 parseAndSetTimetable에서 시트 줄임말 적용. 그 외(학년 없음 등)일 때 사용
   String shortenSubject(String subject) {
     if (subject.contains('지필평가')) {
       _shortenCache[subject] = '지필';
@@ -970,40 +965,6 @@ class _TimetableScreenState extends State<TimetableScreen> {
     _dayController.removeListener(_onPageControllerChanged);
     _dayController.dispose();
     super.dispose();
-  }
-
-  // 캐시 상태 확인
-  Future<String> getCacheStatus() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final cacheKey =
-          'timetable_${selectedGrade}_${selectedClass}_${getDateRange()}';
-      final cachedData = prefs.getString(cacheKey);
-      final lastUpdate = prefs.getInt('${cacheKey}_lastUpdate') ?? 0;
-
-      if (cachedData == null) {
-        return '캐시 없음';
-      }
-
-      final now =
-          DateTime.now()
-              .toUtc()
-              .add(const Duration(hours: 9))
-              .millisecondsSinceEpoch;
-      final timeDiff = now - lastUpdate;
-
-      if (timeDiff < 3600000) {
-        // 1시간
-        return '최근 업데이트됨 (${(timeDiff / 60000).round()}분 전)';
-      } else if (timeDiff < 86400000) {
-        // 1일
-        return '오늘 업데이트됨';
-      } else {
-        return '오래된 캐시 (${(timeDiff / 86400000).round()}일 전)';
-      }
-    } catch (e) {
-      return '캐시 상태 확인 실패';
-    }
   }
 
   @override
