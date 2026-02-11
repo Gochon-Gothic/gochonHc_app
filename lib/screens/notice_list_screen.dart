@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart'; // Add this import
+import 'package:flutter/foundation.dart';
 import '../models/notice.dart';
 import '../theme_colors.dart';
 import '../theme_provider.dart';
@@ -68,8 +68,8 @@ class _NoticeListScreenState extends State<NoticeListScreen> with SingleTickerPr
         });
       }
     } catch (e) {
-      if (kDebugMode) { // kDebugMode를 import 하기 위해 flutter/foundation.dart 필요
-        debugPrint('Error loading notices in NoticeListScreen: $e'); // Debug print for error
+      if (kDebugMode) {
+        debugPrint('Error loading notices: $e');
       }
       if (mounted) {
         setState(() {

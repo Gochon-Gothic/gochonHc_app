@@ -42,9 +42,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   static const _apiKey = '2cf24c119b434f93b2f916280097454a';
   static const _eduOfficeCode = 'J10';
   static const _schoolCode = '7531375';
-  //1~4는 2학년, 5~8은 3학년
-  //세트1은 ABC선택 말하는거, 세트2는 음미, 세트3은 언어, 세트4는 기하,고전등
-  //세트5는 
+  // 시트 데이터 없을 때만 사용 (하위 호환)
   static const _set1 = [
     '지구과학Ⅰ',
     '물리학Ⅰ',
@@ -73,6 +71,22 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   static const _days = ['월', '화', '수', '목', '금'];
   static const _dayOrder = {'월': 0, '화': 1, '수': 2, '목': 3, '금': 4};
 
+  List<dynamic>? _extractTimetableRows(dynamic decoded) {
+    if (decoded is! Map || decoded['hisTimetable'] is! List) return null;
+    final list = decoded['hisTimetable'] as List<dynamic>;
+
+    List<dynamic>? rowsAt(int idx) {
+      if (idx < 0 || idx >= list.length) return null;
+      final item = list[idx];
+      if (item is Map && item['row'] is List) {
+        return item['row'] as List<dynamic>;
+      }
+      return null;
+    }
+
+    return rowsAt(3) ?? rowsAt(2) ?? rowsAt(1);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -93,6 +107,13 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       _error = null;
     });
 
+    // 재시도/재진입 시 이전 상태 초기화
+    _slotsBySet = {};
+    _selections.clear();
+    _setNames = {};
+    _setRequiredCounts.clear();
+    _sheetSubjectsBySet.clear();
+
     try {
       // 2학년, 3학년인 경우 구글 시트에서 선택과목 정보 가져오기
       Map<int, Map<String, String>>? gsheetElectiveSubjects;
@@ -104,13 +125,33 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
         if (electiveSets != null) {
           gsheetElectiveSubjects = {};
           electiveSets.forEach((setNum, setData) {
-            final setName = setData['setName'] as String?;
-            final subjects = setData['subjects'] as Map<String, String>?;
-            final requiredCount = setData['requiredCount'] as int?;
+            final setName = setData['setName']?.toString();
+
+            // subjects: Map<String, dynamic> -> Map<String, String> 로 안전하게 변환
+            Map<String, String>? subjects;
+            final rawSubjects = setData['subjects'];
+            if (rawSubjects is Map) {
+              subjects = {};
+              rawSubjects.forEach((key, value) {
+                if (key != null && value != null) {
+                  subjects![key.toString()] = value.toString();
+                }
+              });
+            }
+
+            // requiredCount: int 또는 String일 수 있으므로 변환
+            int? requiredCount;
+            final rcVal = setData['requiredCount'];
+            if (rcVal is int) {
+              requiredCount = rcVal;
+            } else if (rcVal is String) {
+              requiredCount = int.tryParse(rcVal);
+            }
+
             if (setName != null) {
               _setNames[setNum] = setName;
             }
-            if (subjects != null) {
+            if (subjects != null && subjects.isNotEmpty) {
               gsheetElectiveSubjects![setNum] = subjects;
               _sheetSubjectsBySet[setNum] = subjects.keys.toList();
             }
@@ -149,19 +190,21 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       // 세트별로 슬롯을 저장할 맵: {세트번호: {과목명: 슬롯}}
       final slotsBySet = <int, Map<String, ElectiveSlot>>{};
       
-      // 2학년, 3학년인 경우 구글 시트의 세트 정보 사용
-      final maxSets = (widget.grade == 2 || widget.grade == 3) && gsheetElectiveSubjects != null 
-          ? gsheetElectiveSubjects.keys.length 
-          : 4;
+      // 2학년/3학년은 시트에 있는 세트 번호를 그대로 사용, 그 외는 기존 1~4 사용
+      final List<int> targetSetNumbers =
+          ((widget.grade == 2 || widget.grade == 3) &&
+                  gsheetElectiveSubjects != null &&
+                  gsheetElectiveSubjects.isNotEmpty)
+              ? (gsheetElectiveSubjects.keys.toList()..sort())
+              : [1, 2, 3, 4];
 
       // 세트별로 검색
-      for (int setNum = 1; setNum <= maxSets; setNum++) {
+      for (final setNum in targetSetNumbers) {
         slotsBySet[setNum] = {};
 
         for (int weekIdx = 0; weekIdx < responses.length; weekIdx++) {
           final data = responses[weekIdx].data;
-          final rows = data?['hisTimetable']?[1]?['row'] as List?;
-          
+          final rows = _extractTimetableRows(data);
           if (rows == null) continue;
 
           for (var item in rows) {
@@ -236,7 +279,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
 
       // 세트별로 정렬하고 선택 번호 부여
       final sortedSlotsBySet = <int, List<ElectiveSlot>>{};
-      for (int setNum = 1; setNum <= maxSets; setNum++) {
+      for (final setNum in targetSetNumbers) {
         final slots = slotsBySet[setNum]?.values.toList() ?? [];
         slots.sort((a, b) {
           final dayDiff = (_dayOrder[a.day] ?? 999) - (_dayOrder[b.day] ?? 999);
@@ -247,6 +290,34 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
           slots[i].selectionNumber = i + 1;
         }
         sortedSlotsBySet[setNum] = slots;
+      }
+
+      // 2·3학년: 세트별 선택수(requiredCount)만큼 시간표 데이터가 확보되어야 설정 허용
+      if ((widget.grade == 2 || widget.grade == 3) &&
+          gsheetElectiveSubjects != null &&
+          gsheetElectiveSubjects.isNotEmpty) {
+        for (final setNum in targetSetNumbers) {
+          final requiredCount = _setRequiredCounts[setNum];
+          final availableCount = sortedSlotsBySet[setNum]?.length ?? 0;
+
+          // 선택수 정보가 없거나, 필요한 수보다 실제 시간표에서 추출된 선택 슬롯이 부족하면 차단
+          if (requiredCount == null || requiredCount <= 0) {
+            setState(() {
+              _isLoading = false;
+              _error = null;
+              _slotsBySet = {};
+            });
+            return;
+          }
+          if (availableCount < requiredCount) {
+            setState(() {
+              _isLoading = false;
+              _error = null;
+              _slotsBySet = {};
+            });
+            return;
+          }
+        }
       }
 
       setState(() {
@@ -505,8 +576,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                ...List.generate(4, (index) {
-                  final setNum = index + 1;
+                ...(_slotsBySet.keys.toList()..sort()).map((setNum) {
                   final slots = _slotsBySet[setNum] ?? [];
                   if (slots.isEmpty) return const SizedBox.shrink();
                   
