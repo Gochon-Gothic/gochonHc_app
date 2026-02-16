@@ -6,7 +6,7 @@ import '../models/notice.dart';
 class GSheetService {
   // Google Apps Script 웹 앱 URL
   static const String _serviceUrl =
-      'https://script.google.com/macros/s/AKfycbzHdw0Yfp4B3uwZqlM3cgZFYLZVmztgTzybfbhjejFw-TfpmKqc_Yv4yTDnMPWWQiKC/exec';
+      'https://script.google.com/macros/s/AKfycbwGsvKSB6Iw1MjSxBlIl8zPcpw7uYQZTc9IopeJVVBoN90f0Wt6AdbTCFEn2Qc6MYjT/exec';
 
   // yyyy/M/d 형식의 문자열을 DateTime(날짜만)으로 파싱
   static DateTime? _parseSheetDate(String? text) {
@@ -821,6 +821,36 @@ class GSheetService {
       }
     } catch (e) {
       return {};
+    }
+  }
+
+  static Future<String?> getHomeImageUrl() async {
+    final url = Uri.parse('$_serviceUrl?action=getImage');
+    try {
+      var response = await http.get(url);
+
+      if (response.statusCode == 302) {
+        final redirectUrl = response.headers['location'];
+        if (redirectUrl != null) {
+          response = await http.get(Uri.parse(redirectUrl));
+        }
+      }
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        if (data is Map<String, dynamic> && data.containsKey('imageUrl')) {
+          return data['imageUrl'] as String?;
+        }
+        return null; // No imageUrl key
+      } else {
+        // It's better to return null or a specific error object than to rethrow
+        // because the UI can then decide to show a fallback image.
+        print('Failed to load image URL: ${response.statusCode}');
+        return null;
+      }
+    } catch (e) {
+      print('Error fetching home image URL: $e');
+      return null;
     }
   }
 }

@@ -251,11 +251,34 @@ class _MainHomeContentState extends State<_MainHomeContent> {
   List<Notice> _notices = [];
   bool _noticesLoading = true;
   String? _noticesError;
+  String? _homeImageUrl;
+  bool _isHomeImageLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadNotices();
+    _loadHomeImage();
+  }
+
+  Future<void> _loadHomeImage() async {
+    try {
+      final imageUrl = await GSheetService.getHomeImageUrl();
+      print('Fetched Image URL: $imageUrl');
+      if (mounted) {
+        setState(() {
+          _homeImageUrl = imageUrl;
+          _isHomeImageLoading = false;
+        });
+      }
+    } catch (e) {
+      print('Error fetching image URL: $e');
+      if (mounted) {
+        setState(() {
+          _isHomeImageLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadNotices() async {
@@ -584,11 +607,23 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                                   blurRadius: ResponsiveHelper.width(context, 16),
                                 ),
                               ],
-                              image: const DecorationImage(
-                                image: AssetImage('assets/images/example_image.png'),
-                                fit: BoxFit.cover,
-                              ),
+                              image: _homeImageUrl != null && _homeImageUrl!.isNotEmpty
+                                  ? DecorationImage(
+                                      image: NetworkImage(_homeImageUrl!),
+                                      fit: BoxFit.cover,
+                                    )
+                                  : const DecorationImage(
+                                      image: AssetImage('assets/images/example_image.png'),
+                                      fit: BoxFit.cover,
+                                    ),
                             ),
+                            child: _isHomeImageLoading
+                                ? Center(
+                                    child: CircularProgressIndicator(
+                                      color: isDark ? Colors.white : AppColors.lightText,
+                                    ),
+                                  )
+                                : null,
                           ),
                         ),
                         ResponsiveHelper.verticalSpace(context, 25),
