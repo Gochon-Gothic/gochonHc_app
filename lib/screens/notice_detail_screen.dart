@@ -78,7 +78,7 @@ class NoticeDetailScreen extends StatelessWidget {
                   ),
                   ResponsiveHelper.verticalSpace(context, 12),
                   Text(
-                    notice.formattedDate,
+                    notice.date,
                     style: ResponsiveHelper.textStyle(
                       context,
                       fontSize: 14,

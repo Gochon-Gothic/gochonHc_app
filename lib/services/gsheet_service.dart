@@ -36,7 +36,7 @@ class GSheetService {
     final prefs = await SharedPreferences.getInstance();
     const cacheKey = 'notices_cache';
     const lastUpdateKey = 'notices_last_update';
-    const cacheExpiry = 15 * 60 * 1000; // 15분 (밀리초)
+    const cacheExpiry = 12 * 60 * 60 * 1000; // 12시간 (밀리초)
     final now = DateTime.now().millisecondsSinceEpoch;
 
     // forceRefresh가 true이면 캐시를 무시하고 API에서 새로 가져옵니다
@@ -177,7 +177,9 @@ class GSheetService {
       }
     }
 
-    if (!forceRefresh && cachedResult != null) {
+    final today = _todayKstDate();
+    final isMarch2 = today.month == 3 && today.day == 2;
+    if (!forceRefresh && !isMarch2 && cachedResult != null) {
       return cachedResult;
     }
 
@@ -482,7 +484,9 @@ class GSheetService {
       }
     }
 
-    if (!forceRefresh && cachedResult != null) {
+    final today = _todayKstDate();
+    final isMarch2 = today.month == 3 && today.day == 2;
+    if (!forceRefresh && !isMarch2 && cachedResult != null) {
       return cachedResult;
     }
 
@@ -497,10 +501,6 @@ class GSheetService {
       }
       if (response.statusCode == 200) {
         final dynamic decodedData = json.decode(response.body);
-        print('=== 3학년 시트 원본 데이터 ===');
-        print('Response body: ${response.body}');
-        print('Decoded data type: ${decodedData.runtimeType}');
-        print('Decoded data: $decodedData');
 
         String? sheetDateText;
         if (decodedData is Map && decodedData['sheetDate'] is String) {
@@ -563,18 +563,10 @@ class GSheetService {
             }
           }
         }
-        print('=== 3학년 공통과목 ===');
-        print('Common subjects count: ${commonSubjects.length}');
-        commonSubjects.forEach((key, value) {
-          print('  $key -> $value');
-        });
 
         final Map<int, Map<String, dynamic>> electiveSets = {};
         if (decodedData is Map && decodedData.containsKey('elective')) {
           final electiveValue = decodedData['elective'];
-          print('=== 3학년 선택과목 원본 데이터 ===');
-          print('Elective data type: ${electiveValue.runtimeType}');
-          print('Elective data: $electiveValue');
           if (electiveValue is Map) {
             electiveValue.forEach((setNumStr, setData) {
               final setNum = int.tryParse(setNumStr);
@@ -656,21 +648,8 @@ class GSheetService {
             });
           }
         }
-        print('=== 3학년 선택과목 세트 ===');
-        print('Elective sets count: ${electiveSets.length}');
-        electiveSets.forEach((setNum, setData) {
-          print('세트 $setNum: ${setData['setName']}');
-          final subjects = setData['subjects'] as Map<String, String>?;
-          if (subjects != null) {
-            subjects.forEach((key, value) {
-              print('  $key -> $value');
-            });
-          }
-        });
 
         final result = {'common': commonSubjects, 'elective': electiveSets};
-        print('=== 3학년 최종 반환 데이터 ===');
-        print('Result: $result');
 
         // 시트 날짜 기준 업데이트 여부 결정
         bool shouldApplyNow = true;
@@ -718,9 +697,7 @@ class GSheetService {
           'API 서버로부터 3학년 과목 정보를 가져오는데 실패했습니다: ${response.statusCode}',
         );
       }
-    } catch (e) {
-      print('=== 3학년 데이터 로드 에러 ===');
-      print('Error: $e');
+    } catch (_) {
       return {
         'common': <String, String>{},
         'elective': <int, Map<String, dynamic>>{},
@@ -824,33 +801,4 @@ class GSheetService {
     }
   }
 
-  static Future<String?> getHomeImageUrl() async {
-    final url = Uri.parse('$_serviceUrl?action=getImage');
-    try {
-      var response = await http.get(url);
-
-      if (response.statusCode == 302) {
-        final redirectUrl = response.headers['location'];
-        if (redirectUrl != null) {
-          response = await http.get(Uri.parse(redirectUrl));
-        }
-      }
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data is Map<String, dynamic> && data.containsKey('imageUrl')) {
-          return data['imageUrl'] as String?;
-        }
-        return null; // No imageUrl key
-      } else {
-        // It's better to return null or a specific error object than to rethrow
-        // because the UI can then decide to show a fallback image.
-        print('Failed to load image URL: ${response.statusCode}');
-        return null;
-      }
-    } catch (e) {
-      print('Error fetching home image URL: $e');
-      return null;
-    }
-  }
 }

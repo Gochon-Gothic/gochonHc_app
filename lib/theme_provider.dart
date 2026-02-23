@@ -38,7 +38,7 @@ class ThemeProvider extends ChangeNotifier {
       _isInitialized = true;
       // 초기화 완료 후에만 notify
       notifyListeners();
-    } catch (e) {
+    } catch (_) {
       // 에러 시 다크 모드를 기본값으로 사용
       _isDarkMode = true;
       _isInitialized = true;
@@ -55,17 +55,10 @@ class ThemeProvider extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setBool(_themeKey, value);
-    } catch (e) {
+    } catch (_) {
       // 에러 발생 시에도 UI는 업데이트
     }
 
     notifyListeners();
   }
-
-  // 강제 라이트 모드 (사용하지 않음 - 제거)
-  // void _forceLightModeOnFirstRun() {
-  //   if (_isFirstRun) {
-  //     setDarkMode(false);
-  //   }
-  // }
 }

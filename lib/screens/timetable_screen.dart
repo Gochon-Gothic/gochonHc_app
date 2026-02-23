@@ -43,8 +43,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   Map<String, dynamic>? _grade2SubjectData; // 2학년 과목 데이터 (공통과목 + 선택과목)
   Map<String, dynamic>? _grade3SubjectData; // 3학년 과목 데이터 (공통과목 + 선택과목)
   DateTime getCurrentWeekStart() {
-    // 한국 시간대(KST, UTC+9)로 현재 시간 가져오기
-    final now = DateTime(2026, 2, 2);
+    final now = DateTime.now().toUtc().add(const Duration(hours: 9));
     final weekday = now.weekday;
 
     // 토요일(6) 또는 일요일(7)이면 다음주 월요일부터
@@ -124,9 +123,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         await prefs.setString('last_selected_grade', selectedGrade!);
         await prefs.setString('last_selected_class', selectedClass!);
       }
-    } catch (e) {
-      print('마지막 선택 반 정보 저장 실패: $e');
-    }
+    } catch (_) {}
   }
 
   // 학년별 반 수 로드
@@ -138,9 +135,8 @@ class _TimetableScreenState extends State<TimetableScreen> {
           _classCounts = counts;
         });
       }
-    } catch (e) {
+    } catch (_) {
       // 오류 발생 시 기본값 유지
-      print('학년별 반 수 로드 실패: $e');
     }
   }
 
@@ -2006,7 +2002,7 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
           valueListenable: widget.selectedClassNotifier,
           builder: (context, selectedClassIndex, __) {
             return Container(
-              height: MediaQuery.of(context).size.height * 0.5,
+              height: MediaQuery.of(context).size.height * 0.35,
               decoration: BoxDecoration(
                 color: widget.isDark ? AppColors.darkCard : AppColors.lightCard,
                 borderRadius: const BorderRadius.vertical(
@@ -2025,31 +2021,31 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
                   // 제목
                   Text(
                     '반 선택',
                     style: TextStyle(
                       color: widget.textColor,
-                      fontSize: 20,
+                      fontSize: 22,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  // 학년과 반 휠 선택기 (나란히 배치)
                   Expanded(
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        // 학년 휠
-                        Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(50, 0, 50, 48),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // 학년 휠
+                          Expanded(
                           child: ListWheelScrollView.useDelegate(
                             controller: widget.gradeController,
-                            itemExtent: 50,
+                            itemExtent: 42,
                             physics: const FixedExtentScrollPhysics(),
-                            perspective: 0.003,
-                            diameterRatio: 1.5,
-                            squeeze: 1.0,
+                            perspective: 0.005,
+                            diameterRatio: 1.2,
+                            squeeze: 1.15,
                             onSelectedItemChanged: (index) {
                               if (mounted && index >= 0 && index < 3) {
                                 widget.selectedGradeNotifier.value = index;
@@ -2069,11 +2065,11 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                                     style: TextStyle(
                                       color:
                                           isCenter
-                                              ? Colors.white
+                                              ? (widget.isDark ? AppColors.darkNavSelected : AppColors.lightNavSelected)
                                               : widget.textColor.withValues(
                                                 alpha: 0.5,
                                               ),
-                                      fontSize: isCenter ? 24 : 20,
+                                      fontSize: isCenter ? 26 : 22,
                                       fontWeight:
                                           isCenter
                                               ? FontWeight.w700
@@ -2091,11 +2087,11 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                               _classController != null
                                   ? ListWheelScrollView.useDelegate(
                                     controller: _classController!,
-                                    itemExtent: 50,
+                                    itemExtent: 42,
                                     physics: const FixedExtentScrollPhysics(),
-                                    perspective: 0.003,
-                                    diameterRatio: 1.5,
-                                    squeeze: 1.0,
+                                    perspective: 0.005,
+                                    diameterRatio: 1.2,
+                                    squeeze: 1.15,
                                     onSelectedItemChanged: (index) {
                                       if (mounted &&
                                           index >= 0 &&
@@ -2120,12 +2116,12 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                                                 style: TextStyle(
                                                   color:
                                                       isCenter
-                                                          ? Colors.white
+                                                          ? (widget.isDark ? AppColors.darkNavSelected : AppColors.lightNavSelected)
                                                           : widget.textColor
                                                               .withValues(
                                                                 alpha: 0.5,
                                                               ),
-                                                  fontSize: isCenter ? 24 : 20,
+                                                  fontSize: isCenter ? 26 : 22,
                                                   fontWeight:
                                                       isCenter
                                                           ? FontWeight.w700
@@ -2137,11 +2133,11 @@ class _ClassPickerWidgetState extends State<_ClassPickerWidget> {
                                         ),
                                   )
                                   : const SizedBox(),
-                        ),
-                      ],
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
                 ],
               ),
             );

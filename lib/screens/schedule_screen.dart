@@ -9,6 +9,7 @@ import '../theme_colors.dart';
 import '../theme_provider.dart';
 import '../utils/shadows.dart';
 import '../utils/responsive_helper.dart';
+import '../utils/preference_manager.dart';
 
 class ScheduleView extends StatefulWidget {
   final VoidCallback onExit;
@@ -68,6 +69,18 @@ class _ScheduleViewState extends State<ScheduleView> {
       _error = null;
     });
     try {
+      // 캐시 확인: 3/2·9/1 갱신일, 첫시작(캐시없음), 로컬없을시 3일 후
+      final cached = await PreferenceManager.instance.getScheduleCache();
+      if (cached != null && cached.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            _scheduleMap = cached;
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+
       // 현재 년도 데이터 가져오기
       final from = '${_year}0101';
       final to = '${_year}1231';
@@ -108,9 +121,8 @@ class _ScheduleViewState extends State<ScheduleView> {
               map.putIfAbsent(ymd, () => []).add(event);
             }
           }
-        } catch (e) {
+        } catch (_) {
           // 다음 년도 데이터 가져오기 실패해도 현재 년도 데이터는 표시
-          print('다음 년도 학사일정 로드 실패: $e');
         }
       }
       
@@ -119,10 +131,13 @@ class _ScheduleViewState extends State<ScheduleView> {
         final f = v.where((e) => !e.contains('방학') && !e.contains('토요휴업일')).toList();
         if (f.isNotEmpty) filtered[k] = f;
       });
-      setState(() {
-        _scheduleMap = filtered;
-        _isLoading = false;
-      });
+      await PreferenceManager.instance.setScheduleCache(filtered);
+      if (mounted) {
+        setState(() {
+          _scheduleMap = filtered;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
       setState(() {
         _error = '데이터를 불러오지 못했습니다.';
@@ -358,8 +373,10 @@ class _ScheduleViewState extends State<ScheduleView> {
   void _scrollToDay(int day) {
     if (!_listController.hasClients) return;
     
-    final month = _currentMonthIndex + 1;
-    final monthlyEvents = _collectMonthlyEvents(_year, month);
+    final yearMonth = _getYearAndMonth(_currentMonthIndex);
+    final year = yearMonth['year']!;
+    final month = yearMonth['month']!;
+    final monthlyEvents = _collectMonthlyEvents(year, month);
     final index = monthlyEvents.indexWhere((e) => e.day == day);
     
     if (index == -1) return;
@@ -409,7 +426,9 @@ class _MonthTabsScrollable extends StatelessWidget {
           final double itemWidth = innerWidth / 7; // 7칸 가시
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            int scrollOffset = (currentIndex - 3).clamp(0, (totalMonths - 4).clamp(0, double.infinity).toInt());
+            // 7개 슬롯이 보이므로 최대 스크롤 인덱스 = totalMonths - 7
+            final maxScrollIndex = (totalMonths - 7).clamp(0, totalMonths);
+            int scrollOffset = (currentIndex - 3).clamp(0, maxScrollIndex);
             final double target = scrollOffset * itemWidth;
             if (scrollController.hasClients) {
               final double diff = (scrollController.offset - target).abs();
@@ -483,18 +502,10 @@ class _MonthTabsScrollable extends StatelessWidget {
                     }
                   }
                   
-                  int scrollBase;
-                  if (totalMonths == 15 && currentIndex >= 12) {
-                    scrollBase = (currentIndex - 3).clamp(0, totalMonths - 4);
-                  } else {
-                    scrollBase = (currentIndex - 3).clamp(0, (totalMonths - 4).clamp(0, double.infinity).toInt());
-                  }
-                  
-                  double localIndex = (page - scrollBase).clamp(0, 6);
-                  
-                  if (totalMonths == 15 && currentIndex >= 12) {
-                    localIndex = 4.0 + (currentIndex - 12);
-                  }
+                  // 7개 슬롯이 보이므로 첫 번째 보이는 월 인덱스 = min(currentIndex-3, totalMonths-7)
+                  final maxScrollIndex = (totalMonths - 7).clamp(0, totalMonths);
+                  final scrollBase = (currentIndex - 3).clamp(0, maxScrollIndex);
+                  double localIndex = (page - scrollBase).clamp(0.0, 6.0);
                   
                   final double centerX = horizontalPadding + (itemWidth * 0.5) + localIndex * itemWidth;
                   final double leftForCapsule = centerX - (capsuleWidth / 2);

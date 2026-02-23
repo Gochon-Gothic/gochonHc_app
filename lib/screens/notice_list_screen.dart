@@ -221,7 +221,7 @@ class _NoticeListScreenState extends State<NoticeListScreen> with SingleTickerPr
             ),
             ResponsiveHelper.verticalSpace(context, 8),
             Text(
-              notice.formattedDate,
+              notice.date,
               style: ResponsiveHelper.textStyle(
                 context,
                 fontSize: 12,

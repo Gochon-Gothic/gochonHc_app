@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'theme_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/initial_setup_screen.dart';
+import 'screens/elective_setup_screen.dart';
 import 'main.dart';
 import 'utils/preference_manager.dart';
 import 'models/user_info.dart';
@@ -85,6 +86,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     return MaterialApp(
+      debugShowCheckedModeBanner: false,
       theme: ThemeData.light().copyWith(
         textTheme: ThemeData.light().textTheme.apply(fontFamily: 'SFPro'),
       ),
@@ -114,7 +116,7 @@ Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
     final userData = await AuthService.instance.getUserFromFirestore(uid);
     if (userData == null) {
       await UserService.instance.clearUserInfo();
-      return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false};
+      return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false, 'needsGradeRefresh': false};
     }
     
     // 필수 필드 확인
@@ -126,7 +128,7 @@ Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
     // 필수 필드가 없거나 name이 비어있으면 로컬 데이터 삭제하고 설정 미완료
     if (grade == null || classNum == null || number == null || name.isEmpty) {
       await UserService.instance.clearUserInfo();
-      return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false};
+      return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false, 'needsGradeRefresh': false};
     }
     
     // 설정 완료 - Firestore 데이터로 로컬 동기화
@@ -136,15 +138,17 @@ Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
     // 로컬에 저장 (Firestore가 source of truth)
     await UserService.instance.saveUserInfo(userInfo);
     
+    final needsGradeRefresh = await PreferenceManager.instance.needsGradeRefreshThisYear();
     return {
       'hasSetup': true,
       'userInfo': userInfo,
       'hasElectiveSetup': hasElectiveSetup,
+      'needsGradeRefresh': needsGradeRefresh,
     };
-  } catch (e) {
+  } catch (_) {
     // 에러 발생 시에도 로컬 데이터 삭제하고 설정 미완료로 처리
     await UserService.instance.clearUserInfo();
-    return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false};
+    return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false, 'needsGradeRefresh': false};
   }
 }
 
@@ -185,6 +189,7 @@ class AuthWrapper extends StatelessWidget {
               final hasSetup = setupInfo['hasSetup'] as bool;
               final userInfo = setupInfo['userInfo'] as UserInfo?;
               final hasElectiveSetup = setupInfo['hasElectiveSetup'] as bool;
+              final needsGradeRefresh = setupInfo['needsGradeRefresh'] as bool? ?? false;
               
               if (!hasSetup || userInfo == null) {
                 return InitialSetupScreen(
@@ -192,11 +197,24 @@ class AuthWrapper extends StatelessWidget {
                   uid: user.uid,
                 );
               }
-              
-              if (userInfo.grade > 1 && !hasElectiveSetup) {
+
+              if (needsGradeRefresh) {
                 return InitialSetupScreen(
                   userEmail: user.email ?? '',
                   uid: user.uid,
+                  existingUserInfo: userInfo,
+                  isGradeRefresh: true,
+                );
+              }
+              
+              if (userInfo.grade > 1 && !hasElectiveSetup) {
+                return ElectiveSetupScreen(
+                  userEmail: user.email ?? '',
+                  uid: user.uid,
+                  grade: userInfo.grade,
+                  classNum: userInfo.classNum,
+                  isEditMode: false,
+                  isFromLogin: true,
                 );
               }
               

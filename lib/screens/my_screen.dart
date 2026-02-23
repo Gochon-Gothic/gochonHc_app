@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:gochon_mobile/screens/login_screen.dart';
+import 'login_screen.dart';
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
@@ -119,31 +119,6 @@ class _MyScreenState extends State<MyScreen> {
                         ),
                       );
                     },
-                  ),
-                ),
-                ResponsiveHelper.verticalSpace(context, 12),
-                Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: ResponsiveHelper.borderRadius(context, 12),
-                  ),
-                  elevation: 4,
-                  color: cardColor,
-                  child: ListTile(
-                    leading: Icon(Icons.info_outline, color: textColor),
-                    title: Text(
-                      '앱 정보',
-                      style: ResponsiveHelper.textStyle(
-                        context,
-                        fontSize: 16,
-                        color: textColor,
-                      ),
-                    ),
-                    trailing: Icon(
-                      Icons.arrow_forward_ios,
-                      size: ResponsiveHelper.width(context, 16),
-                      color: textColor,
-                    ),
-                    onTap: () {},
                   ),
                 ),
                 ResponsiveHelper.verticalSpace(context, 12),

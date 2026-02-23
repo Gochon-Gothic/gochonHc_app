@@ -5,11 +5,6 @@ class ResponsiveHelper {
   static const double designWidth = 390.0;
   static const double designHeight = 844.0;
 
-  // 화면 크기 가져오기
-  static Size screenSize(BuildContext context) {
-    return MediaQuery.of(context).size;
-  }
-
   // 화면 너비 가져오기
   static double screenWidth(BuildContext context) {
     return MediaQuery.of(context).size.width;
@@ -85,27 +80,6 @@ class ResponsiveHelper {
     return BorderRadius.circular(width(context, designRadius));
   }
 
-  // 최소/최대 크기 제한 (너무 작거나 크게 변하지 않도록)
-  static double constrainedWidth(BuildContext context, double designWidthValue, {
-    double? min,
-    double? max,
-  }) {
-    final calculated = width(context, designWidthValue);
-    if (min != null && calculated < min) return min;
-    if (max != null && calculated > max) return max;
-    return calculated;
-  }
-
-  static double constrainedHeight(BuildContext context, double designHeightValue, {
-    double? min,
-    double? max,
-  }) {
-    final calculated = height(context, designHeightValue);
-    if (min != null && calculated < min) return min;
-    if (max != null && calculated > max) return max;
-    return calculated;
-  }
-
   // 텍스트 스타일 생성 (반응형 폰트 크기)
   static TextStyle textStyle(BuildContext context, {
     required double fontSize,
@@ -125,19 +99,5 @@ class ResponsiveHelper {
     );
   }
 
-  // 화면이 작은지 확인 (모바일)
-  static bool isSmallScreen(BuildContext context) {
-    return screenWidth(context) < 360;
-  }
-
-  // 화면이 큰지 확인 (태블릿)
-  static bool isLargeScreen(BuildContext context) {
-    return screenWidth(context) > 600;
-  }
-
-  // 화면이 매우 큰지 확인 (데스크톱)
-  static bool isVeryLargeScreen(BuildContext context) {
-    return screenWidth(context) > 1200;
-  }
 }
 

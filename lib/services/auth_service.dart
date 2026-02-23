@@ -32,8 +32,6 @@ class AuthService {
 
   Future<UserCredential?> signInWithApple() async {
     try {
-      print('Apple 로그인 시작...');
-
       final rawNonce = _generateNonce();
       final nonce = sha256.convert(utf8.encode(rawNonce)).toString();
 
@@ -45,11 +43,6 @@ class AuthService {
         nonce: nonce,
       );
 
-      print('Apple 자격 증명서 받음: ${appleCredential.email}');
-      print('Apple identityToken 존재: ${appleCredential.identityToken != null}');
-      print('Apple authorizationCode 존재: ${appleCredential.authorizationCode != null}');
-      print('Apple userIdentifier: ${appleCredential.userIdentifier}');
-
       if (appleCredential.identityToken == null) {
         throw Exception('Apple identityToken이 null입니다.');
       }
@@ -60,10 +53,7 @@ class AuthService {
         accessToken: appleCredential.authorizationCode, // firebase_auth 4.3.0+ 필수
       );
 
-      print('Firebase 인증 시작...');
-      print('OAuthCredential 생성 완료');
       final userCredential = await _auth.signInWithCredential(credential);
-      print('Firebase 로그인 성공: ${userCredential.user?.email}');
 
       if (userCredential.additionalUserInfo?.isNewUser ?? false) {
         String? displayName;
@@ -83,79 +73,50 @@ class AuthService {
       }
 
       return userCredential;
-    } catch (e) {
-      print('Apple 로그인 에러 상세: $e');
-      print('에러 타입: ${e.runtimeType}');
-      if (e is FirebaseAuthException) {
-        print('Firebase Auth 에러 코드: ${e.code}');
-        print('Firebase Auth 에러 메시지: ${e.message}');
+    } on SignInWithAppleAuthorizationException catch (e) {
+      if (e.code == AuthorizationErrorCode.canceled) {
+        return null;
       }
+      throw Exception('Apple 로그인 실패: $e');
+    } catch (e) {
       throw Exception('Apple 로그인 실패: $e');
     }
   }
 
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      print('Google 로그인 시작...');
-
-      if (Platform.isIOS) {
-        print('iOS 플랫폼에서 실행 중');
-      }
-
-      print('Google Sign-In 상태 확인 중...');
       final isSignedIn = await _googleSignIn.isSignedIn();
-      print('현재 로그인 상태: $isSignedIn');
 
       if (isSignedIn) {
-        print('이미 로그인된 상태입니다. 로그아웃 후 다시 시도합니다.');
         await _googleSignIn.signOut();
       }
 
-      print('Google Sign-In 프로세스 시작...');
-      print('플랫폼: ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Other"}');
-      
       GoogleSignInAccount? googleUser;
       try {
         googleUser = await _googleSignIn.signIn();
       } catch (signInError) {
-        print('Google Sign-In 호출 중 오류 발생: $signInError');
-        print('오류 타입: ${signInError.runtimeType}');
         rethrow;
       }
 
       if (googleUser == null) {
-        print('사용자가 로그인을 취소했습니다.');
         return null;
       }
 
-      print('Google 사용자 정보: ${googleUser.email}');
-
-      print('Google 인증 토큰 요청 중...');
       final GoogleSignInAuthentication googleAuth =
           await googleUser.authentication;
 
       if (googleAuth.accessToken == null || googleAuth.idToken == null) {
-        print('Google 인증 토큰이 null입니다.');
         throw Exception('Google 인증 토큰을 가져올 수 없습니다.');
       }
 
-      print('Firebase 인증 시작...');
       final credential = GoogleAuthProvider.credential(
         accessToken: googleAuth.accessToken,
         idToken: googleAuth.idToken,
       );
 
       final userCredential = await _auth.signInWithCredential(credential);
-      print('Firebase 로그인 성공: ${userCredential.user?.email}');
       return userCredential;
     } catch (e) {
-      print('Google 로그인 에러 상세: $e');
-      print('에러 타입: ${e.runtimeType}');
-      if (e is FirebaseAuthException) {
-        print('Firebase Auth 에러 코드: ${e.code}');
-        print('Firebase Auth 에러 메시지: ${e.message}');
-      }
-
       if (Platform.isIOS &&
           (e.toString().contains('simulator') ||
               e.toString().contains('Lost connection'))) {
@@ -171,8 +132,7 @@ class AuthService {
     try {
       final userDoc = await _firestore.collection('users').doc(uid).get();
       return userDoc.exists;
-    } catch (e) {
-      print('사용자 문서 확인 실패: $e');
+    } catch (_) {
       return false;
     }
   }
@@ -184,8 +144,7 @@ class AuthService {
         return userDoc.data();
       }
       return null;
-    } catch (e) {
-      print('Firestore 사용자 정보 가져오기 실패: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -289,8 +248,7 @@ class AuthService {
       // 2. Firestore에서 사용자 데이터 삭제
       try {
         await _firestore.collection('users').doc(uid).delete();
-      } catch (e) {
-        print('Firestore 삭제 실패: $e');
+      } catch (_) {
         // Firestore 삭제 실패해도 계속 진행
       }
       
@@ -299,16 +257,14 @@ class AuthService {
         if (await _googleSignIn.isSignedIn()) {
           await _googleSignIn.signOut();
         }
-      } catch (e) {
-        print('Google Sign-In 로그아웃 실패: $e');
+      } catch (_) {
         // Google 로그아웃 실패해도 계속 진행
       }
       
       // 4. 로컬 사용자 정보 삭제
       try {
         await UserService.instance.clearUserInfo();
-      } catch (e) {
-        print('로컬 데이터 삭제 실패: $e');
+      } catch (_) {
         // 로컬 삭제 실패해도 계속 진행
       }
       
@@ -318,7 +274,6 @@ class AuthService {
       // 6. Firebase Auth 로그아웃
       await _auth.signOut();
     } catch (e) {
-      print('계정 삭제 에러: $e');
       if (e is FirebaseAuthException) {
         if (e.code == 'requires-recent-login') {
           throw Exception('보안을 위해 재인증이 필요합니다. 다시 시도해주세요.');

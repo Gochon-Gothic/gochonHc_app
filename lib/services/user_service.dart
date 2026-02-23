@@ -117,9 +117,22 @@ class UserService {
       return snapshot.exists;
     } catch (e) {
       // 에러 발생 시 존재하지 않는 것으로 처리
-      print('Error in doesUserExist for UID $uid: $e'); // Debug print
       return false;
     }
+  }
+
+  /// 선택과목 정보 없이 메인으로 스킵할 때 호출 (hasElectiveSetup=true로 설정)
+  Future<void> setElectiveSetupSkipped(String uid) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .set({
+        'electiveSubjects': <String, String>{},
+        'updatedAt': FieldValue.serverTimestamp(),
+        'hasElectiveSetup': true,
+      }, SetOptions(merge: true));
+    } catch (_) {}
   }
 
   // 선택과목 정보를 Firestore에 저장
@@ -153,8 +166,7 @@ class UserService {
         }
       }
       return null;
-    } catch (e) {
-      print('Error getting elective subjects: $e');
+    } catch (_) {
       return null;
     }
   }
@@ -171,8 +183,7 @@ class UserService {
         return doc.data()!['hasElectiveSetup'] == true;
       }
       return false;
-    } catch (e) {
-      print('Error checking elective setup: $e');
+    } catch (_) {
       return false;
     }
   }

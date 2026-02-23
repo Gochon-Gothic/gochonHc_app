@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../services/user_service.dart';
 import '../services/gsheet_service.dart';
+import '../utils/preference_manager.dart';
 import '../theme_colors.dart';
 import '../utils/responsive_helper.dart';
 
@@ -270,9 +271,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
               if (!slot.timeSlots.contains(timeSlotKey)) {
                 slot.timeSlots.add(timeSlotKey);
               }
-            } catch (e) {
-              print('Parse error: $e');
-            }
+            } catch (_) {}
           }
         }
       }
@@ -300,13 +299,26 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
           final requiredCount = _setRequiredCounts[setNum];
           final availableCount = sortedSlotsBySet[setNum]?.length ?? 0;
 
-          // 선택수 정보가 없거나, 필요한 수보다 실제 시간표에서 추출된 선택 슬롯이 부족하면 차단
+          // 선택수 정보가 없거나, 필요한 수보다 실제 시간표에서 추출된 선택 슬롯이 부족하면 메인으로 이동
           if (requiredCount == null || requiredCount <= 0) {
             setState(() {
               _isLoading = false;
               _error = null;
               _slotsBySet = {};
             });
+            if (mounted) {
+              await UserService.instance.setElectiveSetupSkipped(widget.uid);
+              if (!widget.isEditMode) {
+                await PreferenceManager.instance.setShowElectiveUnavailableMessage(true);
+              }
+              if (mounted) {
+                if (widget.isEditMode) {
+                  Navigator.of(context).pop(true);
+                } else {
+                  Navigator.of(context).pushReplacementNamed('/main');
+                }
+              }
+            }
             return;
           }
           if (availableCount < requiredCount) {
@@ -315,6 +327,19 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
               _error = null;
               _slotsBySet = {};
             });
+            if (mounted) {
+              await UserService.instance.setElectiveSetupSkipped(widget.uid);
+              if (!widget.isEditMode) {
+                await PreferenceManager.instance.setShowElectiveUnavailableMessage(true);
+              }
+              if (mounted) {
+                if (widget.isEditMode) {
+                  Navigator.of(context).pop(true);
+                } else {
+                  Navigator.of(context).pushReplacementNamed('/main');
+                }
+              }
+            }
             return;
           }
         }
@@ -324,6 +349,23 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
         _slotsBySet = sortedSlotsBySet;
         _isLoading = false;
       });
+      // 2·3학년인데 슬롯이 비어있으면 메인으로 이동
+      if (mounted &&
+          (widget.grade == 2 || widget.grade == 3) &&
+          (sortedSlotsBySet.isEmpty ||
+              sortedSlotsBySet.values.every((slots) => slots.isEmpty))) {
+        await UserService.instance.setElectiveSetupSkipped(widget.uid);
+        if (!widget.isEditMode) {
+          await PreferenceManager.instance.setShowElectiveUnavailableMessage(true);
+        }
+        if (mounted) {
+          if (widget.isEditMode) {
+            Navigator.of(context).pop(true);
+          } else {
+            Navigator.of(context).pushReplacementNamed('/main');
+          }
+        }
+      }
     } catch (e) {
       setState(() {
         _error = '시간표 불러오기 실패: $e';
@@ -463,7 +505,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             : _error != null
                 ? _buildError(textColor)
                 : _slotsBySet.isEmpty || _slotsBySet.values.every((slots) => slots.isEmpty)
-                    ? _buildNoDataView(textColor, cardColor, isDark)
+                    ? const Center(child: CircularProgressIndicator())
                     : Column(
                         children: [
                           Center(
@@ -511,58 +553,6 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildNoDataView(Color textColor, Color cardColor, bool isDark) {
-    return Center(
-      child: Padding(
-        padding: ResponsiveHelper.padding(context, all: 20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              '현재 선택과목 정보가 존재하지 않아 선택할 수 없습니다\n이후에 다시 선택해주세요',
-              textAlign: TextAlign.center,
-              style: ResponsiveHelper.textStyle(
-                context,
-                fontSize: 16,
-                color: textColor,
-              ),
-            ),
-            ResponsiveHelper.verticalSpace(context, 30),
-            SizedBox(
-              width: double.infinity,
-              height: ResponsiveHelper.height(context, 56),
-              child: ElevatedButton(
-                onPressed: () {
-                  if (widget.isEditMode) {
-                    Navigator.of(context).pop();
-                  } else {
-                    Navigator.of(context).pushReplacementNamed('/main');
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: cardColor,
-                  foregroundColor: textColor,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: ResponsiveHelper.borderRadius(context, 12),
-                  ),
-                  elevation: 4,
-                ),
-                child: Text(
-                  '계속하기',
-                  style: ResponsiveHelper.textStyle(
-                    context,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
