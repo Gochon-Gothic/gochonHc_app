@@ -1,50 +1,50 @@
 import 'package:flutter/material.dart';
 
+/// 반응형 레이아웃·스타일 유틸
+///
+/// [로직 흐름]
+/// 1. 기준: designWidth 390, designHeight 844 (디자인 시안)
+/// 2. width(context, v): (v / 390) * 실제 너비 → 디자인 px를 실제 px로 변환
+/// 3. height(context, v): (v / 844) * 실제 높이
+/// 4. fontSize: width 비율로 폰트 스케일
+/// 5. padding, verticalSpace, horizontalSpace, borderRadius: 동일 비율 적용
+/// 6. textStyle: fontSize + color, fontWeight 등 조합
 class ResponsiveHelper {
-  // 기준 화면 크기 (디자인 시안 기준)
   static const double designWidth = 390.0;
   static const double designHeight = 844.0;
 
-  // 화면 너비 가져오기
   static double screenWidth(BuildContext context) {
     return MediaQuery.of(context).size.width;
   }
 
-  // 화면 높이 가져오기
   static double screenHeight(BuildContext context) {
     return MediaQuery.of(context).size.height;
   }
 
-  // 너비 비율 계산 (디자인 기준으로 스케일링)
   static double width(BuildContext context, double designWidthValue) {
-    final width = screenWidth(context);
-    return (designWidthValue / designWidth) * width;
+    final w = screenWidth(context);
+    return (designWidthValue / designWidth) * w;
   }
 
-  // 높이 비율 계산 (디자인 기준으로 스케일링)
   static double height(BuildContext context, double designHeightValue) {
-    final height = screenHeight(context);
-    return (designHeightValue / designHeight) * height;
+    final h = screenHeight(context);
+    return (designHeightValue / designHeight) * h;
   }
 
-  // 폰트 크기 스케일링
   static double fontSize(BuildContext context, double designFontSize) {
-    final width = screenWidth(context);
-    final scale = width / designWidth;
+    final w = screenWidth(context);
+    final scale = w / designWidth;
     return designFontSize * scale;
   }
 
-  // 수평 패딩 스케일링
   static EdgeInsets horizontalPadding(BuildContext context, double designPadding) {
     return EdgeInsets.symmetric(horizontal: width(context, designPadding));
   }
 
-  // 수직 패딩 스케일링
   static EdgeInsets verticalPadding(BuildContext context, double designPadding) {
     return EdgeInsets.symmetric(vertical: height(context, designPadding));
   }
 
-  // 전체 패딩 스케일링
   static EdgeInsets padding(BuildContext context, {
     double? horizontal,
     double? vertical,
@@ -65,22 +65,18 @@ class ResponsiveHelper {
     );
   }
 
-  // SizedBox 높이 스케일링
   static SizedBox verticalSpace(BuildContext context, double designHeight) {
     return SizedBox(height: height(context, designHeight));
   }
 
-  // SizedBox 너비 스케일링
   static SizedBox horizontalSpace(BuildContext context, double designWidth) {
     return SizedBox(width: width(context, designWidth));
   }
 
-  // BorderRadius 스케일링
   static BorderRadius borderRadius(BuildContext context, double designRadius) {
     return BorderRadius.circular(width(context, designRadius));
   }
 
-  // 텍스트 스타일 생성 (반응형 폰트 크기)
   static TextStyle textStyle(BuildContext context, {
     required double fontSize,
     Color? color,
@@ -98,6 +94,4 @@ class ResponsiveHelper {
       fontStyle: fontStyle,
     );
   }
-
 }
-

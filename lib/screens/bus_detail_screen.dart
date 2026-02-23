@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+/// 정류장 상세: 경유 노선, 도착 예정 버스, 즐겨찾기
+///
+/// [로직 흐름]
+/// 1. _loadStationInfo: getStationRoutes, getStationArrivals 병렬 → routes, arrivals
+/// 2. _checkFavoriteStatus: isFavoriteStation
+/// 3. _toggleFavorite: add/removeFavoriteStation
+/// 4. 노선 탭 시 BusRouteDetailScreen으로 이동
 import '../services/bus_service.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';

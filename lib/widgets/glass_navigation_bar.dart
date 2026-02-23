@@ -6,7 +6,13 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:liquid_glass_renderer/liquid_glass_renderer.dart';
 import '../utils/responsive_helper.dart';
 
-
+/// 하단 글래스모피즘 네비게이션 바 (5탭)
+///
+/// [로직 흐름]
+/// 1. PageController 애니메이션으로 현재 페이지에 맞는 캡슐 위치 계산
+/// 2. BackdropFilter blur + (웹: Container / 네이티브: LiquidGlassLayer)로 글래스 효과
+/// 3. 5개 탭: 버스, 시간표, 홈, 급식, 마이
+/// 4. _buildNavItem: Icon 또는 SvgPicture, 선택 시 노란색(#FFC51E)
 class GlassNavigationBar extends StatelessWidget {
   final int currentIndex;
   final Function(int) onTap;
@@ -23,7 +29,7 @@ class GlassNavigationBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final double barHeight = ResponsiveHelper.height(context, 64);
     final double barRadius = ResponsiveHelper.width(context, 28);
-    const double widthFactor = 0.90; // 90%
+    const double widthFactor = 0.90;
 
 
     return SizedBox(
@@ -31,7 +37,7 @@ class GlassNavigationBar extends StatelessWidget {
       child: Stack(
         children: [
           Positioned(
-            bottom: ResponsiveHelper.height(context, 25), // 살짝 위로 이동
+            bottom: ResponsiveHelper.height(context, 25),
             left: ResponsiveHelper.width(context, 8),
             right: ResponsiveHelper.width(context, 8),
             child: Align(
@@ -79,7 +85,6 @@ class GlassNavigationBar extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              // 웹에서는 LiquidGlassLayer 대신 Container 사용
                               kIsWeb
                                   ? Container(
                                       decoration: BoxDecoration(
@@ -177,7 +182,7 @@ class GlassNavigationBar extends StatelessWidget {
           height: ResponsiveHelper.height(context, 56),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(ResponsiveHelper.width(context, 50)),
-            color: Colors.transparent, // 선택 여부와 무관하게 회색 배경 제거
+            color: Colors.transparent,
           ),
           child: Stack(
             alignment: Alignment.center,

@@ -1,6 +1,15 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+
+/// 시간표: 나의 시간표 / 반별 시간표, 주간 PageView
+///
+/// [로직 흐름]
+/// 1. _isMyTimetable: 로그인 시 UserInfo 기반, 비로그인 시 반별
+/// 2. getGrade1Subjects/getGrade2Subjects/getGrade3Subjects: GSheet 과목 매핑
+/// 3. ApiService.getTimetable 또는 SharedPreferences 1시간 캐시
+/// 4. hisTimetable[1~3].row 파싱 → ITRT_CNTNT(과목), ALL_TI_YMD, PERIO
+/// 5. _shortenCache: 과목명 축약(지필, 자습 등)
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';

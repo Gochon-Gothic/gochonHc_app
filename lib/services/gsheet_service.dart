@@ -3,6 +3,15 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/notice.dart';
 
+/// Google Apps Script 웹앱 API (공지, 학급수, 선택과목 시트)
+///
+/// [로직 흐름]
+/// 1. getNotices: 12시간 캐시 → _serviceUrl GET → Notice 리스트 반환
+/// 2. getClassCounts: 6개월 캐시 → action=getClassCounts
+/// 3. getGrade2Subjects/getGrade3Subjects: sheetDate와 오늘 비교 → 3/2이거나 시트가 더 최신이면 API 호출
+///    - common, elective 구조로 반환
+/// 4. getGrade1Subjects: 1학년 공통과목만 (선택과목 없음)
+/// 5. _parseSheetDate: "yyyy/M/d" 파싱, _todayKstDate: KST 오늘
 class GSheetService {
   // Google Apps Script 웹 앱 URL
   static const String _serviceUrl =

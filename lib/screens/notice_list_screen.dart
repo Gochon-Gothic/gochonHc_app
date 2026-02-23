@@ -1,5 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+
+/// 공지사항 목록: GSheet getNotices, 검색·페이지네이션
+///
+/// [로직 흐름]
+/// 1. _loadNotices: GSheetService.getNotices(forceRefresh) → _allNotices, _filteredNotices
+/// 2. _searchController 리스너: 300ms 디바운스 → _filterNotices(검색어 포함)
+/// 3. 페이지네이션: _itemsPerPage 15개씩, _scrollController로 추가 로드
+/// 4. 탭 시 NoticeDetailScreen으로 이동
 import 'package:provider/provider.dart';
 import 'package:flutter/foundation.dart';
 import '../models/notice.dart';

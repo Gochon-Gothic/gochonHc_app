@@ -1,6 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+/// 초기 설정: 학년·반·번호·이름 입력 → Firestore 저장
+///
+/// [로직 흐름]
+/// 1. existingUserInfo 있으면 폼에 미리 채움 (학년 갱신 시)
+/// 2. _submit: 유효성 검사(학년 1~3, 반 1~11, 번호 1~45) → saveUserToFirebase
+/// 3. isGradeRefresh면 setGradeRefreshDoneForYear(now.year) 호출
+/// 4. 2·3학년이면 ElectiveSetupScreen으로, 1학년이면 MainScreen으로
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -16,7 +24,7 @@ class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
   final String uid;
   final UserInfo? existingUserInfo;
-  final bool isGradeRefresh; // 3/2 학년반 갱신 플로우
+  final bool isGradeRefresh;
 
   const InitialSetupScreen({
     super.key,

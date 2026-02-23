@@ -2,6 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+/// 급식 화면: NEIS 급식 API, 날짜 선택, 알레르기 표시
+///
+/// [로직 흐름]
+/// 1. initState: initializeDateFormatting(ko) → _skipWeekend(주말 제외) → fetchMeal
+/// 2. fetchMeal: 매월 1일이면 캐시 무시 → SharedPreferences lunch_{yyyyMMdd} 3일 캐시 확인 → 없으면 API 호출
+/// 3. _parseMealData: mealServiceDietInfo.row → DDISH_NM(메뉴), NTR_INFO(알레르기 숫자) 파싱
+/// 4. _cleanMenuName: 괄호·별표·숫자 제거, 한글만 유지
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/date_symbol_data_local.dart';
@@ -106,8 +114,9 @@ class _LunchScreenState extends State<LunchScreen> {
       final lastUpdate = prefs.getInt('${cacheKey}_lastUpdate') ?? 0;
       final now = DateTime.now().millisecondsSinceEpoch;
       final cacheExpiry = 259200000;
+      final isFirstDayOfMonth = currentDate.day == 1;
 
-      if (cachedData != null && (now - lastUpdate) < cacheExpiry) {
+      if (!isFirstDayOfMonth && cachedData != null && (now - lastUpdate) < cacheExpiry) {
         try {
           final data = json.decode(cachedData);
           _parseMealData(data);

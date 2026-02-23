@@ -3,6 +3,14 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../models/user_info.dart';
+
+/// 로그인 화면: Google/Apple 소셜 로그인
+///
+/// [로직 흐름]
+/// 1. _handleGoogleSignIn: signInWithGoogle → checkUserExists → 있으면 getUserFromFirestore, saveUserInfo → MainScreen
+///    - 없으면 InitialSetupScreen(userEmail, uid)
+/// 2. _handleAppleSignIn: 동일 패턴
+/// 3. 로그인 취소 시 isLoading=false만 설정
 import '../services/auth_service.dart';
 import '../services/user_service.dart';
 import '../theme_colors.dart';

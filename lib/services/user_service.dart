@@ -3,6 +3,15 @@ import '../models/user_info.dart';
 import '../utils/preference_manager.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+/// 사용자 정보 로컬·Firestore 관리 (싱글톤)
+///
+/// [로직 흐름]
+/// 1. saveUserInfo/getUserInfo: SharedPreferences user_info 키에 JSON 저장/조회
+///    - getUserInfo: grade, classNum, number, name 중 하나라도 없으면 clearUserInfo 후 null
+/// 2. saveUserToFirebase: Firestore users/{uid}에 merge: true로 저장
+/// 3. setElectiveSetupSkipped: electiveSubjects={}, hasElectiveSetup=true로 설정
+/// 4. saveElectiveSubjects: electiveSubjects, hasElectiveSetup 업데이트
+/// 5. getElectiveSubjects, hasElectiveSetup: Firestore에서 조회
 class UserService {
   static UserService? _instance;
 

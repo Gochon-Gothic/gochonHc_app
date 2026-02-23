@@ -2,6 +2,15 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+
+/// Firebase Auth + Firestore 인증 서비스 (싱글톤)
+///
+/// [로직 흐름]
+/// 1. signInWithApple: nonce 생성 → SHA256 해시 → SignInWithApple.getAppleIDCredential → OAuthProvider.credential → signInWithCredential
+///    - 신규 사용자면 Firestore users/{uid}에 email, displayName, photoURL, createdAt 저장
+/// 2. signInWithGoogle: 기존 로그인 있으면 signOut 먼저 → getSignIn → GoogleAuthProvider.credential → signInWithCredential
+/// 3. getUserFromFirestore: users/{uid} 문서 조회
+/// 4. deleteAccount: _reauthenticate → Firestore 삭제 → Google signOut → UserService.clearUserInfo → user.delete → auth.signOut
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:gochon_mobile/services/user_service.dart';

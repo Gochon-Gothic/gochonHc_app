@@ -3,6 +3,14 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../services/api_service.dart';
+
+/// 선택과목 설정: GSheet/ApiService로 슬롯 조회 → 세트별 과목 선택 → Firestore 저장
+///
+/// [로직 흐름]
+/// 1. initState: getGrade2Subjects/getGrade3Subjects → 시간표 API 2주치 → _extractTimetableRows로 슬롯 파싱
+/// 2. _slotsBySet: 세트별(1~4) 슬롯 목록, _setRequiredCounts: 세트당 필수 선택 수
+/// 3. 사용자가 세트별로 과목 선택 → _selections에 저장
+/// 4. 제출: saveElectiveSubjects(electiveSubjects) → isFromLogin이면 MainScreen, 아니면 pop
 import '../services/user_service.dart';
 import '../services/gsheet_service.dart';
 import '../utils/preference_manager.dart';
@@ -15,7 +23,7 @@ class ElectiveSetupScreen extends StatefulWidget {
   final int grade;
   final int classNum;
   final bool isEditMode;
-  final bool isFromLogin; // 로그인에서 온 경우인지
+  final bool isFromLogin;
 
   const ElectiveSetupScreen({
     super.key,
@@ -43,7 +51,6 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   static const _apiKey = '2cf24c119b434f93b2f916280097454a';
   static const _eduOfficeCode = 'J10';
   static const _schoolCode = '7531375';
-  // 시트 데이터 없을 때만 사용 (하위 호환)
   static const _set1 = [
     '지구과학Ⅰ',
     '물리학Ⅰ',

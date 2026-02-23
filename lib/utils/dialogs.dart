@@ -4,6 +4,13 @@ import '../theme_provider.dart';
 import '../theme_colors.dart';
 import 'responsive_helper.dart';
 
+/// 선택과목 미사용 시 표시하는 모달
+///
+/// [로직 흐름]
+/// 1. ThemeProvider에서 isDarkMode 조회 → 배경/텍스트 색상 결정
+/// 2. showModalBottomSheet로 하단 시트 표시
+/// 3. "선택과목 정보 없음" 안내 문구 + "계속하기" 버튼
+/// 4. 버튼 탭 시 Navigator.pop()으로 모달 닫기
 void showElectiveUnavailableModal(BuildContext context) {
   final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
   final bgColor = isDark ? AppColors.darkCard : AppColors.lightCard;
