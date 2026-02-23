@@ -1,5 +1,5 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
+
 import '../utils/preference_manager.dart';
 
 class ApiService {
@@ -123,9 +123,6 @@ class ApiService {
 
       return response;
     } on DioException catch (e) {
-      if (kDebugMode) {
-        print('Timetable API Error: ${e.message}');
-      }
       rethrow;
     }
   }
@@ -152,9 +149,6 @@ class ApiService {
 
       return response;
     } on DioException catch (e) {
-      if (kDebugMode) {
-        print('Meal API Error: ${e.message}');
-      }
       rethrow;
     }
   }
@@ -183,9 +177,6 @@ class ApiService {
 
       return response;
     } on DioException catch (e) {
-      if (kDebugMode) {
-        print('School Schedule API Error: ${e.message}');
-      }
       rethrow;
     }
   }
@@ -214,9 +205,6 @@ class ApiService {
       final responses = await Future.wait(futures);
       return responses;
     } catch (e) {
-      if (kDebugMode) {
-        print('Batch Timetable API Error: $e');
-      }
       rethrow;
     }
   }

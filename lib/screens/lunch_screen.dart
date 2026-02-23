@@ -1,13 +1,14 @@
-import 'package:flutter/material.dart';
-
-import 'package:intl/intl.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
 import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../utils/responsive_helper.dart';
@@ -113,7 +114,6 @@ class _LunchScreenState extends State<LunchScreen> {
           _setStateSafe(() {
             isLoading = false;
           });
-          _updateMealInBackground(prefs, cacheKey, today);
           return;
         } catch (e) {
           // 캐시 파싱 실패 시 API에서 다시 가져오기
@@ -136,17 +136,14 @@ class _LunchScreenState extends State<LunchScreen> {
   ) async {
     try {
       final url = _buildApiUrl(today);
-      print('급식 API 호출 시도: $url');
       final response = await http.get(Uri.parse(url)).timeout(
         const Duration(seconds: 10),
         onTimeout: () {
           throw TimeoutException('API 호출 시간 초과');
         },
       );
-      print('급식 API 응답 상태 코드: ${response.statusCode}');
-      
+
       if (response.statusCode != 200) {
-        print('급식 API 호출 실패: 상태 코드 ${response.statusCode}, 응답: ${response.body}');
         _setStateSafe(() {
           error = '급식을 불러오는데 실패했습니다.';
           isLoading = false;
@@ -160,37 +157,11 @@ class _LunchScreenState extends State<LunchScreen> {
       _setStateSafe(() {
         isLoading = false;
       });
-    } catch (e, stackTrace) {
-      print('급식 API 호출 에러: $e');
-      print('에러 타입: ${e.runtimeType}');
-      print('스택 트레이스: $stackTrace');
+    } catch (e) {
       _setStateSafe(() {
         error = '급식을 불러오는데 실패했습니다.';
         isLoading = false;
       });
-    }
-  }
-
-  Future<void> _updateMealInBackground(
-    SharedPreferences prefs,
-    String cacheKey,
-    String today,
-  ) async {
-    try {
-      final url = _buildApiUrl(today);
-      final response = await http.get(Uri.parse(url));
-      
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        if (data['mealServiceDietInfo'] != null) {
-          await _saveCache(prefs, cacheKey, response.body);
-          _setStateSafe(() {
-            _parseMealData(data);
-          });
-        }
-      }
-    } catch (e) {
-      // 백그라운드 업데이트 실패는 무시
     }
   }
 

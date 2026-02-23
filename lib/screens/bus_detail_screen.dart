@@ -124,7 +124,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
       child: Scaffold(
         backgroundColor: bgColor,
         extendBodyBehindAppBar: true,
-      body: isLoading
+        body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : error != null
               ? Center(
@@ -157,7 +157,6 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
               : Column(
                   children: [
                     _buildTopStationPanel(),
-                    ResponsiveHelper.verticalSpace(context, 15),
                     Expanded(
                       child: _buildBusList(),
                     ),
@@ -170,7 +169,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
   Widget _buildTopStationPanel() {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     final direction = widget.station.getDirectionFromCoordinate(BusService.getCachedStations());
-    final panelColor = isDark ? AppColors.darkCard : const Color.fromARGB(255, 204, 204, 204);
+    final panelColor = isDark ? AppColors.darkCard : const Color.fromARGB(255, 255, 255, 255);
     final textColor = isDark ? AppColors.darkText : Colors.black87;
     final subTextColor = isDark ? AppColors.darkText.withOpacity(0.7) : Colors.black54;
     
@@ -179,7 +178,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
         top: MediaQuery.of(context).padding.top,
         left: ResponsiveHelper.width(context, 20),
         right: ResponsiveHelper.width(context, 20),
-        bottom: ResponsiveHelper.height(context, 10),
+        bottom: ResponsiveHelper.height(context, 25),
       ),
       decoration: BoxDecoration(
         color: panelColor,
@@ -272,7 +271,11 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
     }
 
     return ListView.builder(
-      padding: ResponsiveHelper.horizontalPadding(context, 15),
+      padding: EdgeInsets.only(
+        top: ResponsiveHelper.height(context, 15),
+        left: ResponsiveHelper.width(context, 15),
+        right: ResponsiveHelper.width(context, 15),
+      ),
       itemCount: routes.length,
       itemBuilder: (context, index) {
         final route = routes[index];
@@ -389,7 +392,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
         '도착정보 없음',
         style: TextStyle(
           fontSize: 14,
-          color: isDark ? (Colors.grey[200] ?? Colors.grey).withOpacity(0.6) : Colors.grey.withOpacity(0.6),
+          color: isDark ? (Colors.grey[200] ?? Colors.grey).withOpacity(0.6) : const Color.fromARGB(255, 48, 48, 48),
         ),
       );
     }
@@ -404,7 +407,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
               style: TextStyle(
                 fontSize: 14,
                 color: arrival.arrivalTime1 == '도착정보 없음'
-                    ? (isDark ? (Colors.grey[200] ?? Colors.grey).withOpacity(0.6) : Colors.grey.withOpacity(0.6))
+                    ? (isDark ? (Colors.grey[200] ?? Colors.grey).withOpacity(0.6) : const Color.fromARGB(255, 48, 48, 48).withOpacity(0.6))
                     : textColor,
                 fontWeight: FontWeight.w500,
               ),
@@ -438,7 +441,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                 style: TextStyle(
                   fontSize: 14,
                   color: arrival.arrivalTime2 == '도착정보 없음'
-                      ? (isDark ? (Colors.grey[400] ?? Colors.grey).withOpacity(0.6) : Colors.grey.withOpacity(0.6))
+                      ? (isDark ? (Colors.grey[400] ?? Colors.grey).withOpacity(0.6) : const Color.fromARGB(255, 48, 48, 48))
                       : textColor,
                   fontWeight: FontWeight.w500,
                 ),
@@ -477,7 +480,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
 
   Widget _buildBottomStationPanel() {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
-    final panelColor = isDark ? AppColors.darkCard : Colors.grey[300];
+    final panelColor = isDark ? AppColors.darkCard : const Color.fromARGB(255, 255, 255, 255);
     final textColor = isDark ? AppColors.darkText : Colors.black87;
     final subTextColor = isDark ? AppColors.darkText.withOpacity(0.7) : Colors.black54;
     
@@ -486,6 +489,13 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
       padding: const EdgeInsets.fromLTRB(25, 12, 25, 25),
       decoration: BoxDecoration(
         color: panelColor,
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: const Color.fromRGBO(21, 21, 21, 0.15),
+            offset: Offset(0, -ResponsiveHelper.height(context, 4)),
+            blurRadius: ResponsiveHelper.width(context, 16),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -542,7 +552,7 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
       case '광역버스':
         return Colors.red;
       case '마을버스':
-        return Colors.purple;
+        return Colors.orange;
       default:
         return Colors.teal;
     }

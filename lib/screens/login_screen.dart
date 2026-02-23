@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart';
 
 import '../models/user_info.dart';
-import '../services/user_service.dart';
 import '../services/auth_service.dart';
+import '../services/user_service.dart';
 import '../theme_colors.dart';
-import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import 'initial_setup_screen.dart';
 import '../main.dart';
@@ -30,13 +30,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('로그인 버튼 클릭됨');
       final userCredential = await AuthService.instance.signInWithGoogle();
 
       if (userCredential != null && mounted) {
         final user = userCredential.user!;
-        print('로그인 성공: ${user.email}');
-
         // Firestore에 사용자 문서가 존재하는지 확인
         final userExists = await AuthService.instance.checkUserExists(user.uid);
 
@@ -67,13 +64,11 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
       } else {
-        print('로그인 취소됨');
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
-      print('로그인 화면에서 에러 발생: $e');
       if (mounted) {
         setState(() {
           error = e.toString();
@@ -89,13 +84,10 @@ class _LoginScreenState extends State<LoginScreen> {
     });
 
     try {
-      print('Apple 로그인 버튼 클릭됨');
       final userCredential = await AuthService.instance.signInWithApple();
 
       if (userCredential != null && mounted) {
         final user = userCredential.user!;
-        print('Apple 로그인 성공: ${user.email}');
-
         final userExists = await AuthService.instance.checkUserExists(user.uid);
 
         if (userExists) {
@@ -124,13 +116,11 @@ class _LoginScreenState extends State<LoginScreen> {
           }
         }
       } else {
-        print('Apple 로그인 취소됨');
         setState(() {
           isLoading = false;
         });
       }
     } catch (e) {
-      print('Apple 로그인 화면에서 에러 발생: $e');
       if (mounted) {
         setState(() {
           error = e.toString();
@@ -139,6 +129,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
+
   Future<void> _handleGuestLogin() async {
     if (mounted) {
       Navigator.of(context).pushReplacement(
@@ -147,6 +138,154 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
       );
     }
+  }
+
+  /// Apple 가이드라인: 제목과 버튼 오른쪽 가장자리 사이 최소 8% 여백
+  Widget _buildAppleSignInButton(BuildContext context, bool isDark, bool isLoading) {
+    final buttonWidth = ResponsiveHelper.width(context, 327);
+    const minMarginPercent = 0.08;
+    final horizontalPadding = buttonWidth * minMarginPercent; // 8% 이상
+
+    final logoColor = isDark ? Colors.black : Colors.white;
+    final textColor = isDark ? Colors.black : Colors.white;
+    final backgroundColor = isDark ? Colors.white : Colors.black;
+
+    return SizedBox(
+      width: buttonWidth,
+      height: 44,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: backgroundColor,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: isLoading ? null : _handleAppleSignIn,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: SvgPicture.asset(
+                      'assets/images/apple.svg',
+                      semanticsLabel: 'Apple Logo',
+                      colorFilter: ColorFilter.mode(
+                        logoColor,
+                        BlendMode.srcIn,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Sign in with Apple',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: textColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Apple 버튼과 동일한 비율: 327x50, fontSize 16, 8% 여백
+  Widget _buildGoogleSignInButton(BuildContext context, bool isDark, bool isLoading) {
+    final buttonWidth = ResponsiveHelper.width(context, 327);
+    final horizontalPadding = buttonWidth * 0.08;
+    final textColor = isDark ? Colors.black : Colors.white;
+    final backgroundColor = isDark ? Colors.white : AppColors.primary;
+
+    return SizedBox(
+      width: buttonWidth,
+      height: 44,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: backgroundColor,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: isLoading ? null : _handleGoogleSignIn,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: SvgPicture.asset(
+                      'assets/images/google_logo.svg',
+                      semanticsLabel: 'Google Logo',
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Sign in with Google',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: textColor,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Apple 버튼과 동일한 비율: 327x50, fontSize 16, 8% 여백
+  Widget _buildGuestLoginButton(BuildContext context, bool isDark, bool isLoading) {
+    final buttonWidth = ResponsiveHelper.width(context, 327);
+    final horizontalPadding = buttonWidth * 0.08;
+    final textColor = isDark ? Colors.black : Colors.white;
+    final backgroundColor = isDark ? Colors.white : Colors.black;
+
+    return SizedBox(
+      width: buttonWidth,
+      height: 44,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          color: backgroundColor,
+        ),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: isLoading ? null : _handleGuestLogin,
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding),
+              child: Center(
+                child: Text(
+                  '로그인 없이 이용하기',
+                  style: TextStyle(
+                    fontSize: 16,
+                    color: textColor,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -235,144 +374,26 @@ class _LoginScreenState extends State<LoginScreen> {
 
                         ResponsiveHelper.verticalSpace(context, 24),
 
-                        Container(
-                          width: ResponsiveHelper.width(context, 327),
-                          height: ResponsiveHelper.height(context, 40),
-                          decoration: BoxDecoration(
-                            borderRadius: ResponsiveHelper.borderRadius(context, 8),
-                            color: isDark ? Colors.white : AppColors.primary,
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: ResponsiveHelper.borderRadius(context, 8),
-                              onTap: isLoading ? null : _handleGoogleSignIn,
-                              child: Container(
-                                padding: ResponsiveHelper.horizontalPadding(context, 16),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: ResponsiveHelper.width(context, 20),
-                                      height: ResponsiveHelper.height(context, 20),
-                                      child: SvgPicture.asset(
-                                        'assets/images/google_logo.svg',
-                                        semanticsLabel: 'Google Logo',
-                                      ),
-                                    ),
-                                    ResponsiveHelper.horizontalSpace(context, 8),
-                                    Text(
-                                      'Continue with Google',
-                                      textAlign: TextAlign.center,
-                                      style: ResponsiveHelper.textStyle(
-                                        context,
-                                        fontSize: 14,
-                                        color: isDark ? Colors.black : Colors.white,
-                                        letterSpacing: 0,
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        _buildGoogleSignInButton(context, isDark, isLoading),
                         ResponsiveHelper.verticalSpace(context, 20),
-                        Container(
-                          width: ResponsiveHelper.width(context, 327),
-                          height: ResponsiveHelper.height(context, 40),
-                          decoration: BoxDecoration(
-                            borderRadius: ResponsiveHelper.borderRadius(context, 8),
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: ResponsiveHelper.borderRadius(context, 8),
-                              onTap: isLoading ? null : _handleAppleSignIn,
-                              child: Container(
-                                padding: ResponsiveHelper.horizontalPadding(context, 16),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    SizedBox(
-                                      width: ResponsiveHelper.width(context, 20),
-                                      height: ResponsiveHelper.height(context, 20),
-                                      child: SvgPicture.asset(
-                                        'assets/images/apple.svg',
-                                        semanticsLabel: 'Apple Logo',
-                                      ),
-                                    ),
-                                    ResponsiveHelper.horizontalSpace(context, 8),
-                                    Text(
-                                      'Continue with Apple',
-                                      textAlign: TextAlign.center,
-                                      style: ResponsiveHelper.textStyle(
-                                        context,
-                                        fontSize: 14,
-                                        color: isDark ? Colors.black : Colors.white,
-                                        letterSpacing: 0,
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        _buildAppleSignInButton(context, isDark, isLoading),
                         ResponsiveHelper.verticalSpace(context, 32),
                         SizedBox(
                           width: ResponsiveHelper.width(context, 327),
                           height: ResponsiveHelper.height(context, 1),
                           child: Container(
-                            color: Colors.white.withValues(alpha: 0.3),
+                            color: isDark
+                                ? Colors.white.withValues(alpha: 0.3)
+                                : secondaryTextColor,
                           ),
                         ),
                         ResponsiveHelper.verticalSpace(context, 32),
-                        Container(
-                          width: ResponsiveHelper.width(context, 327),
-                          height: ResponsiveHelper.height(context, 40),
-                          decoration: BoxDecoration(
-                            borderRadius: ResponsiveHelper.borderRadius(context, 8),
-                            color: isDark ? Colors.white : Colors.black,
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: ResponsiveHelper.borderRadius(context, 8),
-                              onTap: isLoading ? null : _handleGuestLogin,
-                              child: Container(
-                                padding: ResponsiveHelper.horizontalPadding(context, 16),
-                                child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: [
-                                    Text(
-                                      '로그인 없이 이용하기',
-                                      textAlign: TextAlign.center,
-                                      style: ResponsiveHelper.textStyle(
-                                        context,
-                                        fontSize: 14,
-                                        color: isDark ? Colors.black : Colors.white,
-                                        letterSpacing: 0,
-                                        fontWeight: FontWeight.w500,
-                                        height: 1.5,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
+                        _buildGuestLoginButton(context, isDark, isLoading),
 
                         ResponsiveHelper.verticalSpace(context, 24),
 
                         Text(
-                          'By clicking continue, you agree to our Terms of Service and Privacy Policy',
+                          'By clicking sign in, you agree to our Terms of Service and Privacy Policy',
                           textAlign: TextAlign.center,
                           style: ResponsiveHelper.textStyle(
                             context,

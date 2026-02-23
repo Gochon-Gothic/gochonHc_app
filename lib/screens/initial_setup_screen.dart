@@ -1,25 +1,29 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:intl/intl.dart';
 import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:intl/intl.dart';
 
 import '../models/user_info.dart';
 import '../services/user_service.dart';
 import '../theme_colors.dart';
-import 'elective_setup_screen.dart';
+import '../utils/preference_manager.dart';
 import '../utils/responsive_helper.dart';
+import 'elective_setup_screen.dart';
 
 class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
   final String uid;
-  final UserInfo? existingUserInfo; // 수정 모드를 위한 기존 사용자 정보
+  final UserInfo? existingUserInfo;
+  final bool isGradeRefresh; // 3/2 학년반 갱신 플로우
 
   const InitialSetupScreen({
     super.key,
     required this.userEmail,
     required this.uid,
     this.existingUserInfo,
+    this.isGradeRefresh = false,
   });
 
   @override
@@ -114,6 +118,9 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
         number: userInfo.number,
       );
       await UserService.instance.saveUserInfo(userInfo);
+      if (widget.isGradeRefresh) {
+        await PreferenceManager.instance.setGradeRefreshDoneForYear(DateTime.now().year);
+      }
       _preloadTimetables(userInfo.grade, userInfo.classNum);
 
       // 학년에 따라 분기
@@ -195,12 +202,9 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
             final data = json.decode(thisWeekResponse.body);
             if (data['hisTimetable'] != null) {
               // 캐시는 ApiService의 인터셉터가 처리하므로 여기서는 별도로 저장하지 않음
-              print('이번주 시간표 프리로딩 완료');
             }
           }
-        } catch (e) {
-          print('이번주 시간표 프리로딩 실패: $e');
-        }
+        } catch (_) {}
 
         // 다음주 시간표 프리로딩
         try {
@@ -210,16 +214,10 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
           final nextWeekResponse = await http.get(nextWeekUrl);
           if (nextWeekResponse.statusCode == 200) {
             final data = json.decode(nextWeekResponse.body);
-            if (data['hisTimetable'] != null) {
-              print('다음주 시간표 프리로딩 완료');
-            }
+            if (data['hisTimetable'] != null) {}
           }
-        } catch (e) {
-          print('다음주 시간표 프리로딩 실패: $e');
-        }
-      } catch (e) {
-        print('시간표 프리로딩 실패: $e');
-      }
+        } catch (_) {}
+      } catch (_) {}
     });
   }
 
@@ -479,7 +477,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     final studentNum = int.tryParse(value.trim());
                     if (studentNum == null ||
                         studentNum < 1 ||
-                        studentNum > 40) {
+                        studentNum > 45) {
                       return '번호는 1부터 45까지의 숫자여야 합니다';
                     }
                     return null;
@@ -577,7 +575,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                     onPressed: _isLoading ? null : _completeSetup,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isDark ? AppColors.lightBackground : AppColors.primary,
-                      foregroundColor: AppColors.primary,
+                      foregroundColor: isDark ? AppColors.primary : Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: ResponsiveHelper.borderRadius(context, 12),
                       ),

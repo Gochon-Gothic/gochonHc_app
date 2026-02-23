@@ -7,6 +7,8 @@ import '../services/user_service.dart';
 import '../utils/responsive_helper.dart';
 import 'elective_setup_screen.dart';
 import '../models/user_info.dart';
+import '../utils/dialogs.dart';
+import '../services/elective_availability_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -161,10 +163,27 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         size: ResponsiveHelper.width(context, 16),
                         color: textColor.withValues(alpha: 0.7),
                       ),
-                      onTap: () {
+                      onTap: () async {
                         final currentUser = AuthService.instance.currentUser;
                         if (currentUser != null) {
-                          Navigator.of(context).push(
+                          showDialog(
+                            context: context,
+                            barrierDismissible: false,
+                            builder: (_) => const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          );
+                          final hasData = await ElectiveAvailabilityService.hasElectiveData(
+                            _userInfo!.grade,
+                            _userInfo!.classNum,
+                          );
+                          if (!mounted) return;
+                          Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+                          if (!hasData) {
+                            showElectiveUnavailableModal(context);
+                            return;
+                          }
+                          await Navigator.of(context).push(
                             MaterialPageRoute(
                               builder: (context) => ElectiveSetupScreen(
                                 userEmail: currentUser.email ?? '',

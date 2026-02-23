@@ -37,6 +37,8 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/images/White_Image.png
+    - assets/images/Dark_Image.png
     - assets/fonts/
     - assets/data/
   fonts:

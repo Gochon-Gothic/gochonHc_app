@@ -126,7 +126,7 @@ class PreferenceManager {
         };
       }).toList();
       return decoded;
-    } catch (e) {
+    } catch (_) {
       return [];
     }
   }
@@ -161,12 +161,79 @@ class PreferenceManager {
     return favorites.any((fav) => fav['stationId'] == stationId);
   }
 
+  static const String _showElectiveUnavailableKey = 'show_elective_unavailable';
+
+  Future<bool> getShowElectiveUnavailableMessage() async {
+    await initialize();
+    return _prefs!.getBool(_showElectiveUnavailableKey) ?? false;
+  }
+
+  Future<void> setShowElectiveUnavailableMessage(bool value) async {
+    await initialize();
+    await _prefs!.setBool(_showElectiveUnavailableKey, value);
+  }
+
+  static const String _scheduleCacheKey = 'schedule_cache';
+  static const String _scheduleCacheTimeKey = 'schedule_cache_time';
+
+  /// 학사일정 캐시: 3/2, 9/1에만 갱신 (기간 기반 갱신 없음)
+  Future<Map<String, List<String>>?> getScheduleCache() async {
+    await initialize();
+    final cacheTime = _prefs!.getInt(_scheduleCacheTimeKey);
+    final cacheData = _prefs!.getString(_scheduleCacheKey);
+    if (cacheData == null || cacheTime == null) return null;
+
+    final now = DateTime.now();
+    if ((now.month == 3 && now.day == 2) || (now.month == 9 && now.day == 1)) {
+      return null;
+    }
+    return _decodeScheduleCache(cacheData);
+  }
+
+  Map<String, List<String>>? _decodeScheduleCache(String data) {
+    try {
+      final decoded = jsonDecode(data) as Map<String, dynamic>;
+      return decoded.map((k, v) => MapEntry(k, (v as List).map((e) => e.toString()).toList()));
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setScheduleCache(Map<String, List<String>> data) async {
+    await initialize();
+    await _prefs!.setString(_scheduleCacheKey, jsonEncode(data));
+    await _prefs!.setInt(_scheduleCacheTimeKey, DateTime.now().millisecondsSinceEpoch);
+  }
+
+  static bool get isScheduleRefreshDay {
+    final now = DateTime.now();
+    return (now.month == 3 && now.day == 2) || (now.month == 9 && now.day == 1);
+  }
+
+  static const String _gradeRefreshYearKey = 'grade_refresh_year';
+
+  /// 3/2 이후 학년반 갱신 필요 여부 (매년 3/2에 초기설정 화면 진입)
+  Future<bool> needsGradeRefreshThisYear() async {
+    await initialize();
+    final now = DateTime.now();
+    if (now.month < 3 || (now.month == 3 && now.day < 2)) return false;
+    final lastYear = _prefs!.getInt(_gradeRefreshYearKey) ?? 0;
+    return lastYear < now.year;
+  }
+
+  Future<void> setGradeRefreshDoneForYear(int year) async {
+    await initialize();
+    await _prefs!.setInt(_gradeRefreshYearKey, year);
+  }
+
   Future<void> clearCache() async {
     await initialize();
     await _prefs!.remove(_timetableCacheKey);
     await _prefs!.remove(_timetableCacheTimeKey);
     await _prefs!.remove(_mealCacheKey);
     await _prefs!.remove(_mealCacheTimeKey);
+    await _prefs!.remove(_scheduleCacheKey);
+    await _prefs!.remove(_scheduleCacheTimeKey);
   }
 
   Future<SharedPreferences> getSharedPreferences() async {

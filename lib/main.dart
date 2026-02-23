@@ -1,27 +1,30 @@
+import 'dart:convert';
+
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
-import 'screens/timetable_screen.dart';
+import 'models/notice.dart';
+import 'models/user_info.dart';
 import 'screens/bus_search_screen.dart';
 import 'screens/lunch_screen.dart';
 import 'screens/my_screen.dart';
-import 'screens/schedule_screen.dart';
 import 'screens/notice_detail_screen.dart';
 import 'screens/notice_list_screen.dart';
-import 'widgets/glass_navigation_bar.dart';
-import 'models/user_info.dart';
-import 'models/notice.dart';
-import 'theme_provider.dart';
-import 'theme_colors.dart';
-import 'services/user_service.dart';
+import 'screens/schedule_screen.dart';
+import 'screens/timetable_screen.dart';
 import 'services/auth_service.dart';
 import 'services/gsheet_service.dart';
+import 'services/user_service.dart';
+import 'theme_colors.dart';
+import 'theme_provider.dart';
+import 'utils/dialogs.dart';
+import 'utils/preference_manager.dart';
 import 'utils/responsive_helper.dart';
-import 'dart:convert';
+import 'widgets/glass_navigation_bar.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -80,6 +83,19 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     _loadUserInfo();
     fetchSchedule();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _checkElectiveUnavailableMessage());
+  }
+
+  Future<void> _checkElectiveUnavailableMessage() async {
+    final shouldShow = await PreferenceManager.instance.getShowElectiveUnavailableMessage();
+    if (!mounted || !shouldShow) return;
+    await PreferenceManager.instance.setShowElectiveUnavailableMessage(false);
+    if (!mounted) return;
+    _showElectiveUnavailableModal();
+  }
+
+  void _showElectiveUnavailableModal() {
+    showElectiveUnavailableModal(context);
   }
 
   Future<void> _loadUserInfo() async {
@@ -251,34 +267,11 @@ class _MainHomeContentState extends State<_MainHomeContent> {
   List<Notice> _notices = [];
   bool _noticesLoading = true;
   String? _noticesError;
-  String? _homeImageUrl;
-  bool _isHomeImageLoading = true;
 
   @override
   void initState() {
     super.initState();
     _loadNotices();
-    _loadHomeImage();
-  }
-
-  Future<void> _loadHomeImage() async {
-    try {
-      final imageUrl = await GSheetService.getHomeImageUrl();
-      print('Fetched Image URL: $imageUrl');
-      if (mounted) {
-        setState(() {
-          _homeImageUrl = imageUrl;
-          _isHomeImageLoading = false;
-        });
-      }
-    } catch (e) {
-      print('Error fetching image URL: $e');
-      if (mounted) {
-        setState(() {
-          _isHomeImageLoading = false;
-        });
-      }
-    }
   }
 
   Future<void> _loadNotices() async {
@@ -327,15 +320,21 @@ class _MainHomeContentState extends State<_MainHomeContent> {
     ),
   );
 
-  Widget _buildEmptyState(String message) => Center(
-    child: Padding(
-      padding: ResponsiveHelper.padding(context, all: 20.0),
-      child: Text(
-        message,
-        style: ResponsiveHelper.textStyle(
-          context,
-          fontSize: 16,
-          color: Colors.grey,
+  Widget _buildEmptyState(String message) => Padding(
+    padding: ResponsiveHelper.padding(context, bottom: 13),
+    child: SizedBox(
+      height: ResponsiveHelper.height(context, 80),
+      child: Center(
+        child: Padding(
+          padding: ResponsiveHelper.padding(context, all: 20.0),
+          child: Text(
+            message,
+            style: ResponsiveHelper.textStyle(
+              context,
+              fontSize: 16,
+              color: Colors.grey,
+            ),
+          ),
         ),
       ),
     ),
@@ -592,7 +591,7 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                             decoration: BoxDecoration(
                               borderRadius: ResponsiveHelper.borderRadius(context, 10),
                               border: Border.all(
-                                color: isDark ? Colors.white : AppColors.lightBorder,
+                                color: isDark ? const Color.fromARGB(255, 48, 48, 48) : AppColors.lightBorder,
                                 width: ResponsiveHelper.width(context, 2),
                               ),
                               boxShadow: [
@@ -607,23 +606,15 @@ class _MainHomeContentState extends State<_MainHomeContent> {
                                   blurRadius: ResponsiveHelper.width(context, 16),
                                 ),
                               ],
-                              image: _homeImageUrl != null && _homeImageUrl!.isNotEmpty
-                                  ? DecorationImage(
-                                      image: NetworkImage(_homeImageUrl!),
-                                      fit: BoxFit.cover,
-                                    )
-                                  : const DecorationImage(
-                                      image: AssetImage('assets/images/example_image.png'),
-                                      fit: BoxFit.cover,
-                                    ),
+                              image: DecorationImage(
+                                image: AssetImage(
+                                  isDark
+                                      ? 'assets/images/Dark_Image.png'
+                                      : 'assets/images/White_Image.png',
+                                ),
+                                fit: BoxFit.cover,
+                              ),
                             ),
-                            child: _isHomeImageLoading
-                                ? Center(
-                                    child: CircularProgressIndicator(
-                                      color: isDark ? Colors.white : AppColors.lightText,
-                                    ),
-                                  )
-                                : null,
                           ),
                         ),
                         ResponsiveHelper.verticalSpace(context, 25),

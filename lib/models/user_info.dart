@@ -13,30 +13,6 @@ class UserInfo {
     required this.name,
   });
 
-  static UserInfo? fromEmail(String email) {
-    try {
-      final parts = email.split('@')[0].split('-');
-      if (parts.length != 2) return null;
-
-      final studentId = parts[1];
-      if (studentId.length != 5) return null;
-
-      final grade = int.parse(studentId[0]);
-      final classNum = int.parse(studentId.substring(1, 3));
-      final number = int.parse(studentId.substring(3, 5));
-
-      return UserInfo(
-        grade: grade,
-        classNum: classNum,
-        number: number,
-        email: email,
-        name: '', // 이름은 알 수 없으므로 비워둠
-      );
-    } catch (e) {
-      return null;
-    }
-  }
-
   String get welcomeMessage {
     if (name.isNotEmpty) {
       return '$grade학년 $classNum반 $number번, $name님 환영합니다';

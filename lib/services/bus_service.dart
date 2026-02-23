@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BusService {
   static const String _baseUrl = 'https://apis.data.go.kr/6410000/busstationservice';
@@ -29,9 +30,7 @@ class BusService {
       final List<dynamic> stationsData = jsonData['stations'];
       
       _cachedStations = stationsData.map((station) => BusStation.fromJson(station)).toList();
-      print('JSON에서 ${_cachedStations!.length}개의 정류장 데이터를 로드했습니다.');
-    } catch (e) {
-      print('JSON 파일 로드 에러: $e');
+    } catch (_) {
       _cachedStations = [];
     }
   }
@@ -92,7 +91,28 @@ class BusService {
 
 
 
+  static const int _busCacheExpiryMs = 60 * 1000; // 1분
+
   static Future<List<BusRoute>> getStationRoutes(String stationId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'bus_routes_$stationId';
+    final lastKey = '${cacheKey}_last';
+    final lastUpdate = prefs.getInt(lastKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if ((now - lastUpdate) < _busCacheExpiryMs) {
+      final cached = prefs.getString(cacheKey);
+      if (cached != null) {
+        try {
+          final list = json.decode(cached) as List;
+          return list
+              .map((e) => BusRoute.fromJson(Map<String, dynamic>.from(e)))
+              .where((r) => !r.routeName.contains('똑버스') && !r.routeName.contains('순환'))
+              .toList();
+        } catch (_) {}
+      }
+    }
+
     // 정확한 API 엔드포인트 사용
     final apiEndpoints = [
       'getBusStationViaRouteListv2',
@@ -101,20 +121,12 @@ class BusService {
     for (String endpoint in apiEndpoints) {
       try {
         final url = '$_baseUrl/v2/$endpoint?serviceKey=$_serviceKey&stationId=$stationId&format=json';
-        
-        print('API 호출 시도: $url');
-        print('정류소 ID: $stationId');
-        
+
         final response = await http.get(Uri.parse(url));
-        
-        print('응답 상태 코드: ${response.statusCode}');
-        
+
         if (response.statusCode == 200) {
           final data = json.decode(response.body);
-          
-          // 응답 구조 확인
-          print('응답 구조: ${data.keys}');
-          
+
           if (data['response'] != null && data['response']['msgHeader'] != null) {
             if (data['response']['msgHeader']['resultCode'] == 0) {
               final msgBody = data['response']['msgBody'];
@@ -123,68 +135,72 @@ class BusService {
                 
                 // busRouteList가 배열인지 객체인지 확인
                 if (busRouteList is List) {
-                  print('성공! 조회된 버스 노선 수: ${busRouteList.length}');
                   final routes = busRouteList
                       .map((route) => BusRoute.fromJson(Map<String, dynamic>.from(route)))
                       .where((route) {
-                    // "똑버스" 또는 "순환"이 포함된 버스명 제외
                     final routeName = route.routeName;
                     return !routeName.contains('똑버스') && !routeName.contains('순환');
                   }).toList();
-                  print('필터링 후 버스 노선 수: ${routes.length}');
+                  await prefs.setString(cacheKey, json.encode(routes.map((r) => {
+                    'routeId': r.routeId, 'routeName': r.routeName, 'routeTypeName': r.routeTypeName,
+                    'regionName': r.regionName, 'routeStartName': r.routeStartName, 'routeDestName': r.routeDestName,
+                    'routeDestId': r.routeDestId, 'routeTypeCd': r.routeTypeCd, 'staOrder': r.staOrder,
+                  }).toList()));
+                  await prefs.setInt(lastKey, now);
                   return routes;
                 } else if (busRouteList is Map) {
-                  print('성공! 단일 버스 노선 조회');
                   final route = BusRoute.fromJson(Map<String, dynamic>.from(busRouteList));
-                  // "똑버스" 또는 "순환"이 포함된 버스명 제외
                   final routeName = route.routeName;
                   if (routeName.contains('똑버스') || routeName.contains('순환')) {
-                    print('필터링된 버스: $routeName');
                     return [];
                   }
+                  await prefs.setString(cacheKey, json.encode([{
+                    'routeId': route.routeId, 'routeName': route.routeName, 'routeTypeName': route.routeTypeName,
+                    'regionName': route.regionName, 'routeStartName': route.routeStartName, 'routeDestName': route.routeDestName,
+                    'routeDestId': route.routeDestId, 'routeTypeCd': route.routeTypeCd, 'staOrder': route.staOrder,
+                  }]));
+                  await prefs.setInt(lastKey, now);
                   return [route];
                 }
               } else {
-                print('버스 노선 데이터가 없습니다.');
                 return [];
               }
-            } else {
-              print('API 오류: ${data['response']['msgHeader']['resultMessage']}');
             }
-          } else {
-            print('예상치 못한 응답 구조: ${response.body}');
           }
-        } else {
-          print('HTTP 오류: ${response.statusCode}');
-          print('응답 본문: ${response.body}');
         }
-      } catch (e) {
-        print('API 엔드포인트 $endpoint 실패: $e');
-      }
+      } catch (_) {}
     }
-    
-    print('모든 API 엔드포인트 시도 실패');
+
     return [];
   }
 
   static Future<List<BusArrival>> getBusArrivals(String stationId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final cacheKey = 'bus_arrivals_$stationId';
+    final lastKey = '${cacheKey}_last';
+    final lastUpdate = prefs.getInt(lastKey) ?? 0;
+    final now = DateTime.now().millisecondsSinceEpoch;
+
+    if ((now - lastUpdate) < _busCacheExpiryMs) {
+      final cached = prefs.getString(cacheKey);
+      if (cached != null) {
+        try {
+          final list = json.decode(cached) as List;
+          return list.map((e) => BusArrival.fromJson(Map<String, dynamic>.from(e))).toList();
+        } catch (_) {}
+      }
+    }
+
     try {
       final url = '$_arrivalBaseUrl/v2/getBusArrivalListv2?serviceKey=$_serviceKey&stationId=$stationId&format=json';
-      
-      print('버스 도착 정보 API 호출: $url');
-      print('정류소 ID: $stationId');
-      
+
       final response = await http.get(Uri.parse(url));
-      
-      print('도착 정보 응답 상태 코드: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         // 응답이 XML인지 JSON인지 확인
         final responseBody = response.body.trim();
-        print('응답 본문 (처음 100자): ${responseBody.substring(0, responseBody.length > 100 ? 100 : responseBody.length)}');
-        
+
         if (responseBody.startsWith('<')) {
-          print('XML 응답 감지됨. 현재는 XML 파싱을 지원하지 않습니다.');
           return [];
         }
         
@@ -200,53 +216,51 @@ class BusService {
               final arrivalList = msgBody['busArrivalList'];
               
               if (arrivalList is List) {
-                print('성공! 조회된 도착 정보 수: ${arrivalList.length}');
-                return arrivalList.map((arrival) => BusArrival.fromJson(Map<String, dynamic>.from(arrival))).toList();
+                final result = arrivalList.map((arrival) => BusArrival.fromJson(Map<String, dynamic>.from(arrival))).toList();
+                await prefs.setString(cacheKey, json.encode(arrivalList));
+                await prefs.setInt(lastKey, now);
+                return result;
               } else if (arrivalList is Map) {
-                print('성공! 단일 도착 정보 조회');
-                return [BusArrival.fromJson(Map<String, dynamic>.from(arrivalList))];
+                final result = [BusArrival.fromJson(Map<String, dynamic>.from(arrivalList))];
+                await prefs.setString(cacheKey, json.encode([arrivalList]));
+                await prefs.setInt(lastKey, now);
+                return result;
               }
             } else {
-              print('도착 정보 데이터가 없습니다.');
               return [];
             }
           } else {
-            print('도착 정보 API 오류: ${responseData['msgHeader']?['resultMessage'] ?? '알 수 없는 오류'}');
             return [];
           }
         } else if (data['msgHeader'] != null && data['msgHeader']['resultCode'] == 0) {
-          // 직접 msgHeader가 있는 경우
           final msgBody = data['msgBody'];
           if (msgBody != null && msgBody['busArrivalList'] != null) {
             final arrivalList = msgBody['busArrivalList'];
             
             if (arrivalList is List) {
-              print('성공! 조회된 도착 정보 수: ${arrivalList.length}');
-              return arrivalList.map((arrival) => BusArrival.fromJson(Map<String, dynamic>.from(arrival))).toList();
+              final result = arrivalList.map((arrival) => BusArrival.fromJson(Map<String, dynamic>.from(arrival))).toList();
+              await prefs.setString(cacheKey, json.encode(arrivalList));
+              await prefs.setInt(lastKey, now);
+              return result;
             } else if (arrivalList is Map) {
-              print('성공! 단일 도착 정보 조회');
-              return [BusArrival.fromJson(Map<String, dynamic>.from(arrivalList))];
+              final result = [BusArrival.fromJson(Map<String, dynamic>.from(arrivalList))];
+              await prefs.setString(cacheKey, json.encode([arrivalList]));
+              await prefs.setInt(lastKey, now);
+              return result;
             }
           } else {
-            print('도착 정보 데이터가 없습니다.');
             return [];
           }
         } else {
-          print('예상치 못한 응답 구조: $responseBody');
           return [];
         }
-        } catch (jsonError) {
-          print('JSON 파싱 오류: $jsonError');
-          print('응답 본문: $responseBody');
+        } catch (_) {
           return [];
         }
       } else {
-        print('도착 정보 HTTP 오류: ${response.statusCode}');
-        print('응답 본문: ${response.body}');
         return [];
       }
-    } catch (e) {
-      print('버스 도착 정보 조회 에러: $e');
+    } catch (_) {
       return [];
     }
     return []; // 명시적 반환
@@ -292,8 +306,7 @@ class BusService {
       }
       
       return nextStations;
-    } catch (e) {
-      print('다음역 조회 에러: $e');
+    } catch (_) {
       return [];
     }
   }
@@ -328,9 +341,7 @@ class BusService {
           }
         }
       }
-    } catch (e) {
-      print('노선별 다음역 조회 에러: $e');
-    }
+    } catch (_) {}
     
     return null;
   }
@@ -350,14 +361,9 @@ class BusService {
   static Future<List<BusRouteStation>> getRouteStations(String routeId) async {
     try {
       final url = '$_routeBaseUrl/v2/getBusRouteStationListv2?serviceKey=$_serviceKey&routeId=$routeId&format=json';
-      
-      print('버스 노선 정류장 조회 API 호출: $url');
-      print('노선 ID: $routeId');
-      
+
       final response = await http.get(Uri.parse(url));
-      
-      print('응답 상태 코드: ${response.statusCode}');
-      
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
         
@@ -368,27 +374,17 @@ class BusService {
               final stationList = msgBody['busRouteStationList'];
               
               if (stationList is List) {
-                print('성공! 조회된 정류장 수: ${stationList.length}');
                 return stationList.map((station) => BusRouteStation.fromJson(Map<String, dynamic>.from(station))).toList();
               } else if (stationList is Map) {
-                print('성공! 단일 정류장 조회');
                 return [BusRouteStation.fromJson(Map<String, dynamic>.from(stationList))];
               }
             } else {
-              print('정류장 데이터가 없습니다.');
               return [];
             }
-          } else {
-            print('API 오류: ${data['response']['msgHeader']['resultMessage']}');
           }
         }
-      } else {
-        print('HTTP 오류: ${response.statusCode}');
-        print('응답 본문: ${response.body}');
       }
-    } catch (e) {
-      print('버스 노선 정류장 조회 API 에러: $e');
-    }
+    } catch (_) {}
     
     return [];
   }
@@ -397,9 +393,7 @@ class BusService {
   static Future<BusRouteInfo?> getRouteInfo(String routeId) async {
     try {
       final url = '$_routeBaseUrl/v2/getBusRouteInfoItemv2?serviceKey=$_serviceKey&routeId=$routeId&format=json';
-      
-      print('버스 노선 정보 조회 API 호출: $url');
-      
+
       final response = await http.get(Uri.parse(url));
       
       if (response.statusCode == 200) {
@@ -410,17 +404,12 @@ class BusService {
             final msgBody = data['response']['msgBody'];
             if (msgBody != null && msgBody['busRouteInfoItem'] != null) {
               final routeInfo = msgBody['busRouteInfoItem'];
-              print('성공! 버스 노선 정보 조회');
               return BusRouteInfo.fromJson(Map<String, dynamic>.from(routeInfo));
             }
-          } else {
-            print('API 오류: ${data['response']['msgHeader']['resultMessage']}');
           }
         }
       }
-    } catch (e) {
-      print('버스 노선 정보 조회 API 에러: $e');
-    }
+    } catch (_) {}
     
     return null;
   }
