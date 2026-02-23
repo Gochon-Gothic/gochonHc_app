@@ -212,6 +212,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             ResponsiveHelper.verticalSpace(context, 12),
             
+            // 지원 및 문의
+            Card(
+              shape: RoundedRectangleBorder(
+                borderRadius: ResponsiveHelper.borderRadius(context, 12),
+              ),
+              elevation: 4,
+              color: cardColor,
+              child: ListTile(
+                leading: Icon(Icons.support_agent, color: textColor),
+                title: Text(
+                  '지원 및 문의',
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 16,
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                subtitle: Text(
+                  'gochongothic@gmail.com',
+                  style: ResponsiveHelper.textStyle(
+                    context,
+                    fontSize: 14,
+                    color: textColor.withValues(alpha: 0.6),
+                  ),
+                ),
+              ),
+            ),
+            ResponsiveHelper.verticalSpace(context, 12),
+            
             // 계정 삭제 버튼
             Card(
               shape: RoundedRectangleBorder(
