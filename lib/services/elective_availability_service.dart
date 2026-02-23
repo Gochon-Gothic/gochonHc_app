@@ -2,7 +2,15 @@ import 'package:intl/intl.dart';
 import 'api_service.dart';
 import 'gsheet_service.dart';
 
-/// 설정 화면에서 선택과목 설정 진입 전, 정보 존재 여부를 미리 확인하기 위한 서비스
+/// 선택과목 설정 화면 진입 전, 해당 학급에 선택과목 정보가 있는지 확인
+///
+/// [로직 흐름]
+/// 1. hasElectiveData(grade, classNum): 2·3학년이면 GSheet에서 elective 과목 목록 조회
+/// 2. 이번 주·다음 주 시간표 API 2회 병렬 호출
+/// 3. 응답에서 hisTimetable[1~3].row 추출 → ITRT_CNTNT(과목명), ALL_TI_YMD, PERIO 파싱
+/// 4. 과목명을 _set1~4 또는 GSheet elective와 매칭해 slotsBySet에 수집
+/// 5. 2·3학년: requiredCount 이상 슬롯이 있어야 true
+/// 6. 1학년: 기본 4세트 중 하나라도 슬롯 있으면 true
 class ElectiveAvailabilityService {
   static const _apiKey = '2cf24c119b434f93b2f916280097454a';
   static const _eduOfficeCode = 'J10';

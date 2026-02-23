@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
+
+/// 마이 탭: 사용자 정보 표시, 설정·로그아웃·계정 삭제
+///
+/// [로직 흐름]
+/// 1. _loadUserInfo: UserService.getUserInfo → userInfo 갱신
+/// 2. 설정: SettingsScreen으로 이동
+/// 3. 로그아웃: AuthService.signOut → LoginScreen
+/// 4. 계정 삭제: deleteAccount → LoginScreen
 import 'package:provider/provider.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';

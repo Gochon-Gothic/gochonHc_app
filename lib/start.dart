@@ -1,4 +1,17 @@
 import 'package:firebase_auth/firebase_auth.dart' hide UserInfo;
+
+/// 앱 진입점: Firebase 초기화 → PreferenceManager → 화면 방향 → ThemeProvider → MyApp
+///
+/// [로직 흐름]
+/// 1. main: Firebase.initializeApp → PreferenceManager.initialize → _setDeviceOrientation
+/// 2. _setDeviceOrientation: 화면 600 초과면 패드(모든 방향), 아니면 폰(세로만)
+/// 3. MyApp: ThemeProvider로 themeMode 결정, home: AuthWrapper
+/// 4. AuthWrapper: authStateChanges 스트림 → 로그인 시 _checkUserSetup
+/// 5. _checkUserSetup: Firestore users/{uid} 조회 → grade/classNum/number/name 없으면 hasSetup=false
+///    - hasSetup false → InitialSetupScreen
+///    - needsGradeRefresh → InitialSetupScreen(학년 갱신)
+///    - 2·3학년 && !hasElectiveSetup → ElectiveSetupScreen
+///    - 그 외 → MainScreen
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -18,13 +31,8 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  // PreferenceManager 초기화
   await PreferenceManager.initialize();
-
-  // 디바이스 타입 감지 및 화면 방향 설정
   _setDeviceOrientation();
-
-  // 안드로이드 시스템 UI 설정
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       systemNavigationBarColor: Colors.transparent,
@@ -35,7 +43,6 @@ void main() async {
     ),
   );
 
-  // 상태바/시스템 UI 표시
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.manual,
     overlays: SystemUiOverlay.values,
@@ -49,22 +56,16 @@ void main() async {
   );
 }
 
-// 디바이스 타입에 따른 화면 방향 설정
 void _setDeviceOrientation() {
-  // 화면 크기 정보 가져오기
   final view = WidgetsBinding.instance.platformDispatcher.views.first;
   final size = view.physicalSize;
   final pixelRatio = view.devicePixelRatio;
 
-  // 실제 화면 크기 (픽셀 단위)
   final screenWidth = size.width / pixelRatio;
   final screenHeight = size.height / pixelRatio;
-
-  // 디바이스 타입 판별 (가로/세로 비율과 크기로)
   final isTablet = screenWidth > 600 || screenHeight > 600;
 
   if (isTablet) {
-    // 패드인 경우: 모든 방향 허용
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -72,7 +73,6 @@ void _setDeviceOrientation() {
       DeviceOrientation.landscapeRight,
     ]);
   } else {
-    // 핸드폰인 경우: 세로 모드만 고정
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
       DeviceOrientation.portraitDown,
@@ -110,7 +110,6 @@ class MyApp extends StatelessWidget {
     );
   }
 }
-// 사용자 설정 상태 확인 (Firestore만 확인, 서버에 없으면 반드시 초기 설정 화면으로)
 Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
   try {
     final userData = await AuthService.instance.getUserFromFirestore(uid);

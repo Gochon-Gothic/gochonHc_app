@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+/// 버스 정류장 검색: BusService.searchStations, 즐겨찾기(PreferenceManager)
+///
+/// [로직 흐름]
+/// 1. _searchController 리스너: 입력 시 BusService.searchStations(keyword) → searchResults
+/// 2. _loadFavoriteStations: getFavoriteStations → favoriteStations, stationFavoriteStatus
+/// 3. _toggleFavoriteStation: add/removeFavoriteStation → SnackBar
+/// 4. 정류장 탭 시 BusDetailScreen으로 이동
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/bus_service.dart';

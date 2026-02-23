@@ -2,6 +2,15 @@ import 'package:dio/dio.dart';
 
 import '../utils/preference_manager.dart';
 
+/// NEIS 교육정보 API 호출 (싱글톤)
+///
+/// [로직 흐름]
+/// 1. Dio 인스턴스 생성 (baseUrl: open.neis.go.kr/hub/)
+/// 2. Interceptor: onRequest → PreferenceManager.getTimetableCache에서 path+queryParams 키로 캐시 조회 → 있으면 즉시 resolve, 없으면 next
+/// 3. Interceptor: onResponse → 200이면 캐시에 저장 후 next
+/// 4. Interceptor: onError → connectionTimeout/receiveTimeout이면 캐시 재조회 → 있으면 resolve, 없으면 next
+/// 5. getTimetable, getMeal, getSchoolSchedule: 각 API 엔드포인트 호출
+/// 6. getBatchTimetables: dateRanges 여러 개 병렬 요청 후 Future.wait
 class ApiService {
   static ApiService? _instance;
   static Dio? _dio;

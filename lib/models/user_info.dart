@@ -1,9 +1,16 @@
+/// 사용자 정보 모델 (학년, 반, 번호, 이메일, 이름)
+///
+/// [로직 흐름]
+/// 1. grade, classNum, number: 학급 식별용
+/// 2. welcomeMessage: 홈 화면 환영 문구 생성 (이름 유무에 따라 형식 분기)
+/// 3. fromJson/toJson: Firestore·로컬 저장소와 데이터 교환
+/// 4. copyWith: 일부 필드만 변경한 새 인스턴스 생성 (폼 수정 등에 사용)
 class UserInfo {
-  final int grade; // 학년
-  final int classNum; // 반
-  final int number; // 번호
-  final String email; // 이메일
-  final String name; // 사용자 이름
+  final int grade;
+  final int classNum;
+  final int number;
+  final String email;
+  final String name;
 
   UserInfo({
     required this.grade,
@@ -13,6 +20,9 @@ class UserInfo {
     required this.name,
   });
 
+  /// 환영 문구 생성
+  /// - 이름 있음: "N학년 N반 N번, OOO님 환영합니다"
+  /// - 이름 없음: "N학년 N반 N번님, 환영합니다"
   String get welcomeMessage {
     if (name.isNotEmpty) {
       return '$grade학년 $classNum반 $number번, $name님 환영합니다';
@@ -41,6 +51,7 @@ class UserInfo {
     );
   }
 
+  /// 전달된 필드만 교체한 새 UserInfo 반환 (나머지는 기존 값 유지)
   UserInfo copyWith({
     String? email,
     String? name,

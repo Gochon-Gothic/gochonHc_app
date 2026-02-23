@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+/// 설정 화면: 다크모드, 선택과목 설정, 로그아웃, 계정 삭제
+///
+/// [로직 흐름]
+/// 1. ThemeProvider.setDarkMode: 다크모드 토글
+/// 2. 선택과목: ElectiveAvailabilityService.hasElectiveData → true면 ElectiveSetupScreen, false면 showElectiveUnavailableModal
+/// 3. 로그아웃: AuthService.signOut → Navigator.popUntil(LoginScreen)
+/// 4. 계정 삭제: deleteAccount → clearUserInfo → popUntil(LoginScreen)
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../services/auth_service.dart';

@@ -1,6 +1,15 @@
 import 'dart:convert';
 
 import 'package:firebase_core/firebase_core.dart';
+
+/// 메인 화면: PageView(버스, 시간표, 홈, 급식, 마이) + 하단 GlassNavigationBar
+///
+/// [로직 흐름]
+/// 1. MainScreen: _loadUserInfo → Firestore/로컬에서 UserInfo 로드
+/// 2. fetchSchedule: NEIS 학사일정 API → 토요휴업·방학 제외, 상위 3건
+/// 3. _checkElectiveUnavailableMessage: PreferenceManager 플래그 확인 → true면 모달 표시 후 false로 저장
+/// 4. _MainHomeContent: 공지 2건(GSheet), 학사일정 3건 표시, "더보기"로 ScheduleView/NoticeListScreen 이동
+/// 5. 홈 탭 이탈 시 _homeKey 갱신으로 홈 위젯 재생성
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;

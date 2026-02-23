@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+/// 공지사항 상세: Notice의 date, title, content 표시
 import '../models/notice.dart';
 import '../theme_colors.dart';
 import '../theme_provider.dart';

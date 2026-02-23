@@ -3,6 +3,15 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// 김포시 버스 API + 로컬 정류장 데이터
+///
+/// [로직 흐름]
+/// 1. searchStations: assets/data/gimpo_bus.json 로드(최초 1회) → _searchInStations로 키워드 매칭
+///    - 이름/번호/지역 검색, 정확일치·시작일치·지하철역 우선 정렬
+/// 2. getStationRoutes: SharedPreferences 1분 캐시 → 없으면 getBusStationViaRouteListv2 API 호출
+/// 3. getStationArrivals: 1분 캐시 → getBusArrivalList API 호출
+/// 4. getRouteStations: 노선 경유 정류장 목록
+/// 5. getRouteDetail: 노선 상세 정보
 class BusService {
   static const String _baseUrl = 'https://apis.data.go.kr/6410000/busstationservice';
   static const String _arrivalBaseUrl = 'https://apis.data.go.kr/6410000/busarrivalservice';

@@ -1,5 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
+/// 노선 상세: 경유 정류장 목록, 노선 정보, 현재 정류장 스크롤
+///
+/// [로직 흐름]
+/// 1. _loadRouteData: getRouteStations, getRouteInfo 병렬
+/// 2. currentStationIndex: stations에서 currentStation.stationId와 일치하는 인덱스
+/// 3. 스크롤 시 현재 정류장으로 scrollController.animateTo
 import '../services/bus_service.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';

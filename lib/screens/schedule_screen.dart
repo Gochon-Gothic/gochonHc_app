@@ -1,6 +1,13 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+
+/// 학사일정: ScheduleView(PageView 월별, 일별 이벤트) + onExit으로 홈 복귀
+///
+/// [로직 흐름]
+/// 1. _fetchSchedules: PreferenceManager.getScheduleCache → 3/2·9/1이면 null
+/// 2. 캐시 없으면 NEIS SchoolSchedule API → 토요휴업·방학 제외 → setScheduleCache
+/// 3. PageView로 월별 스와이프, _scheduleMap['yyyy-MM-dd']로 이벤트 표시
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -52,13 +59,10 @@ class _ScheduleViewState extends State<ScheduleView> {
   @override
   void initState() {
     super.initState();
-    // 현재 날짜 확인
     final now = DateTime.now();
     _year = now.year;
     _currentMonthIndex = now.month - 1; // 0~11
     
-    // 현재 월이 1월이고 이전에 12월이었던 경우를 대비해 년도 확인
-    // (실제로는 현재 날짜 기준으로 자동 처리됨)
     _monthController = PageController(initialPage: _currentMonthIndex);
     _fetchSchedules();
   }
@@ -69,7 +73,6 @@ class _ScheduleViewState extends State<ScheduleView> {
       _error = null;
     });
     try {
-      // 캐시 확인: 3/2·9/1 갱신일, 첫시작(캐시없음), 로컬없을시 3일 후
       final cached = await PreferenceManager.instance.getScheduleCache();
       if (cached != null && cached.isNotEmpty) {
         if (mounted) {
@@ -81,7 +84,6 @@ class _ScheduleViewState extends State<ScheduleView> {
         return;
       }
 
-      // 현재 년도 데이터 가져오기
       final from = '${_year}0101';
       final to = '${_year}1231';
       final url =
