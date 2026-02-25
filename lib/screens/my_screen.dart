@@ -305,10 +305,17 @@ class _MyScreenState extends State<MyScreen> {
       // AuthWrapper가 로그인 상태 변화를 감지하여 자동으로 화면 전환을 처리
     } catch (e) {
       if (!mounted) return;
+      final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
+      final snackBgColor = isDark ? AppColors.darkCard : Colors.white;
+      final snackTextColor = isDark ? AppColors.darkText : AppColors.lightText;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('로그아웃 실패: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          content: Text(
+            '로그아웃에 실패했어요. 잠시 후 다시 시도해 주세요.',
+            style: TextStyle(color: snackTextColor),
+          ),
+          backgroundColor: snackBgColor,
         ),
       );
     }

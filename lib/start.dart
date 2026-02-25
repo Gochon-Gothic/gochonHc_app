@@ -90,9 +90,15 @@ class MyApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: ThemeData.light().copyWith(
         textTheme: ThemeData.light().textTheme.apply(fontFamily: 'SFPro'),
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Colors.black,
+        ),
       ),
       darkTheme: ThemeData.dark().copyWith(
         textTheme: ThemeData.dark().textTheme.apply(fontFamily: 'SFPro'),
+        progressIndicatorTheme: const ProgressIndicatorThemeData(
+          color: Colors.white,
+        ),
       ),
       themeMode: themeProvider.isDarkMode ? ThemeMode.dark : ThemeMode.light,
       home: const AuthWrapper(), // 로그인 상태에 따라 화면을 결정하는 위젯

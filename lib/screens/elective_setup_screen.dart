@@ -375,7 +375,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       }
     } catch (e) {
       setState(() {
-        _error = '시간표 불러오기 실패: $e';
+        _error = '시간표 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
         _isLoading = false;
       });
     }
@@ -461,7 +461,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       }
     } catch (e) {
       if (mounted) {
-        _showSnackBar('저장 실패: $e');
+        _showSnackBar('선택과목 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
       }
     } finally {
       if (mounted) {
@@ -471,7 +471,20 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   }
 
   void _showSnackBar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final snackBgColor = isDark ? AppColors.darkCard : Colors.white;
+    final snackTextColor = isDark ? AppColors.darkText : AppColors.lightText;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: snackBgColor,
+        content: Text(
+          message,
+          style: TextStyle(color: snackTextColor),
+        ),
+      ),
+    );
   }
 
   @override

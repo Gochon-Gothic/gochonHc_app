@@ -310,7 +310,7 @@ class _MainHomeContentState extends State<_MainHomeContent> {
   Widget _buildLoadingState(Color textColor) => Center(
     child: Padding(
       padding: ResponsiveHelper.padding(context, all: 20.0),
-      child: CircularProgressIndicator(color: textColor),
+      child: const CircularProgressIndicator(),
     ),
   );
 
