@@ -140,8 +140,19 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
           searchResults = [];
           isSearching = false;
         });
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final snackBgColor = isDark ? AppColors.darkCard : Colors.white;
+        final snackTextColor = isDark ? AppColors.darkText : AppColors.lightText;
+
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('검색 중 오류가 발생했습니다: $e')),
+          SnackBar(
+            backgroundColor: snackBgColor,
+            content: Text(
+              '정류장 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.',
+              style: TextStyle(color: snackTextColor),
+            ),
+          ),
         );
       }
     }

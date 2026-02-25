@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>38240410420-hacnlp2locvtnd68afnq010t5if6ohv4.apps.googleusercontent.com</string>
+	<string>38240410420-cq9aagtj4lcfjd43ct0irvq4kf0aqf8h.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.38240410420-hacnlp2locvtnd68afnq010t5if6ohv4</string>
+	<string>com.googleusercontent.apps.38240410420-cq9aagtj4lcfjd43ct0irvq4kf0aqf8h</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>38240410420-upj33b51cvuln16si4nhq3t1f3oesfug.apps.googleusercontent.com</string>
+	<string>38240410420-0ndlsqfup32ug42nrcdauj7t8e5akqco.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyAb_FxwZ_IMKdM5zk6eSOgIHzN_Gobhmmw</string>
 	<key>GCM_SENDER_ID</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>dev.gochonMobile</string>
+	<string>com.gochon.haru</string>
 	<key>PROJECT_ID</key>
 	<string>gochon-app</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:38240410420:ios:3f2d7408dda77b2e15e361</string>
+	<string>1:38240410420:ios:b93224c309a97c5015e361</string>
 </dict>
 </plist>

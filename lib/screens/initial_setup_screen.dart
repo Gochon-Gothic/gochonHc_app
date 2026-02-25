@@ -160,9 +160,20 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('설정 저장 중 오류가 발생했습니다: $e')));
+        final theme = Theme.of(context);
+        final isDark = theme.brightness == Brightness.dark;
+        final snackBgColor = isDark ? AppColors.darkCard : Colors.white;
+        final snackTextColor = isDark ? AppColors.darkText : AppColors.lightText;
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            backgroundColor: snackBgColor,
+            content: Text(
+              '설정을 저장하지 못했어요. 네트워크 상태를 확인한 후 다시 시도해 주세요.',
+              style: TextStyle(color: snackTextColor),
+            ),
+          ),
+        );
       }
     } finally {
       if (mounted) {

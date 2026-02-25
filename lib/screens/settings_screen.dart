@@ -369,10 +369,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isDeleting = false;
       });
 
+      final message = e.toString();
+      // 사용자가 재인증(Apple/Google 로그인) 화면에서 취소한 경우: 오류 메시지 표시하지 않음
+      if (message.contains('재인증이 취소되었습니다')) {
+        return;
+      }
+
+      final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
+      final isDark = themeProvider.isDarkMode;
+      final snackBgColor = isDark ? AppColors.darkCard : Colors.white;
+      final snackTextColor = isDark ? AppColors.darkText : AppColors.lightText;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('계정 삭제 실패: ${e.toString()}'),
-          backgroundColor: Colors.red,
+          content: Text(
+            '계정을 삭제하지 못했어요. 잠시 후 다시 시도해 주세요.',
+            style: TextStyle(color: snackTextColor),
+          ),
+          backgroundColor: snackBgColor,
           duration: const Duration(seconds: 3),
         ),
       );
