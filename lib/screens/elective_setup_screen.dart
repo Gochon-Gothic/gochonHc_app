@@ -126,9 +126,9 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       // 2학년, 3학년인 경우 구글 시트에서 선택과목 정보 가져오기
       Map<int, Map<String, String>>? gsheetElectiveSubjects;
       if (widget.grade == 2 || widget.grade == 3) {
-        final gradeData = widget.grade == 2 
-            ? await GSheetService.getGrade2Subjects()
-            : await GSheetService.getGrade3Subjects();
+        final gradeData = widget.grade == 2
+            ? await GSheetService.getGrade2Subjects(forceRefresh: widget.isEditMode)
+            : await GSheetService.getGrade3Subjects(forceRefresh: widget.isEditMode);
         final electiveSets = gradeData['elective'] as Map<int, Map<String, dynamic>>?;
         if (electiveSets != null) {
           gsheetElectiveSubjects = {};

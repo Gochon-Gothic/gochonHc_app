@@ -30,7 +30,7 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
   bool isSearching = false;
   List<Map<String, dynamic>> favoriteStations = [];
   Map<String, bool> stationFavoriteStatus = {};
-  
+
   @override
   void initState() {
     super.initState();
@@ -77,7 +77,7 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
   Future<void> _toggleFavoriteStation(Map<String, dynamic> station) async {
     final stationId = station['stationId'];
     final isCurrentlyFavorite = stationFavoriteStatus[stationId] ?? false;
-    
+
     if (isCurrentlyFavorite) {
       await PreferenceManager.instance.removeFavoriteStation(stationId);
       if (mounted) {
@@ -127,7 +127,7 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
           searchResults = results;
           isSearching = false;
         });
-        
+
         for (var station in results) {
           if (!stationFavoriteStatus.containsKey(station.stationId)) {
             stationFavoriteStatus[station.stationId] = await _isStationFavorite(station.stationId);
@@ -165,7 +165,7 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
         builder: (context) => BusDetailScreen(station: station),
       ),
     );
-    
+
     if (result == true) _loadFavoriteStations();
   }
 
@@ -178,14 +178,14 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
       y: 0.0,
       district: favoriteStation['district'],
     );
-    
+
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => BusDetailScreen(station: station),
       ),
     );
-    
+
     if (result == true) _loadFavoriteStations();
   }
 
@@ -272,7 +272,7 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
               ],
             ),
           ),
-          
+
           ResponsiveHelper.verticalSpace(context, 24),
           if (_searchController.text.isNotEmpty && searchResults.isNotEmpty) ...[
             Padding(
@@ -310,8 +310,8 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
                             color: Colors.transparent,
                           ),
                           child: Icon(
-                            (stationFavoriteStatus[station.stationId] ?? false) 
-                                ? Icons.star 
+                            (stationFavoriteStatus[station.stationId] ?? false)
+                                ? Icons.star
                                 : Icons.star_border,
                             color: (stationFavoriteStatus[station.stationId] ?? false)
                                 ? const Color.fromRGBO(255, 197, 30, 1)
@@ -336,8 +336,8 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
                               if (direction.isNotEmpty) {
                                 return Text(
                                   direction,
-                                  style: TextStyle(
-                                    color: const Color.fromRGBO(255, 197, 30, 1),
+                                  style: const TextStyle(
+                                    color: Color.fromRGBO(255, 197, 30, 1),
                                     fontWeight: FontWeight.w500,
                                     fontSize: 12,
                                   ),
@@ -432,8 +432,8 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
                               color: Colors.transparent,
                             ),
                             child: Icon(
-                              (stationFavoriteStatus[station['stationId']] ?? true) 
-                                  ? Icons.star 
+                              (stationFavoriteStatus[station['stationId']] ?? true)
+                                  ? Icons.star
                                   : Icons.star_border,
                               color: (stationFavoriteStatus[station['stationId']] ?? true)
                                   ? const Color.fromRGBO(255, 197, 30, 1)
@@ -502,7 +502,7 @@ class _BusSearchScreenState extends State<BusSearchScreen> with AutomaticKeepAli
               ),
             ),
           ],
-          
+
           const SizedBox(height: 32),
         ],
       ),
