@@ -32,7 +32,9 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
   bool isLoading = true;
   String? error;
   final ScrollController _scrollController = ScrollController();
+  final TextEditingController _stationSearchController = TextEditingController();
   int? currentStationIndex;
+  final Map<int, GlobalKey> _stationKeys = {};
 
   @override
   void initState() {
@@ -43,6 +45,7 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _stationSearchController.dispose();
     super.dispose();
   }
 
@@ -99,17 +102,40 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
   }
 
   void _scrollToCurrentStation() {
-    if (currentStationIndex != null && _scrollController.hasClients) {
-      final double itemHeight = 80.0; // 각 정류장 아이템의 예상 높이
-      final double screenHeight = MediaQuery.of(context).size.height;
-      final double targetOffset = (currentStationIndex! * itemHeight) - (screenHeight / 2) + (itemHeight / 2);
-      
-      _scrollController.animateTo(
-        targetOffset.clamp(0.0, _scrollController.position.maxScrollExtent),
-        duration: const Duration(milliseconds: 500),
-        curve: Curves.easeInOut,
-      );
-    }
+    if (currentStationIndex == null) return;
+    final key = _stationKeys[currentStationIndex!];
+    if (key == null) return;
+    final contextForStation = key.currentContext;
+    if (contextForStation == null) return;
+
+    Scrollable.ensureVisible(
+      contextForStation,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _scrollToStationByIndex(int index) {
+    final key = _stationKeys[index];
+    if (key == null) return;
+    final ctx = key.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.5,
+      duration: const Duration(milliseconds: 500),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  void _handleStationSearch(String keyword) {
+    final trimmed = keyword.trim();
+    if (trimmed.isEmpty) return;
+    final index = stations.indexWhere(
+      (s) => s.stationName.contains(trimmed),
+    );
+    if (index >= 0) _scrollToStationByIndex(index);
   }
 
   @override
@@ -283,6 +309,9 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
         ],
       ),
       child: TextField(
+        controller: _stationSearchController,
+        textInputAction: TextInputAction.search,
+        onSubmitted: _handleStationSearch,
         decoration: InputDecoration(
           hintText: '${widget.route.routeName}번 버스 정류장 검색',
           prefixIcon: Icon(
@@ -321,16 +350,29 @@ class _BusRouteDetailScreenState extends State<BusRouteDetailScreen> {
       child: Column(
         children: [
           for (int index = 0; index < stations.length; index++) ...[
-            _buildContinuousStationItem(stations[index], index, index == currentStationIndex, index == stations.length - 1),
+            _buildContinuousStationItem(
+              stations[index],
+              index,
+              index == currentStationIndex,
+              index == stations.length - 1,
+              _stationKeys.putIfAbsent(index, () => GlobalKey()),
+            ),
           ],
         ],
       ),
     );
   }
 
-  Widget _buildContinuousStationItem(BusRouteStation station, int index, bool isCurrentStation, bool isLast) {
+  Widget _buildContinuousStationItem(
+    BusRouteStation station,
+    int index,
+    bool isCurrentStation,
+    bool isLast,
+    GlobalKey itemKey,
+  ) {
     final isDark = Provider.of<ThemeProvider>(context).isDarkMode;
     return Column(
+      key: itemKey,
       children: [
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
