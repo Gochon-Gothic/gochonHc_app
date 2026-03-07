@@ -1,15 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-
-/// 초기 설정: 학년·반·번호·이름 입력 → Firestore 저장
-///
-/// [로직 흐름]
-/// 1. existingUserInfo 있으면 폼에 미리 채움 (학년 갱신 시)
-/// 2. _submit: 유효성 검사(학년 1~3, 반 1~11, 번호 1~45) → saveUserToFirebase
-/// 3. isGradeRefresh면 setGradeRefreshDoneForYear(now.year) 호출
-/// 4. 2·3학년이면 ElectiveSetupScreen으로, 1학년이면 MainScreen으로
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 
@@ -19,6 +12,14 @@ import '../theme_colors.dart';
 import '../utils/preference_manager.dart';
 import '../utils/responsive_helper.dart';
 import 'elective_setup_screen.dart';
+
+/// 초기 설정: 학년·반·번호·이름 입력 → Firestore 저장
+///
+/// [로직 흐름]
+/// 1. existingUserInfo 있으면 폼에 미리 채움 (학년 갱신 시)
+/// 2. _submit: 유효성 검사(학년 1~3, 반 1~11, 번호 1~45) → saveUserToFirebase
+/// 3. isGradeRefresh면 setGradeRefreshDoneForYear(now.year) 호출
+/// 4. 2·3학년이면 ElectiveSetupScreen으로, 1학년이면 MainScreen으로
 
 class InitialSetupScreen extends StatefulWidget {
   final String userEmail;
@@ -196,7 +197,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     // 비동기로 백그라운드에서 실행 (await 하지 않음)
     Future.microtask(() async {
       try {
-        const apiKey = '2cf24c119b434f93b2f916280097454a';
+        final apiKey = dotenv.env['NEIS_API_KEY_TIMETABLE'] ?? '';
         const eduOfficeCode = 'J10';
         const schoolCode = '7531375';
 
@@ -637,7 +638,3 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     );
   }
 }
-
-
-
-

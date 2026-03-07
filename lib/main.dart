@@ -11,6 +11,7 @@ import 'package:firebase_core/firebase_core.dart';
 /// 4. _MainHomeContent: 공지 2건(GSheet), 학사일정 3건 표시, "더보기"로 ScheduleView/NoticeListScreen 이동
 /// 5. 홈 탭 이탈 시 _homeKey 갱신으로 홈 위젯 재생성
 import 'package:flutter/material.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -51,7 +52,8 @@ class _MainScreenState extends State<MainScreen> {
   String? error;
   List<Map<String, dynamic>> schedules = [];
 
-  static const String _apiKey = 'c47f72f8b5a740f9956194fcd2112c27';
+  // NEIS API Key for Schedule (same as lunch/schedule screen)
+  final String _apiKey = dotenv.env['NEIS_API_KEY_LUNCH'] ?? '';
   static const String _eduOfficeCode = 'J10';
   static const String _schoolCode = '7531375';
 
@@ -706,6 +708,7 @@ class _MainHomeContentState extends State<_MainHomeContent> {
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp();
   runApp(
     ChangeNotifierProvider(

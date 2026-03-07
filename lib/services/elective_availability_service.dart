@@ -1,3 +1,4 @@
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 import 'api_service.dart';
 import 'gsheet_service.dart';
@@ -11,7 +12,7 @@ import 'gsheet_service.dart';
 /// 4. 과목명을 GSheet elective와 매칭해 slotsBySet에 수집
 /// 5. 2·3학년: requiredCount 이상 슬롯이 있어야 true
 class ElectiveAvailabilityService {
-  static const _apiKey = '2cf24c119b434f93b2f916280097454a';
+  static String get _apiKey => dotenv.env['NEIS_API_KEY_TIMETABLE'] ?? '';
   static const _eduOfficeCode = 'J10';
   static const _schoolCode = '7531375';
 
