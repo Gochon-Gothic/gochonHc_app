@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 /// 3. ApiService.getTimetable 또는 SharedPreferences 1시간 캐시
 /// 4. hisTimetable[1~3].row 파싱 → ITRT_CNTNT(과목), ALL_TI_YMD, PERIO
 /// 5. _shortenCache: 과목명 축약(지필, 자습 등)
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
@@ -478,7 +479,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     String cacheKey,
   ) async {
     try {
-      const apiKey = '2cf24c119b434f93b2f916280097454a';
+      final apiKey = dotenv.env['NEIS_API_KEY_TIMETABLE'] ?? '';
       const eduOfficeCode = 'J10';
       const schoolCode = '7531375';
 
@@ -565,7 +566,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
         'timetable_${capturedGrade}_${capturedClass}_$capturedRange';
 
     try {
-      const apiKey = '2cf24c119b434f93b2f916280097454a';
+      final apiKey = dotenv.env['NEIS_API_KEY_TIMETABLE'] ?? '';
       const eduOfficeCode = 'J10';
       const schoolCode = '7531375';
 

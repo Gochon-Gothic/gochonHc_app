@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -16,7 +17,7 @@ class BusService {
   static const String _baseUrl = 'https://apis.data.go.kr/6410000/busstationservice';
   static const String _arrivalBaseUrl = 'https://apis.data.go.kr/6410000/busarrivalservice';
   static const String _routeBaseUrl = 'https://apis.data.go.kr/6410000/busrouteservice';
-  static const String _serviceKey = '5603d0071b09c37c4dc6aeb25a4d08e409b4ddc2f2791e15bc113cddf228e540';
+  static String get _serviceKey => dotenv.env['BUS_API_SERVICE_KEY'] ?? '';
   
   static List<BusStation>? _cachedStations;
 

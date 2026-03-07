@@ -22,6 +22,7 @@ dependencies:
   cloud_firestore: ^5.4.3
   google_sign_in: ^6.2.1
   sign_in_with_apple: ^7.0.1
+  flutter_dotenv: ^6.0.0
 
 dev_dependencies:
   flutter_test:
@@ -36,6 +37,7 @@ flutter:
   uses-material-design: true
 
   assets:
+    - .env
     - assets/images/
     - assets/images/White_Image.png
     - assets/images/Dark_Image.png

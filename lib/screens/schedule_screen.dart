@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 /// 1. _fetchSchedules: PreferenceManager.getScheduleCache → 3/2·9/1이면 null
 /// 2. 캐시 없으면 NEIS SchoolSchedule API → 토요휴업·방학 제외 → setScheduleCache
 /// 3. PageView로 월별 스와이프, _scheduleMap['yyyy-MM-dd']로 이벤트 표시
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -86,8 +87,9 @@ class _ScheduleViewState extends State<ScheduleView> {
 
       final from = '${_year}0101';
       final to = '${_year}1231';
+      final apiKey = dotenv.env['NEIS_API_KEY_LUNCH'] ?? '';
       final url =
-          'https://open.neis.go.kr/hub/SchoolSchedule?KEY=44e1ba05c56746c5a09a5fbd5eead0be&Type=json&pIndex=1&pSize=365&ATPT_OFCDC_SC_CODE=J10&SD_SCHUL_CODE=7531375&AA_FROM_YMD=$from&AA_TO_YMD=$to';
+          'https://open.neis.go.kr/hub/SchoolSchedule?KEY=$apiKey&Type=json&pIndex=1&pSize=365&ATPT_OFCDC_SC_CODE=J10&SD_SCHUL_CODE=7531375&AA_FROM_YMD=$from&AA_TO_YMD=$to';
       final response = await http.get(Uri.parse(url));
       final data = json.decode(response.body);
       
@@ -110,7 +112,7 @@ class _ScheduleViewState extends State<ScheduleView> {
         final nextFrom = '${nextYear}0101';
         final nextTo = '${nextYear}0331';
         final nextUrl =
-            'https://open.neis.go.kr/hub/SchoolSchedule?KEY=44e1ba05c56746c5a09a5fbd5eead0be&Type=json&pIndex=1&pSize=365&ATPT_OFCDC_SC_CODE=J10&SD_SCHUL_CODE=7531375&AA_FROM_YMD=$nextFrom&AA_TO_YMD=$nextTo';
+            'https://open.neis.go.kr/hub/SchoolSchedule?KEY=$apiKey&Type=json&pIndex=1&pSize=365&ATPT_OFCDC_SC_CODE=J10&SD_SCHUL_CODE=7531375&AA_FROM_YMD=$nextFrom&AA_TO_YMD=$nextTo';
         try {
           final nextResponse = await http.get(Uri.parse(nextUrl));
           final nextData = json.decode(nextResponse.body);

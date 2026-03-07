@@ -57,7 +57,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '38240410420',
     projectId: 'gochon-app',
     storageBucket: 'gochon-app.firebasestorage.app',
-    iosBundleId: 'dev.gochonMobile',
+    iosBundleId: 'com.gochon.haru',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(

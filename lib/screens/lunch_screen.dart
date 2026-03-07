@@ -16,7 +16,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
 import '../utils/responsive_helper.dart';
@@ -34,7 +34,7 @@ class _LunchScreenState extends State<LunchScreen> {
   String? error;
   DateTime currentDate = DateTime.now();
 
-  static const String apiKey = '44e1ba05c56746c5a09a5fbd5eead0be';
+  final String apiKey = dotenv.env['NEIS_API_KEY_LUNCH'] ?? '';
   static const String eduOfficeCode = 'J10';
   static const String schoolCode = '7531375';
 
@@ -85,7 +85,11 @@ class _LunchScreenState extends State<LunchScreen> {
     return 'https://open.neis.go.kr/hub/mealServiceDietInfo?KEY=$apiKey&Type=json&pIndex=1&pSize=1&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&MLSV_YMD=$date';
   }
 
-  Future<void> _saveCache(SharedPreferences prefs, String cacheKey, String responseBody) async {
+  Future<void> _saveCache(
+    SharedPreferences prefs,
+    String cacheKey,
+    String responseBody,
+  ) async {
     await prefs.setString(cacheKey, responseBody);
     await prefs.setInt(
       '${cacheKey}_lastUpdate',
@@ -116,7 +120,9 @@ class _LunchScreenState extends State<LunchScreen> {
       final cacheExpiry = 259200000;
       final isFirstDayOfMonth = currentDate.day == 1;
 
-      if (!isFirstDayOfMonth && cachedData != null && (now - lastUpdate) < cacheExpiry) {
+      if (!isFirstDayOfMonth &&
+          cachedData != null &&
+          (now - lastUpdate) < cacheExpiry) {
         try {
           final data = json.decode(cachedData);
           _parseMealData(data);
@@ -145,12 +151,14 @@ class _LunchScreenState extends State<LunchScreen> {
   ) async {
     try {
       final url = _buildApiUrl(today);
-      final response = await http.get(Uri.parse(url)).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('API 호출 시간 초과');
-        },
-      );
+      final response = await http
+          .get(Uri.parse(url))
+          .timeout(
+            const Duration(seconds: 10),
+            onTimeout: () {
+              throw TimeoutException('API 호출 시간 초과');
+            },
+          );
 
       if (response.statusCode != 200) {
         _setStateSafe(() {
@@ -178,14 +186,14 @@ class _LunchScreenState extends State<LunchScreen> {
     menuName = menuName.replaceAll(RegExp(r'\([\d.]+\)'), '');
     menuName = menuName.replaceAll(RegExp(r'\*+\d*'), '');
     menuName = menuName.replaceAll(RegExp(r'\d+$'), '');
-    
+
     String cleaned = '';
     bool inParentheses = false;
     String parenthesesContent = '';
-    
+
     for (int i = 0; i < menuName.length; i++) {
       final char = menuName[i];
-      
+
       if (char == '(') {
         inParentheses = true;
         parenthesesContent = '';
@@ -206,7 +214,7 @@ class _LunchScreenState extends State<LunchScreen> {
         }
       }
     }
-    
+
     return cleaned.trim();
   }
 
@@ -218,27 +226,30 @@ class _LunchScreenState extends State<LunchScreen> {
       final allergyReg = RegExp(r'\((\d+(?:\.\d+)*)\)');
       final matches = allergyReg.allMatches(rawMenu);
       for (final match in matches) {
-        final nums = match
-            .group(1)!
-            .split('.')
-            .map((e) => int.tryParse(e))
-            .whereType<int>();
+        final nums =
+            match
+                .group(1)!
+                .split('.')
+                .map((e) => int.tryParse(e))
+                .whereType<int>();
         allergySet.addAll(nums);
       }
 
-      String cleaned = rawMenu
-          .replaceAll(RegExp(r'＃ ?\([\d.]+\)'), '')
-          .replaceAll('<br/>', '\n')
-          .replaceAll('<br />', '\n')
-          .replaceAll('＃', '')
-          .replaceAll('\n\n', '\n')
-          .trim();
+      String cleaned =
+          rawMenu
+              .replaceAll(RegExp(r'＃ ?\([\d.]+\)'), '')
+              .replaceAll('<br/>', '\n')
+              .replaceAll('<br />', '\n')
+              .replaceAll('＃', '')
+              .replaceAll('\n\n', '\n')
+              .trim();
 
       final menuLines = cleaned.split('\n');
-      final cleanMenuLines = menuLines
-          .map((line) => _cleanMenuName(line))
-          .where((line) => line.isNotEmpty)
-          .toList();
+      final cleanMenuLines =
+          menuLines
+              .map((line) => _cleanMenuName(line))
+              .where((line) => line.isNotEmpty)
+              .toList();
 
       final cleanMenu = cleanMenuLines.join('\n').trim();
 
@@ -416,7 +427,10 @@ class _LunchScreenState extends State<LunchScreen> {
                             vertical: 12,
                           ),
                           shape: RoundedRectangleBorder(
-                            borderRadius: ResponsiveHelper.borderRadius(context, 12),
+                            borderRadius: ResponsiveHelper.borderRadius(
+                              context,
+                              12,
+                            ),
                           ),
                           elevation: 2,
                           color: cardColor,

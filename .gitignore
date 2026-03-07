@@ -54,3 +54,4 @@ android/app/keystore/*.jks
 android/app/keystore/*.keystore
 *.jks
 *.keystore
+.env
