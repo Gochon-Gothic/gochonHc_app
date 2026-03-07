@@ -9,7 +9,6 @@ import 'package:flutter/material.dart';
 /// 3. 페이지네이션: _itemsPerPage 15개씩, _scrollController로 추가 로드
 /// 4. 탭 시 NoticeDetailScreen으로 이동
 import 'package:provider/provider.dart';
-import 'package:flutter/foundation.dart';
 import '../models/notice.dart';
 import '../theme_colors.dart';
 import '../theme_provider.dart';
@@ -76,9 +75,6 @@ class _NoticeListScreenState extends State<NoticeListScreen> with SingleTickerPr
         });
       }
     } catch (e) {
-      if (kDebugMode) {
-        debugPrint('Error loading notices: $e');
-      }
       if (mounted) {
         setState(() {
           _error = e.toString();

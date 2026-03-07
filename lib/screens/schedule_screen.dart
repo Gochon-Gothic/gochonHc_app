@@ -688,12 +688,12 @@ class _MonthGrid extends StatelessWidget {
     final Map<int, _ContinuousEventInfo> result = {};
     final Map<String, List<int>> eventToDays = {};
 
-    // 각 이벤트별로 날짜 리스트 수집
+    // 각 날짜의 첫 번째 이벤트만 사용 (캘린더에 하루 한 개만 표시)
     for (int d = 1; d <= DateTime(year, month + 1, 0).day; d++) {
       final dateStr = '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
       final events = scheduleMap[dateStr] ?? const <String>[];
-      for (final event in events) {
-        eventToDays.putIfAbsent(event, () => []).add(d);
+      if (events.isNotEmpty) {
+        eventToDays.putIfAbsent(events.first, () => []).add(d);
       }
     }
 
@@ -746,8 +746,8 @@ class _MonthGrid extends StatelessWidget {
     for (int d = 1; d <= daysInMonth; d++) {
       final dateStr = '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
       final events = scheduleMap[dateStr] ?? const <String>[];
-      for (final event in events) {
-        eventToDays.putIfAbsent(event, () => []).add(d);
+      if (events.isNotEmpty) {
+        eventToDays.putIfAbsent(events.first, () => []).add(d);
       }
     }
 

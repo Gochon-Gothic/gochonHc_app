@@ -18,6 +18,7 @@ import 'elective_setup_screen.dart';
 import '../models/user_info.dart';
 import '../utils/dialogs.dart';
 import '../services/elective_availability_service.dart';
+import 'initial_setup_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -159,6 +160,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
+                  // 인적사항 수정
+                  if (_userInfo != null) ...[
+                    Divider(height: ResponsiveHelper.height(context, 1)),
+                    ListTile(
+                      leading: Icon(Icons.edit, color: textColor.withValues(alpha: 0.7)),
+                      title: Text(
+                        '인적사항 수정',
+                        style: ResponsiveHelper.textStyle(
+                          context,
+                          fontSize: 16,
+                          color: textColor,
+                        ),
+                      ),
+                      trailing: Icon(
+                        Icons.arrow_forward_ios,
+                        size: ResponsiveHelper.width(context, 16),
+                        color: textColor.withValues(alpha: 0.7),
+                      ),
+                      onTap: () async {
+                        await Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => InitialSetupScreen(
+                              userEmail: currentUser.email ?? '',
+                              uid: currentUser.uid,
+                              existingUserInfo: _userInfo,
+                              isFromSettings: true,
+                            ),
+                          ),
+                        );
+                        _loadUserInfo();
+                      },
+                    ),
+                  ],
                   // 선택과목 설정 버튼 (2-3학년인 경우에만 표시)
                   if (_userInfo != null && _userInfo!.grade > 1) ...[
                     Divider(height: ResponsiveHelper.height(context, 1)),
@@ -192,7 +226,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                             _userInfo!.classNum,
                           );
                           if (!mounted) return;
-                          Navigator.of(context).pop(); // 로딩 다이얼로그 닫기
+                          Navigator.of(context).pop();
                           if (!hasData) {
                             showElectiveUnavailableModal(context);
                             return;

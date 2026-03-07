@@ -43,6 +43,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   bool _isLoading = true;
   Map<int, List<ElectiveSlot>> _slotsBySet = {}; // 세트별로 그룹화된 슬롯
   final Map<String, String> _selections = {}; // key: 'set-slotKey', value: 선택한 과목
+  final Map<String, bool> _dropdownOpen = {}; // key: 슬롯키, value: 드롭다운 열림 여부
   Map<int, String> _setNames = {}; // 세트 번호 -> 세트 이름 (구글 시트에서 가져옴)
   final Map<int, int> _setRequiredCounts = {}; // 세트 번호 -> 선택해야 하는 과목 수 (구글 시트에서 가져옴)
   final Map<int, List<String>> _sheetSubjectsBySet = {}; // 세트 번호 -> 시트에서 온 과목 리스트
@@ -51,31 +52,6 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   static const _apiKey = '2cf24c119b434f93b2f916280097454a';
   static const _eduOfficeCode = 'J10';
   static const _schoolCode = '7531375';
-  static const _set1 = [
-    '지구과학Ⅰ',
-    '물리학Ⅰ',
-    '화학Ⅰ',
-    '생명과학Ⅰ',
-    '경제',
-    '한국지리',
-    '세계사',
-    '윤리와 사상',
-    '정치와 법',
-    ];
-  static const _set2 = [
-    '음악 연주',
-    '미술 창작',
-  ];
-  static const _set3 = [
-    '일본어Ⅰ',
-    '프로그래밍',
-    '중국어Ⅰ',
-  ];
-  static const _set4 = [
-    '기하',
-    '고전 읽기',
-    '영어권 문화',
-  ];
   static const _days = ['월', '화', '수', '목', '금'];
   static const _dayOrder = {'월': 0, '화': 1, '수': 2, '목': 3, '금': 4};
 
@@ -220,9 +196,9 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             final dateStr = item['ALL_TI_YMD'] as String? ?? '';
             final periodStr = item['PERIO'] as String? ?? '';
             
-            // 2학년, 3학년인 경우 구글 시트의 과목명으로 세트 확인
+            // 구글 시트의 과목명으로 세트 확인
             int? subjectSetNum;
-            if ((widget.grade == 2 || widget.grade == 3) && gsheetElectiveSubjects != null) {
+            if (gsheetElectiveSubjects != null) {
               for (var setEntry in gsheetElectiveSubjects.entries) {
                 for (var subEntry in setEntry.value.entries) {
                   if (subject.contains(subEntry.key)) {
@@ -232,9 +208,6 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                 }
                 if (subjectSetNum != null) break;
               }
-            } else {
-              // 구글 시트 데이터가 없는 경우 기존 로직 사용 (하위 호환성)
-              subjectSetNum = _getSetNumber(subject);
             }
             
             if (subjectSetNum != setNum || dateStr.isEmpty || periodStr.isEmpty) {
@@ -246,18 +219,11 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
               final day = _days[date.weekday - 1];
               final period = int.parse(periodStr);
               
-              // 과목명 정리
-              String clean;
-              if ((widget.grade == 2 || widget.grade == 3) && gsheetElectiveSubjects != null) {
-                // 2학년, 3학년: 구글 시트의 과목명 사용
-                clean = gsheetElectiveSubjects[setNum]?.keys.firstWhere(
-                  (name) => subject.contains(name),
-                  orElse: () => subject,
-                ) ?? subject;
-              } else {
-                // 구글 시트 데이터가 없는 경우 기존 로직 사용 (하위 호환성)
-                clean = _cleanSubject(subject, setNum);
-              }
+              // 과목명 정리 (구글 시트 과목명 사용)
+              final clean = gsheetElectiveSubjects?[setNum]?.keys.firstWhere(
+                (name) => subject.contains(name),
+                orElse: () => '',
+              ) ?? '';
               
               if (clean.isEmpty) continue;
               
@@ -381,41 +347,9 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
     }
   }
 
-  // 과목이 어느 세트에 속하는지 확인
-  int? _getSetNumber(String subject) {
-    final allSets = [_set1, _set2, _set3, _set4];
-    for (int i = 0; i < allSets.length; i++) {
-      if (allSets[i].any((s) => s.isNotEmpty && subject.contains(s))) {
-        return i + 1; // 세트 번호는 1부터 시작
-      }
-    }
-    return null;
-  }
-
-  // 과목명 정리 (세트 내의 정확한 과목명 반환)
-  String _cleanSubject(String subject, int setNumber) {
-    final set = [null, _set1, _set2, _set3, _set4][setNumber];
-    if (set != null) {
-      return set.firstWhere(
-        (s) => s.isNotEmpty && subject.contains(s),
-        orElse: () => subject,
-      );
-    }
-    return subject;
-  }
-
-  // 모든 세트의 과목 리스트 가져오기
+  // 모든 세트의 과목 리스트 가져오기 (구글 시트 데이터만 사용)
   List<String> _getAllSubjectsInSet(int setNumber) {
-    // 2,3학년: 구글 시트에서 온 과목 리스트 사용
-    if ((widget.grade == 2 || widget.grade == 3) &&
-        _sheetSubjectsBySet[setNumber] != null &&
-        _sheetSubjectsBySet[setNumber]!.isNotEmpty) {
-      return _sheetSubjectsBySet[setNumber]!;
-    }
-
-    // (하위 호환용) 시트 데이터가 없을 때만 로컬 상수 사용
-    final set = [null, _set1, _set2, _set3, _set4][setNumber];
-    return set?.where((s) => s.isNotEmpty).toList() ?? [];
+    return _sheetSubjectsBySet[setNumber] ?? [];
   }
 
   Future<void> _complete() async {
@@ -500,6 +434,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
       appBar: AppBar(
         backgroundColor: bgColor,
         elevation: 0,
+        scrolledUnderElevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back_ios, color: textColor),
           onPressed: () {
@@ -603,7 +538,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                         margin: ResponsiveHelper.padding(context, bottom: 12),
                         decoration: BoxDecoration(
                           color: AppColors.primary.withValues(alpha: 0.1),
-                          borderRadius: ResponsiveHelper.borderRadius(context, 8),
+                          borderRadius: ResponsiveHelper.borderRadius(context, 4),
                         ),
                         child: Text(
                           _setNames[setNum] ?? '세트 $setNum',
@@ -679,10 +614,8 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
         color: cardColor,
         borderRadius: ResponsiveHelper.borderRadius(context, 12),
         border: Border.all(
-          color: selected != null
-              ? AppColors.primary
-              : (isDark ? AppColors.darkBorder : AppColors.lightBorder),
-          width: selected != null ? 2 : 1,
+          color: isDark ? AppColors.darkBorder : AppColors.lightBorder,
+          width: 1,
         ),
       ),
       child: Column(
@@ -727,55 +660,93 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   }
 
   Widget _buildDropdown(ElectiveSlot slot, String key, Color cardColor, Color textColor, bool isDark, {String? selectedValue}) {
-    // 항상 해당 세트의 모든 과목을 선택지로 제공
     final subjects = _getAllSubjectsInSet(slot.setNumber);
+    final isOpen = _dropdownOpen[key] ?? false;
+    final borderColor = isDark ? AppColors.darkBorder : AppColors.lightBorder;
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        dropdownMenuTheme: DropdownMenuThemeData(
-          menuStyle: MenuStyle(
-            shape: WidgetStateProperty.all<RoundedRectangleBorder>(
-              RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        GestureDetector(
+          onTap: () => setState(() => _dropdownOpen[key] = !isOpen),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
             ),
-            backgroundColor: WidgetStateProperty.all(cardColor),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    selectedValue ?? '과목을 선택하세요',
+                    style: TextStyle(
+                      color: selectedValue != null
+                          ? textColor
+                          : textColor.withValues(alpha: 0.5),
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                Icon(
+                  isOpen ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                  color: textColor.withValues(alpha: 0.6),
+                ),
+              ],
+            ),
           ),
         ),
-      ),
-      child: DropdownButtonFormField<String>(
-        decoration: InputDecoration(
-          hintText: '과목을 선택하세요',
-          hintStyle: TextStyle(color: textColor.withValues(alpha: 0.5)),
-          filled: true,
-          fillColor: cardColor,
-          border: _inputBorder(isDark),
-          enabledBorder: _inputBorder(isDark),
-          focusedBorder: _inputBorder(isDark),
-        ),
-        dropdownColor: cardColor,
-        style: TextStyle(color: textColor, fontSize: 16),
-        items: subjects.map((s) => DropdownMenuItem<String>(
-          value: s,
-          child: Text(s, style: TextStyle(color: textColor)),
-        )).toList(),
-        onChanged: (value) {
-          if (value != null) {
-            setState(() => _selections[key] = value);
-          } else {
-            setState(() => _selections.remove(key));
-          }
-        },
-      ),
-    );
-  }
-
-  OutlineInputBorder _inputBorder(bool isDark) {
-    return OutlineInputBorder(
-      borderRadius: BorderRadius.circular(8),
-      borderSide: BorderSide(
-        color: isDark ? const Color.fromARGB(255, 232, 232, 232) : const Color.fromARGB(255, 40, 40, 40),
-      ),
+        if (isOpen)
+          Container(
+            margin: const EdgeInsets.only(top: 10),
+            constraints: const BoxConstraints(maxHeight: 220),
+            decoration: BoxDecoration(
+              color: cardColor,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: borderColor),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(8),
+              child: ListView.separated(
+                shrinkWrap: true,
+                padding: EdgeInsets.zero,
+                itemCount: subjects.length,
+                separatorBuilder: (_, __) => Divider(
+                  height: 1,
+                  thickness: 0.5,
+                  color: borderColor.withValues(alpha: 1),
+                ),
+                itemBuilder: (context, index) {
+                  final s = subjects[index];
+                  final isCurrent = selectedValue == s;
+                  return InkWell(
+                    onTap: () {
+                      setState(() {
+                        _selections[key] = s;
+                        _dropdownOpen[key] = false;
+                      });
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      color: isCurrent
+                          ? AppColors.primary.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      child: Text(
+                        s,
+                        style: TextStyle(
+                          color: isCurrent ? AppColors.primary : textColor,
+                          fontSize: 15,
+                          fontWeight: isCurrent ? FontWeight.w600 : FontWeight.normal,
+                        ),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
+      ],
     );
   }
 }

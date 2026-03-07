@@ -8,17 +8,12 @@ import 'gsheet_service.dart';
 /// 1. hasElectiveData(grade, classNum): 2·3학년이면 GSheet에서 elective 과목 목록 조회
 /// 2. 이번 주·다음 주 시간표 API 2회 병렬 호출
 /// 3. 응답에서 hisTimetable[1~3].row 추출 → ITRT_CNTNT(과목명), ALL_TI_YMD, PERIO 파싱
-/// 4. 과목명을 _set1~4 또는 GSheet elective와 매칭해 slotsBySet에 수집
+/// 4. 과목명을 GSheet elective와 매칭해 slotsBySet에 수집
 /// 5. 2·3학년: requiredCount 이상 슬롯이 있어야 true
-/// 6. 1학년: 기본 4세트 중 하나라도 슬롯 있으면 true
 class ElectiveAvailabilityService {
   static const _apiKey = '2cf24c119b434f93b2f916280097454a';
   static const _eduOfficeCode = 'J10';
   static const _schoolCode = '7531375';
-  static const _set1 = ['지구과학Ⅰ', '물리학Ⅰ', '화학Ⅰ', '생명과학Ⅰ', '경제', '한국지리', '세계사', '윤리와 사상', '정치와 법'];
-  static const _set2 = ['음악 연주', '미술 창작'];
-  static const _set3 = ['일본어Ⅰ', '프로그래밍', '중국어Ⅰ'];
-  static const _set4 = ['기하', '고전 읽기', '영어권 문화'];
 
   static List<dynamic>? _extractTimetableRows(dynamic decoded) {
     if (decoded is! Map || decoded['hisTimetable'] is! List) return null;
@@ -50,42 +45,44 @@ class ElectiveAvailabilityService {
 
       if (grade == 2 || grade == 3) {
         final gradeData = grade == 2
-            ? await GSheetService.getGrade2Subjects()
-            : await GSheetService.getGrade3Subjects();
+            ? await GSheetService.getGrade2Subjects(forceRefresh: true)
+            : await GSheetService.getGrade3Subjects(forceRefresh: true);
         final electiveSets = gradeData['elective'] as Map<int, Map<String, dynamic>>?;
-        if (electiveSets != null) {
-          gsheetElectiveSubjects = {};
-          electiveSets.forEach((setNum, setData) {
-            Map<String, String>? subjects;
-            final rawSubjects = setData['subjects'];
-            if (rawSubjects is Map) {
-              subjects = {};
-              rawSubjects.forEach((key, value) {
-                if (key != null && value != null) {
-                  subjects![key.toString()] = value.toString();
-                }
-              });
-            }
-            int? requiredCount;
-            final rcVal = setData['requiredCount'];
-            if (rcVal is int) {
-              requiredCount = rcVal;
-            } else if (rcVal is String) {
-              requiredCount = int.tryParse(rcVal);
-            }
-            if (subjects != null && subjects.isNotEmpty) {
-              gsheetElectiveSubjects![setNum] = subjects;
-            }
-            if (requiredCount != null && requiredCount > 0) {
-              setRequiredCounts[setNum] = requiredCount;
-            }
-          });
-        }
+        if (electiveSets == null || electiveSets.isEmpty) return false;
+
+        gsheetElectiveSubjects = {};
+        electiveSets.forEach((setNum, setData) {
+          Map<String, String>? subjects;
+          final rawSubjects = setData['subjects'];
+          if (rawSubjects is Map) {
+            subjects = {};
+            rawSubjects.forEach((key, value) {
+              if (key != null && value != null) {
+                subjects![key.toString()] = value.toString();
+              }
+            });
+          }
+          int? requiredCount;
+          final rcVal = setData['requiredCount'];
+          if (rcVal is int) {
+            requiredCount = rcVal;
+          } else if (rcVal is String) {
+            requiredCount = int.tryParse(rcVal);
+          }
+          if (subjects != null && subjects.isNotEmpty) {
+            gsheetElectiveSubjects![setNum] = subjects;
+          }
+          if (requiredCount != null && requiredCount > 0) {
+            setRequiredCounts[setNum] = requiredCount;
+          }
+        });
       }
 
       final thisWeekStart = _getWeekStart();
       final nextWeekStart = thisWeekStart.add(const Duration(days: 7));
       final formatter = DateFormat('yyyyMMdd');
+      final thisFrom = formatter.format(thisWeekStart);
+      final nextFrom = formatter.format(nextWeekStart);
 
       final responses = await Future.wait([
         ApiService.instance.getTimetable(
@@ -94,7 +91,7 @@ class ElectiveAvailabilityService {
           schoolCode: _schoolCode,
           grade: grade.toString(),
           classNum: classNum.toString(),
-          fromDate: formatter.format(thisWeekStart),
+          fromDate: thisFrom,
           toDate: formatter.format(thisWeekStart.add(const Duration(days: 4))),
         ),
         ApiService.instance.getTimetable(
@@ -103,43 +100,29 @@ class ElectiveAvailabilityService {
           schoolCode: _schoolCode,
           grade: grade.toString(),
           classNum: classNum.toString(),
-          fromDate: formatter.format(nextWeekStart),
+          fromDate: nextFrom,
           toDate: formatter.format(nextWeekStart.add(const Duration(days: 4))),
         ),
       ]);
 
       final slotsBySet = <int, Set<String>>{};
-      final targetSetNumbers =
-          ((grade == 2 || grade == 3) &&
-                  gsheetElectiveSubjects != null &&
-                  gsheetElectiveSubjects.isNotEmpty)
-              ? (gsheetElectiveSubjects.keys.toList()..sort())
-              : [1, 2, 3, 4];
+      final targetSetNumbers = (gsheetElectiveSubjects!.keys.toList()..sort());
 
       for (final setNum in targetSetNumbers) {
         slotsBySet[setNum] = {};
       }
 
-      int? getSetNumber(String subject, Map<int, Map<String, String>>? gsheet) {
-        if ((grade == 2 || grade == 3) && gsheet != null) {
-          for (var setEntry in gsheet.entries) {
-            for (var subEntry in setEntry.value.entries) {
-              if (subject.contains(subEntry.key)) return setEntry.key;
-            }
-          }
-        }
-        final allSets = [_set1, _set2, _set3, _set4];
-        for (int i = 0; i < allSets.length; i++) {
-          if (allSets[i].any((s) => s.isNotEmpty && subject.contains(s))) {
-            return i + 1;
+      int? getSetNumber(String subject) {
+        for (var setEntry in gsheetElectiveSubjects!.entries) {
+          for (var subEntry in setEntry.value.entries) {
+            if (subject.contains(subEntry.key)) return setEntry.key;
           }
         }
         return null;
       }
 
       for (int weekIdx = 0; weekIdx < responses.length; weekIdx++) {
-        final data = responses[weekIdx].data;
-        final rows = _extractTimetableRows(data);
+        final rows = _extractTimetableRows(responses[weekIdx].data);
         if (rows == null) continue;
 
         for (var item in rows) {
@@ -147,23 +130,13 @@ class ElectiveAvailabilityService {
           final dateStr = item['ALL_TI_YMD'] as String? ?? '';
           final periodStr = item['PERIO'] as String? ?? '';
 
-          int? subjectSetNum = getSetNumber(subject, gsheetElectiveSubjects);
+          int? subjectSetNum = getSetNumber(subject);
           if (subjectSetNum == null || dateStr.isEmpty || periodStr.isEmpty) continue;
-          if (!targetSetNumbers.contains(subjectSetNum)) continue;
 
-          String clean;
-          if ((grade == 2 || grade == 3) && gsheetElectiveSubjects != null) {
-            clean = gsheetElectiveSubjects[subjectSetNum]?.keys.firstWhere(
-                  (name) => subject.contains(name),
-                  orElse: () => subject,
-                ) ?? subject;
-          } else {
-            final set = [null, _set1, _set2, _set3, _set4][subjectSetNum];
-            clean = set?.firstWhere(
-                  (s) => s.isNotEmpty && subject.contains(s),
-                  orElse: () => subject,
-                ) ?? subject;
-          }
+          final clean = gsheetElectiveSubjects[subjectSetNum]?.keys.firstWhere(
+            (name) => subject.contains(name),
+            orElse: () => '',
+          ) ?? '';
           if (clean.isEmpty) continue;
 
           slotsBySet[subjectSetNum]?.add(clean);
@@ -175,21 +148,11 @@ class ElectiveAvailabilityService {
         sortedSlotsBySet[setNum] = slotsBySet[setNum]?.toList() ?? [];
       }
 
-      if ((grade == 2 || grade == 3) &&
-          gsheetElectiveSubjects != null &&
-          gsheetElectiveSubjects.isNotEmpty) {
-        for (final setNum in targetSetNumbers) {
-          final requiredCount = setRequiredCounts[setNum];
-          final availableCount = sortedSlotsBySet[setNum]?.length ?? 0;
-          if (requiredCount == null || requiredCount <= 0) return false;
-          if (availableCount < requiredCount) return false;
-        }
-      }
-
-      if ((grade == 2 || grade == 3) &&
-          (sortedSlotsBySet.isEmpty ||
-              sortedSlotsBySet.values.every((slots) => slots.isEmpty))) {
-        return false;
+      for (final setNum in targetSetNumbers) {
+        final requiredCount = setRequiredCounts[setNum];
+        final availableCount = sortedSlotsBySet[setNum]?.length ?? 0;
+        if (requiredCount == null || requiredCount <= 0) return false;
+        if (availableCount < requiredCount) return false;
       }
 
       return true;

@@ -193,7 +193,7 @@ class PreferenceManager {
   static const String _scheduleCacheKey = 'schedule_cache';
   static const String _scheduleCacheTimeKey = 'schedule_cache_time';
 
-  /// 학사일정 캐시: 3/2, 9/1이면 무조건 null 반환 → API 재요청 유도
+  /// 학사일정 캐시: 7일 경과 또는 3/2·9/1이면 null 반환 → API 재요청 유도
   Future<Map<String, List<String>>?> getScheduleCache() async {
     await initialize();
     final cacheTime = _prefs!.getInt(_scheduleCacheTimeKey);
@@ -204,6 +204,9 @@ class PreferenceManager {
     if ((now.month == 3 && now.day == 2) || (now.month == 9 && now.day == 1)) {
       return null;
     }
+    const weekMs = 7 * 24 * 60 * 60 * 1000;
+    if (now.millisecondsSinceEpoch - cacheTime > weekMs) return null;
+
     return _decodeScheduleCache(cacheData);
   }
 

@@ -25,6 +25,7 @@ class InitialSetupScreen extends StatefulWidget {
   final String uid;
   final UserInfo? existingUserInfo;
   final bool isGradeRefresh;
+  final bool isFromSettings;
 
   const InitialSetupScreen({
     super.key,
@@ -32,6 +33,7 @@ class InitialSetupScreen extends StatefulWidget {
     required this.uid,
     this.existingUserInfo,
     this.isGradeRefresh = false,
+    this.isFromSettings = false,
   });
 
   @override
@@ -131,6 +133,12 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       }
       _preloadTimetables(userInfo.grade, userInfo.classNum);
 
+      // 설정 화면에서 진입한 경우: 저장 후 바로 돌아가기
+      if (widget.isFromSettings) {
+        if (mounted) Navigator.of(context).pop();
+        return;
+      }
+
       // 학년에 따라 분기
       if (userInfo.grade == 1) {
         // 1학년: 바로 메인 화면으로 또는 설정 화면으로
@@ -151,8 +159,8 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 uid: widget.uid,
                 grade: userInfo.grade,
                 classNum: userInfo.classNum,
-                isEditMode: widget.existingUserInfo != null, // 수정 모드 플래그 전달
-                isFromLogin: widget.existingUserInfo == null, // 초기 로그인인 경우
+                isEditMode: widget.existingUserInfo != null,
+                isFromLogin: widget.existingUserInfo == null,
               ),
             ),
           );

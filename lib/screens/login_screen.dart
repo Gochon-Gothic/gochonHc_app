@@ -29,7 +29,14 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
   String? error;
-
+  bool _hasCompleteSetup(Map<String, dynamic>? userData) {
+    if (userData == null) return false;
+    final grade = userData['grade'] as int?;
+    final classNum = userData['classNum'] as int?;
+    final number = userData['number'] as int?;
+    final name = userData['name'] as String? ?? '';
+    return grade != null && classNum != null && number != null && name.isNotEmpty;
+  }
 
   Future<void> _handleGoogleSignIn() async {
     setState(() {
@@ -42,16 +49,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (userCredential != null && mounted) {
         final user = userCredential.user!;
-        // Firestore에 사용자 문서가 존재하는지 확인
-        final userExists = await AuthService.instance.checkUserExists(user.uid);
+        final userData = await AuthService.instance.getUserFromFirestore(user.uid);
 
-        if (userExists) {
-          // Firestore에서 최신 사용자 정보를 가져와 로컬에 저장
-          final userData = await AuthService.instance.getUserFromFirestore(user.uid);
-          if (userData != null) {
-            final userInfo = UserInfo.fromJson(userData);
-            await UserService.instance.saveUserInfo(userInfo);
-          }
+        if (_hasCompleteSetup(userData)) {
+          final userInfo = UserInfo.fromJson(userData!);
+          await UserService.instance.saveUserInfo(userInfo);
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
@@ -85,6 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
       }
     }
   }
+
   Future<void> _handleAppleSignIn() async {
     setState(() {
       isLoading = true;
@@ -96,14 +99,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (userCredential != null && mounted) {
         final user = userCredential.user!;
-        final userExists = await AuthService.instance.checkUserExists(user.uid);
+        final userData = await AuthService.instance.getUserFromFirestore(user.uid);
 
-        if (userExists) {
-          final userData = await AuthService.instance.getUserFromFirestore(user.uid);
-          if (userData != null) {
-            final userInfo = UserInfo.fromJson(userData);
-            await UserService.instance.saveUserInfo(userInfo);
-          }
+        if (_hasCompleteSetup(userData)) {
+          final userInfo = UserInfo.fromJson(userData!);
+          await UserService.instance.saveUserInfo(userInfo);
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
