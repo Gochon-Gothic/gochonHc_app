@@ -150,11 +150,11 @@ class UserService {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(uid)
-          .update({
+          .set({
         'electiveSubjects': electiveSubjects,
         'updatedAt': FieldValue.serverTimestamp(),
         'hasElectiveSetup': true,
-      });
+      }, SetOptions(merge: true));
     } catch (e) {
       throw Exception('선택과목 저장 실패: $e');
     }

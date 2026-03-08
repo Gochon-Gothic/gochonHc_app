@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
@@ -55,11 +57,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final userInfo = UserInfo.fromJson(userData!);
           await UserService.instance.saveUserInfo(userInfo);
           if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const MainScreen(),
-              ),
-            );
+            Navigator.of(context).pushReplacementNamed('/main');
           }
         } else {
           if (mounted) {
@@ -73,15 +71,16 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
         }
-      } else {
-        setState(() {
-          isLoading = false;
-        });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           error = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
           isLoading = false;
         });
       }
@@ -105,11 +104,7 @@ class _LoginScreenState extends State<LoginScreen> {
           final userInfo = UserInfo.fromJson(userData!);
           await UserService.instance.saveUserInfo(userInfo);
           if (mounted) {
-            Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (context) => const MainScreen(),
-              ),
-            );
+            Navigator.of(context).pushReplacementNamed('/main');
           }
         } else {
           if (mounted) {
@@ -123,15 +118,16 @@ class _LoginScreenState extends State<LoginScreen> {
             );
           }
         }
-      } else {
-        setState(() {
-          isLoading = false;
-        });
       }
     } catch (e) {
       if (mounted) {
         setState(() {
           error = e.toString();
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
           isLoading = false;
         });
       }
@@ -383,8 +379,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         ResponsiveHelper.verticalSpace(context, 24),
 
                         _buildGoogleSignInButton(context, isDark, isLoading),
-                        ResponsiveHelper.verticalSpace(context, 20),
-                        _buildAppleSignInButton(context, isDark, isLoading),
+                        if (!Platform.isAndroid) ...[
+                          ResponsiveHelper.verticalSpace(context, 20),
+                          _buildAppleSignInButton(context, isDark, isLoading),
+                        ],
                         ResponsiveHelper.verticalSpace(context, 32),
                         SizedBox(
                           width: ResponsiveHelper.width(context, 327),

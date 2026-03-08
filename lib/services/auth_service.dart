@@ -31,6 +31,7 @@ class AuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email', 'profile'],
+    // Firebase 콘솔의 웹 클라이언트 ID를 사용해야 함
     serverClientId: '38240410420-3hsiq53tf3etuajnptqbba2gfkt9rvh9.apps.googleusercontent.com',
   );
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -281,7 +282,11 @@ class AuthService {
       await user.delete();
       
       // 6. Firebase Auth 로그아웃
-      await _auth.signOut();
+      try {
+        await _auth.signOut();
+      } catch (_) {
+        // 계정 삭제 후에는 이미 세션이 무효화되어 로그아웃이 실패할 수 있음 - 무시
+      }
     } catch (e) {
       if (e is FirebaseAuthException) {
         if (e.code == 'requires-recent-login') {

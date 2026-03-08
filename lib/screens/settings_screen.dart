@@ -375,43 +375,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _isDeleting = true;
     });
 
+    bool isSuccess = false;
     try {
       final user = AuthService.instance.currentUser;
       if (user == null) {
         throw Exception('로그인된 사용자가 없습니다.');
       }
 
-      // Firestore에서 사용자 데이터 삭제
+      // 1. AuthService.deleteAccount 내부에서 모든 삭제 과정을 수행함
       await AuthService.instance.deleteAccount();
-      
-      // 로컬 사용자 정보 삭제
-      await UserService.instance.clearUserInfo();
-
-      if (!mounted) return;
-      
-      // 모든 화면을 제거하고 로그인 화면으로 이동
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        '/login',
-        (route) => false,
-      );
-      
-      // 성공 메시지 표시
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('계정이 삭제되었습니다.'),
-          duration: Duration(seconds: 2),
-        ),
-      );
+      isSuccess = true;
     } catch (e) {
       if (!mounted) return;
       
-      setState(() {
-        _isDeleting = false;
-      });
-
       final message = e.toString();
-      // 사용자가 재인증(Apple/Google 로그인) 화면에서 취소한 경우: 오류 메시지 표시하지 않음
       if (message.contains('재인증이 취소되었습니다')) {
+        setState(() => _isDeleting = false);
         return;
       }
 
@@ -430,6 +409,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
           duration: const Duration(seconds: 3),
         ),
       );
+      setState(() => _isDeleting = false);
+    }
+
+    // 삭제 성공 시 앱 리셋
+    if (isSuccess && mounted) {
+      try {
+        // 성공 메시지 표시
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('계정이 삭제되었습니다.'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+
+        // 앱의 루트(/)로 강제 이동하여 AuthWrapper가 LoginScreen을 보여주게 함
+        Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+      } catch (_) {
+        // 이미 AuthWrapper에 의해 언마운트된 경우 무시
+      }
     }
   }
 }
