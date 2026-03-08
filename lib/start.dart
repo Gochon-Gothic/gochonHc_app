@@ -60,9 +60,6 @@ void _setDeviceOrientation() {
   if (isTablet) {
     SystemChrome.setPreferredOrientations([
       DeviceOrientation.portraitUp,
-      DeviceOrientation.portraitDown,
-      DeviceOrientation.landscapeLeft,
-      DeviceOrientation.landscapeRight,
     ]);
   } else {
     SystemChrome.setPreferredOrientations([
