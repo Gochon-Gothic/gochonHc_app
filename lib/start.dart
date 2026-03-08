@@ -140,11 +140,21 @@ Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
     
     // 설정 완료 - Firestore 데이터로 로컬 동기화
     final userInfo = UserInfo.fromJson(userData);
-    final hasElectiveSetup = userData['hasElectiveSetup'] == true;
-    
+
+    // hasElectiveSetup 필드가 없는 구버전 계정: electiveSubjects가 있으면 완료로 간주
+    final electiveSubjects = userData['electiveSubjects'];
+    final hasElectiveSetup = userData['hasElectiveSetup'] == true ||
+        (electiveSubjects is Map && electiveSubjects.isNotEmpty);
+
     // 로컬에 저장 (Firestore가 source of truth)
     await UserService.instance.saveUserInfo(userInfo);
-    
+
+    // 재설치 직후(SharedPreferences 초기화)는 학년 갱신 요청을 생략
+    // lastYear == 0 이면 이번 연도로 기록해두어 불필요한 리다이렉트 방지
+    if (await PreferenceManager.instance.isFreshInstall()) {
+      await PreferenceManager.instance.setGradeRefreshDoneForYear(DateTime.now().year);
+    }
+
     final needsGradeRefresh = await PreferenceManager.instance.needsGradeRefreshThisYear();
     return {
       'hasSetup': true,

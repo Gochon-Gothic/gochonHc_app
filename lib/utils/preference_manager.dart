@@ -235,12 +235,18 @@ class PreferenceManager {
 
   /// 3/2 이후, 올해 학년반 갱신을 아직 안 했으면 true
   /// - lastYear < now.year 이면 갱신 필요
+  /// - lastYear == 0 이면 재설치/초기화 상태 (isFreshInstall = true)
   Future<bool> needsGradeRefreshThisYear() async {
     await initialize();
     final now = DateTime.now();
     if (now.month < 3 || (now.month == 3 && now.day < 2)) return false;
     final lastYear = _prefs!.getInt(_gradeRefreshYearKey) ?? 0;
     return lastYear < now.year;
+  }
+
+  Future<bool> isFreshInstall() async {
+    await initialize();
+    return (_prefs!.getInt(_gradeRefreshYearKey) ?? 0) == 0;
   }
 
   Future<void> setGradeRefreshDoneForYear(int year) async {

@@ -344,21 +344,6 @@ class _BusDetailScreenState extends State<BusDetailScreen> {
                   ),
                 ),
                 const Spacer(),
-                GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('${route.routeName}번 버스 알림 설정 (구현 예정)'),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  },
-                  child: Icon(
-                    Icons.notifications_outlined,
-                    color: isDark ? Colors.grey[400] : Colors.grey,
-                    size: 20,
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 5),

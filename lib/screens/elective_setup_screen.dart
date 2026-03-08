@@ -435,18 +435,13 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
         backgroundColor: bgColor,
         elevation: 0,
         scrolledUnderElevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios, color: textColor),
-          onPressed: () {
-            if (widget.isFromLogin) {
-              // 로그인에서 온 경우: 로그인 화면으로
-              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
-            } else {
-              // 설정에서 온 경우: 이전 화면으로
-              Navigator.of(context).pop();
-            }
-          },
-        ),
+        automaticallyImplyLeading: false,
+        leading: widget.isFromLogin
+            ? null
+            : IconButton(
+                icon: Icon(Icons.arrow_back_ios, color: textColor),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
         systemOverlayStyle: SystemUiOverlayStyle(
           statusBarColor: Colors.transparent,
           statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
