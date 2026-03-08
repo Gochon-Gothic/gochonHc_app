@@ -537,7 +537,9 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                         ),
                         margin: ResponsiveHelper.padding(context, bottom: 12),
                         decoration: BoxDecoration(
-                          color: AppColors.primary.withValues(alpha: 0.1),
+                          color: isDark
+                              ? Colors.white
+                              : AppColors.primary.withValues(alpha: 0.1),
                           borderRadius: ResponsiveHelper.borderRadius(context, 4),
                         ),
                         child: Text(
@@ -545,7 +547,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
                           style: ResponsiveHelper.textStyle(
                             context,
                             fontSize: 16,
-                            color: AppColors.primary,
+                            color: isDark ? Colors.black : AppColors.primary,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
