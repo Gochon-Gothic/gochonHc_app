@@ -381,18 +381,10 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
 
     setState(() => _isLoading = true);
 
+    bool isSuccess = false;
     try {
       await UserService.instance.saveElectiveSubjects(widget.uid, _selections);
-      if (mounted) {
-        if (widget.isEditMode) {
-          Navigator.of(context).popUntil((route) => route.isFirst);
-          if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/main');
-          }
-        } else {
-          Navigator.of(context).pushReplacementNamed('/main');
-        }
-      }
+      isSuccess = true;
     } catch (e) {
       if (mounted) {
         _showSnackBar('선택과목 정보를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.');
@@ -400,6 +392,29 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
+      }
+    }
+
+    // 저장이 성공한 경우에만 화면 이동
+    if (isSuccess && mounted) {
+      try {
+        if (widget.isEditMode) {
+          // 수정 모드: 설정 화면에서 온 경우
+          Navigator.of(context).popUntil((route) => route.isFirst);
+          if (mounted) {
+            // 루트(/)로 이동하여 AuthWrapper가 상태를 다시 확인하게 함
+            Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+          }
+        } else if (widget.isFromLogin) {
+          // 회원가입 초기 설정 중: 
+          // Navigator 스택을 완전히 비우고 루트(/)로 이동하여 
+          // AuthWrapper가 hasElectiveSetup=true 상태를 감지하고 MainScreen으로 전환하게 함
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        } else {
+          Navigator.of(context).pushNamedAndRemoveUntil('/', (route) => false);
+        }
+      } catch (_) {
+        // 내비게이션 에러는 무시
       }
     }
   }
