@@ -70,7 +70,7 @@ class _MyScreenState extends State<MyScreen> {
           Text(
             AuthService.instance.currentUser == null
                 ? '게스트'
-                : (userInfo?.name ?? '사용자'),
+                : (userInfo?.nickname ?? '사용자'),
             style: ResponsiveHelper.textStyle(
               context,
               fontSize: 20,

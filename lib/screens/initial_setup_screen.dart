@@ -13,7 +13,7 @@ import '../utils/preference_manager.dart';
 import '../utils/responsive_helper.dart';
 import 'elective_setup_screen.dart';
 
-/// 초기 설정: 학년·반·번호·이름 입력 → Firestore 저장
+/// 초기 설정: 학년·반·번호·닉네임 입력 → Firestore 저장
 ///
 /// [로직 흐름]
 /// 1. existingUserInfo 있으면 폼에 미리 채움 (학년 갱신 시)
@@ -44,25 +44,25 @@ class InitialSetupScreen extends StatefulWidget {
 class _InitialSetupScreenState extends State<InitialSetupScreen> {
   final _formKey = GlobalKey<FormState>();
   final _scrollController = ScrollController();
-  final _nameController = TextEditingController();
+  final _nicknameController = TextEditingController();
   final _gradeController = TextEditingController();
   final _classController = TextEditingController();
   final _studentNumberController = TextEditingController();
   final _gradeFocusNode = FocusNode();
   final _classFocusNode = FocusNode();
   final _studentNumberFocusNode = FocusNode();
-  final _nameFocusNode = FocusNode();
+  final _nicknameFocusNode = FocusNode();
   final _gradeKey = GlobalKey();
   final _classKey = GlobalKey();
   final _numberKey = GlobalKey();
-  final _nameKey = GlobalKey();
+  final _nicknameKey = GlobalKey();
   bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     if (widget.existingUserInfo != null) {
-      _nameController.text = widget.existingUserInfo!.name;
+      _nicknameController.text = widget.existingUserInfo!.nickname;
       _gradeController.text = widget.existingUserInfo!.grade.toString();
       _classController.text = widget.existingUserInfo!.classNum.toString();
       _studentNumberController.text = widget.existingUserInfo!.number.toString();
@@ -72,7 +72,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     _gradeFocusNode.addListener(() => _scrollToField(_gradeKey));
     _classFocusNode.addListener(() => _scrollToField(_classKey));
     _studentNumberFocusNode.addListener(() => _scrollToField(_numberKey));
-    _nameFocusNode.addListener(() => _scrollToField(_nameKey));
+    _nicknameFocusNode.addListener(() => _scrollToField(_nicknameKey));
   }
   
   void _scrollToField(GlobalKey key) {
@@ -91,14 +91,14 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _nameController.dispose();
+    _nicknameController.dispose();
     _gradeController.dispose();
     _classController.dispose();
     _studentNumberController.dispose();
     _gradeFocusNode.dispose();
     _classFocusNode.dispose();
     _studentNumberFocusNode.dispose();
-    _nameFocusNode.dispose();
+    _nicknameFocusNode.dispose();
     super.dispose();
   }
 
@@ -113,7 +113,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       // 1. UserInfo 객체 생성
       final userInfo = UserInfo(
         email: widget.userEmail,
-        name: _nameController.text.trim(),
+        nickname: _nicknameController.text.trim(),
         grade: int.parse(_gradeController.text.trim()),
         classNum: int.parse(_classController.text.trim()),
         number: int.parse(_studentNumberController.text.trim()),
@@ -123,7 +123,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
       await UserService.instance.saveUserToFirebase(
         uid: widget.uid,
         email: userInfo.email,
-        name: userInfo.name,
+        nickname: userInfo.nickname,
         grade: userInfo.grade,
         classNum: userInfo.classNum,
         number: userInfo.number,
@@ -455,7 +455,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   textInputAction: TextInputAction.next,
                   inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   onFieldSubmitted: (_) {
-                    FocusScope.of(context).requestFocus(_nameFocusNode);
+                    FocusScope.of(context).requestFocus(_nicknameFocusNode);
                   },
                   decoration: InputDecoration(
                     hintText:
@@ -513,9 +513,9 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 ),
                 ResponsiveHelper.verticalSpace(context, 24),
 
-                // 이름 입력
+                // 닉네임 입력
                 Text(
-                  '이름',
+                  '닉네임',
                   style: ResponsiveHelper.textStyle(
                     context,
                     fontSize: 19,
@@ -525,16 +525,16 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                 ),
                 ResponsiveHelper.verticalSpace(context, 12),
                 TextFormField(
-                  key: _nameKey,
-                  controller: _nameController,
-                  focusNode: _nameFocusNode,
+                  key: _nicknameKey,
+                  controller: _nicknameController,
+                  focusNode: _nicknameFocusNode,
                   textInputAction: TextInputAction.done,
                   onFieldSubmitted: (_) {
-                    _nameFocusNode.unfocus();
+                    _nicknameFocusNode.unfocus();
                     _completeSetup();
                   },
                   decoration: InputDecoration(
-                    hintText: '이름을 입력하세요',
+                    hintText: '닉네임을 입력하세요',
                     hintStyle: ResponsiveHelper.textStyle(
                       context,
                       fontSize: 16,
@@ -575,17 +575,17 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
                   ),
                   validator: (value) {
                     if (value == null || value.trim().isEmpty) {
-                      return '이름을 입력해주세요';
+                      return '닉네임을 입력해주세요';
                     }
                     if (value.trim().length < 2) {
-                      return '이름은 2글자 이상이어야 합니다';
+                      return '닉네임은 2글자 이상이어야 합니다';
                     }
                     return null;
                   },
                 ),
                 ResponsiveHelper.verticalSpace(context, 8),
                 Text(
-                  '*부적절한 이름을 사용할 경우, 제제가 부과될 수 있습니다*',
+                  '*부적절한 닉네임을 사용할 경우, 제제가 부과될 수 있습니다*',
                   style: ResponsiveHelper.textStyle(
                     context,
                     fontSize: 12,

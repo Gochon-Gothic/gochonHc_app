@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 ///    - meal_cache: 급식 캐시 (3일 유효, lunch_screen에서 별도 관리)
 ///    - favorite_stations: 즐겨찾기 버스 정류장 (stationId:::name:::num:::district 형식, ||| 구분)
 ///    - show_elective_unavailable: 선택과목 미사용 모달 표시 여부
+///    - elective_classroom_cache: 선택과목 이동반 캐시 (30일 유효)
 ///    - schedule_cache: 학사일정 캐시 (3/2, 9/1에는 무조건 null 반환 → API 재요청)
 ///    - grade_refresh_year: 학년반 갱신 완료 연도 (3/2 이후 needsGradeRefreshThisYear 판단)
 /// 3. clearCache(): 모든 캐시 키 삭제
@@ -190,6 +191,39 @@ class PreferenceManager {
     await _prefs!.setBool(_showElectiveUnavailableKey, value);
   }
 
+  static const String _electiveClassroomCacheKey = 'elective_classroom_cache';
+  static const String _electiveClassroomCacheTimeKey =
+      'elective_classroom_cache_time';
+
+  Future<Map<String, String>?> getElectiveClassroomCache() async {
+    await initialize();
+    final cacheTime = _prefs!.getInt(_electiveClassroomCacheTimeKey);
+    final cacheData = _prefs!.getString(_electiveClassroomCacheKey);
+    if (cacheTime == null || cacheData == null) return null;
+
+    const monthMs = 30 * 24 * 60 * 60 * 1000;
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (now - cacheTime > monthMs) return null;
+
+    try {
+      final decoded = jsonDecode(cacheData) as Map<String, dynamic>;
+      return decoded.map(
+        (key, value) => MapEntry(key, value?.toString() ?? ''),
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setElectiveClassroomCache(Map<String, String> data) async {
+    await initialize();
+    await _prefs!.setString(_electiveClassroomCacheKey, jsonEncode(data));
+    await _prefs!.setInt(
+      _electiveClassroomCacheTimeKey,
+      DateTime.now().millisecondsSinceEpoch,
+    );
+  }
+
   static const String _scheduleCacheKey = 'schedule_cache';
   static const String _scheduleCacheTimeKey = 'schedule_cache_time';
 
@@ -260,6 +294,8 @@ class PreferenceManager {
     await _prefs!.remove(_timetableCacheTimeKey);
     await _prefs!.remove(_mealCacheKey);
     await _prefs!.remove(_mealCacheTimeKey);
+    await _prefs!.remove(_electiveClassroomCacheKey);
+    await _prefs!.remove(_electiveClassroomCacheTimeKey);
     await _prefs!.remove(_scheduleCacheKey);
     await _prefs!.remove(_scheduleCacheTimeKey);
   }

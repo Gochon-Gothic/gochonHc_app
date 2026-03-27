@@ -7,7 +7,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 ///
 /// [로직 흐름]
 /// 1. saveUserInfo/getUserInfo: SharedPreferences user_info 키에 JSON 저장/조회
-///    - getUserInfo: grade, classNum, number, name 중 하나라도 없으면 clearUserInfo 후 null
+///    - getUserInfo: grade, classNum, number, nickname 중 하나라도 없으면 clearUserInfo 후 null
 /// 2. saveUserToFirebase: Firestore users/{uid}에 merge: true로 저장
 /// 3. setElectiveSetupSkipped: electiveSubjects={}, hasElectiveSetup=true로 설정
 /// 4. saveElectiveSubjects: electiveSubjects, hasElectiveSetup 업데이트
@@ -36,13 +36,14 @@ class UserService {
     if (userInfoJson != null) {
       try {
         final json = jsonDecode(userInfoJson) as Map<String, dynamic>;
-        final name = json['name'] as String? ?? '';
+        final nickname =
+            (json['nickname'] as String?) ?? (json['name'] as String?) ?? '';
         final grade = json['grade'] as int?;
         final classNum = json['classNum'] as int?;
         final number = json['number'] as int?;
         
-        // 필수 필드가 모두 있고 name이 비어있지 않아야 함
-        if (grade == null || classNum == null || number == null || name.isEmpty) {
+        // 필수 필드가 모두 있고 nickname이 비어있지 않아야 함
+        if (grade == null || classNum == null || number == null || nickname.isEmpty) {
           await clearUserInfo();
           return null;
         }
@@ -75,10 +76,10 @@ class UserService {
     await prefs.remove(_isGuestKey);
   }
 
-  Future<void> updateUserName(String name) async {
+  Future<void> updateUserNickname(String nickname) async {
     final userInfo = await getUserInfo();
     if (userInfo != null) {
-      final updatedUserInfo = userInfo.copyWith(name: name);
+      final updatedUserInfo = userInfo.copyWith(nickname: nickname);
       await saveUserInfo(updatedUserInfo);
     }
   }
@@ -87,7 +88,7 @@ class UserService {
   Future<void> saveUserToFirebase({
     required String uid,
     required String email,
-    required String name,
+    required String nickname,
     required int grade,
     required int classNum,
     required int number,
@@ -99,7 +100,8 @@ class UserService {
       final userData = {
         'uid': uid,
         'email': email,
-        'name': name,
+        'nickname': nickname,
+        'name': FieldValue.delete(),
         'grade': grade,
         'classNum': classNum,
         'number': number,

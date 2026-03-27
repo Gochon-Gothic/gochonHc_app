@@ -118,9 +118,15 @@ class _MainScreenState extends State<MainScreen> {
           final grade = userData['grade'] as int?;
           final classNum = userData['classNum'] as int?;
           final number = userData['number'] as int?;
-          final name = userData['name'] as String? ?? '';
+          final nickname =
+              (userData['nickname'] as String?) ??
+              (userData['name'] as String?) ??
+              '';
           
-          if (grade != null && classNum != null && number != null && name.isNotEmpty) {
+          if (grade != null &&
+              classNum != null &&
+              number != null &&
+              nickname.isNotEmpty) {
             final loadedUserInfo = UserInfo.fromJson(userData);
             await UserService.instance.saveUserInfo(loadedUserInfo);
             if (mounted) {

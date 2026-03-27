@@ -34,8 +34,12 @@ class _LoginScreenState extends State<LoginScreen> {
     final grade = userData['grade'] as int?;
     final classNum = userData['classNum'] as int?;
     final number = userData['number'] as int?;
-    final name = userData['name'] as String? ?? '';
-    return grade != null && classNum != null && number != null && name.isNotEmpty;
+    final nickname =
+        (userData['nickname'] as String?) ?? (userData['name'] as String?) ?? '';
+    return grade != null &&
+        classNum != null &&
+        number != null &&
+        nickname.isNotEmpty;
   }
 
   Future<void> _handleGoogleSignIn() async {

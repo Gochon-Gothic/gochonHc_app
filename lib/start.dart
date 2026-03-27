@@ -7,7 +7,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide UserInfo;
 /// 2. _setDeviceOrientation: 화면 600 초과면 패드(모든 방향), 아니면 폰(세로만)
 /// 3. MyApp: ThemeProvider로 themeMode 결정, home: AuthWrapper
 /// 4. AuthWrapper: authStateChanges 스트림 → 로그인 시 _checkUserSetup
-/// 5. _checkUserSetup: Firestore users/{uid} 조회 → grade/classNum/number/name 없으면 hasSetup=false
+/// 5. _checkUserSetup: Firestore users/{uid} 조회 → grade/classNum/number/nickname 없으면 hasSetup=false
 ///    - hasSetup false → InitialSetupScreen
 ///    - needsGradeRefresh → InitialSetupScreen(학년 갱신)
 ///    - 2·3학년 && !hasElectiveSetup → ElectiveSetupScreen
@@ -130,10 +130,11 @@ Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
     final grade = userData['grade'] as int?;
     final classNum = userData['classNum'] as int?;
     final number = userData['number'] as int?;
-    final name = userData['name'] as String? ?? '';
+    final nickname =
+        (userData['nickname'] as String?) ?? (userData['name'] as String?) ?? '';
     
-    // 필수 필드가 없거나 name이 비어있으면 로컬 데이터 삭제하고 설정 미완료
-    if (grade == null || classNum == null || number == null || name.isEmpty) {
+    // 필수 필드가 없거나 nickname이 비어있으면 로컬 데이터 삭제하고 설정 미완료
+    if (grade == null || classNum == null || number == null || nickname.isEmpty) {
       await UserService.instance.clearUserInfo();
       return {'hasSetup': false, 'userInfo': null, 'hasElectiveSetup': false, 'needsGradeRefresh': false};
     }
