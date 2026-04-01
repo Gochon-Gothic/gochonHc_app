@@ -41,13 +41,20 @@ class UserInfo {
     };
   }
 
+  static int _parseInt(dynamic value, {required int fallback}) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? fallback;
+    return fallback;
+  }
+
   factory UserInfo.fromJson(Map<String, dynamic> json) {
     return UserInfo(
       email: json['email'] ?? '',
       nickname: json['nickname'] ?? json['name'] ?? '',
-      grade: json['grade'] ?? 1,
-      classNum: json['classNum'] ?? 1,
-      number: json['number'] ?? 1,
+      grade: _parseInt(json['grade'], fallback: 1),
+      classNum: _parseInt(json['classNum'], fallback: 1),
+      number: _parseInt(json['number'], fallback: 1),
     );
   }
 

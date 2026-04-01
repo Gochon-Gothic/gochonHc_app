@@ -28,6 +28,13 @@ import 'main.dart';
 import 'utils/preference_manager.dart';
 import 'models/user_info.dart';
 
+int? _readInt(dynamic value) {
+  if (value is int) return value;
+  if (value is num) return value.toInt();
+  if (value is String) return int.tryParse(value);
+  return null;
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
@@ -127,9 +134,9 @@ Future<Map<String, dynamic>> _checkUserSetup(String uid) async {
     }
     
     // 필수 필드 확인
-    final grade = userData['grade'] as int?;
-    final classNum = userData['classNum'] as int?;
-    final number = userData['number'] as int?;
+    final grade = _readInt(userData['grade']);
+    final classNum = _readInt(userData['classNum']);
+    final number = _readInt(userData['number']);
     final nickname =
         (userData['nickname'] as String?) ?? (userData['name'] as String?) ?? '';
     

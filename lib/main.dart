@@ -69,8 +69,30 @@ class _MainScreenState extends State<MainScreen> {
       onRefresh: fetchSchedule,
     ),
     const LunchScreen(),
-    const MyScreen(),
+    MyScreen(
+      onUserInfoChanged: _handleUserInfoChanged,
+      onLoggedOut: _handleLoggedOut,
+    ),
   ];
+
+  void _handleUserInfoChanged() {
+    _loadUserInfo();
+  }
+
+  int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
+  void _handleLoggedOut() {
+    if (!mounted) return;
+    setState(() {
+      userInfo = null;
+      _homeKey = UniqueKey();
+    });
+  }
 
   void _onPageChanged(int index) {
     setState(() {
@@ -115,9 +137,9 @@ class _MainScreenState extends State<MainScreen> {
       if (currentUser != null) {
         final userData = await AuthService.instance.getUserFromFirestore(currentUser.uid);
         if (userData != null) {
-          final grade = userData['grade'] as int?;
-          final classNum = userData['classNum'] as int?;
-          final number = userData['number'] as int?;
+          final grade = _readInt(userData['grade']);
+          final classNum = _readInt(userData['classNum']);
+          final number = _readInt(userData['number']);
           final nickname =
               (userData['nickname'] as String?) ??
               (userData['name'] as String?) ??

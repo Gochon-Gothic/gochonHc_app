@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import '../models/user_info.dart';
 import '../utils/preference_manager.dart';
@@ -25,9 +26,18 @@ class UserService {
   static const String _userInfoKey = 'user_info';
   static const String _isGuestKey = 'is_guest';
 
+  int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
   Future<void> saveUserInfo(UserInfo userInfo) async {
-    final prefs = await PreferenceManager.instance.getSharedPreferences();
-    await prefs.setString(_userInfoKey, jsonEncode(userInfo.toJson()));
+    try {
+      final prefs = await PreferenceManager.instance.getSharedPreferences();
+      await prefs.setString(_userInfoKey, jsonEncode(userInfo.toJson()));
+    } catch (_) {}
   }
 
   Future<UserInfo?> getUserInfo() async {
@@ -38,9 +48,9 @@ class UserService {
         final json = jsonDecode(userInfoJson) as Map<String, dynamic>;
         final nickname =
             (json['nickname'] as String?) ?? (json['name'] as String?) ?? '';
-        final grade = json['grade'] as int?;
-        final classNum = json['classNum'] as int?;
-        final number = json['number'] as int?;
+        final grade = _readInt(json['grade']);
+        final classNum = _readInt(json['classNum']);
+        final number = _readInt(json['number']);
         
         // 필수 필드가 모두 있고 nickname이 비어있지 않아야 함
         if (grade == null || classNum == null || number == null || nickname.isEmpty) {
@@ -84,6 +94,12 @@ class UserService {
     }
   }
 
+  Future<bool> _isFirstSetup(String uid) async {
+    final doc =
+        await FirebaseFirestore.instance.collection('users').doc(uid).get();
+    return !doc.exists;
+  }
+
   // Firebase에 사용자 정보 저장
   Future<void> saveUserToFirebase({
     required String uid,
@@ -92,32 +108,61 @@ class UserService {
     required int grade,
     required int classNum,
     required int number,
+    bool? hasElectiveSetup,
   }) async {
-    try {
-      final firestore = FirebaseFirestore.instance;
+    const retryDelays = [
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 4),
+    ];
 
-      // 사용자 정보를 Map으로 변환
-      final userData = {
-        'uid': uid,
-        'email': email,
-        'nickname': nickname,
-        'name': FieldValue.delete(),
-        'grade': grade,
-        'classNum': classNum,
-        'number': number,
-        'createdAt': FieldValue.serverTimestamp(),
-        'updatedAt': FieldValue.serverTimestamp(),
-        'hasSetup': true, // 이 함수가 호출되면 설정이 완료된 것임
-      };
+    Object? lastError;
+    StackTrace? lastStackTrace;
 
-      // Firestore의 'users' 컬렉션에 문서 저장
-      // 문서 ID는 uid를 사용 (고유성 보장)
-      await firestore
-          .collection('users')
-          .doc(uid)
-          .set(userData, SetOptions(merge: true)); // merge: true로 기존 데이터 보존
-    } catch (e) {
-      throw Exception('Firebase에 사용자 정보 저장 실패: $e');
+    for (int attempt = 0; attempt < retryDelays.length; attempt++) {
+      try {
+        final firestore = FirebaseFirestore.instance;
+        final isFirstSetup = await _isFirstSetup(uid);
+
+        final userData = <String, dynamic>{
+          'uid': uid,
+          'email': email,
+          'nickname': nickname,
+          'name': FieldValue.delete(),
+          'grade': grade,
+          'classNum': classNum,
+          'number': number,
+          'updatedAt': FieldValue.serverTimestamp(),
+          'hasSetup': true,
+        };
+
+        if (hasElectiveSetup != null) {
+          userData['hasElectiveSetup'] = hasElectiveSetup;
+        }
+
+        if (isFirstSetup) {
+          userData['createdAt'] = FieldValue.serverTimestamp();
+        }
+
+        await firestore
+            .collection('users')
+            .doc(uid)
+            .set(userData, SetOptions(merge: true));
+        return;
+      } catch (e, stackTrace) {
+        lastError = e;
+        lastStackTrace = stackTrace;
+
+        if (attempt == retryDelays.length - 1) {
+          break;
+        }
+
+        await Future.delayed(retryDelays[attempt]);
+      }
+    }
+
+    if (lastError != null && lastStackTrace != null) {
+      Error.throwWithStackTrace(lastError, lastStackTrace);
     }
   }
 
@@ -172,8 +217,11 @@ class UserService {
       
       if (doc.exists && doc.data() != null) {
         final data = doc.data()!;
-        if (data['electiveSubjects'] != null) {
-          return Map<String, String>.from(data['electiveSubjects'] as Map);
+        final electiveSubjects = data['electiveSubjects'];
+        if (electiveSubjects is Map) {
+          return electiveSubjects.map(
+            (key, value) => MapEntry(key.toString(), value.toString()),
+          );
         }
       }
       return null;

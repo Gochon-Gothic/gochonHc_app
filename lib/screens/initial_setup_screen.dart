@@ -1,4 +1,4 @@
-import 'dart:convert';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -102,6 +102,37 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
     super.dispose();
   }
 
+  Future<void> _saveUserToFirebaseWithRetry(UserInfo userInfo) async {
+    const retryDelays = [
+      Duration(seconds: 1),
+      Duration(seconds: 2),
+      Duration(seconds: 4),
+    ];
+
+    Object? lastError;
+
+    for (int attempt = 0; attempt < retryDelays.length; attempt++) {
+      try {
+        await UserService.instance.saveUserToFirebase(
+          uid: widget.uid,
+          email: userInfo.email,
+          nickname: userInfo.nickname,
+          grade: userInfo.grade,
+          classNum: userInfo.classNum,
+          number: userInfo.number,
+          hasElectiveSetup: userInfo.grade == 1 ? true : null,
+        );
+        return;
+      } catch (e) {
+        lastError = e;
+        if (attempt == retryDelays.length - 1) break;
+        await Future.delayed(retryDelays[attempt]);
+      }
+    }
+
+    throw lastError ?? Exception('Firebase에 사용자 정보 저장 실패');
+  }
+
   Future<void> _completeSetup() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -119,15 +150,8 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
         number: int.parse(_studentNumberController.text.trim()),
       );
 
-      // 2. Firestore에 사용자 정보 저장
-      await UserService.instance.saveUserToFirebase(
-        uid: widget.uid,
-        email: userInfo.email,
-        nickname: userInfo.nickname,
-        grade: userInfo.grade,
-        classNum: userInfo.classNum,
-        number: userInfo.number,
-      );
+      // 2. Firestore에 사용자 정보 저장 (네트워크 불안정 환경 고려 재시도)
+      await _saveUserToFirebaseWithRetry(userInfo);
       await UserService.instance.saveUserInfo(userInfo);
       if (widget.isGradeRefresh) {
         await PreferenceManager.instance.setGradeRefreshDoneForYear(DateTime.now().year);
@@ -147,7 +171,9 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
           if (widget.existingUserInfo != null) {
             Navigator.of(context).pop(); // 수정 모드: 설정 화면으로 돌아가기
           } else {
-            Navigator.of(context).pushReplacementNamed('/main');
+            Navigator.of(
+              context,
+            ).pushNamedAndRemoveUntil('/main', (route) => false);
           }
         }
       } else {
@@ -178,7 +204,7 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
           SnackBar(
             backgroundColor: snackBgColor,
             content: Text(
-              '설정을 저장하지 못했어요. 네트워크 상태를 확인한 후 다시 시도해 주세요.',
+              '설정을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.',
               style: TextStyle(color: snackTextColor),
             ),
           ),
@@ -194,59 +220,49 @@ class _InitialSetupScreenState extends State<InitialSetupScreen> {
   }
 
   void _preloadTimetables(int grade, int classNum) {
-    // 비동기로 백그라운드에서 실행 (await 하지 않음)
-    Future.microtask(() async {
-      try {
-        final apiKey = dotenv.env['NEIS_API_KEY_TIMETABLE'] ?? '';
-        const eduOfficeCode = 'J10';
-        const schoolCode = '7531375';
-
-        final now = DateTime.now().toUtc().add(const Duration(hours: 9));
-        final weekday = now.weekday;
-
-        // 이번주 월요일 계산
-        DateTime thisWeekStart;
-        if (weekday >= 6) {
-          thisWeekStart = now.add(Duration(days: 8 - weekday));
-        } else {
-          thisWeekStart = now.subtract(Duration(days: weekday - 1));
-        }
-
-        // 다음주 월요일 계산
-        final nextWeekStart = thisWeekStart.add(const Duration(days: 7));
-
-        final formatter = DateFormat('yyyyMMdd');
-        final thisWeekEnd = thisWeekStart.add(const Duration(days: 4));
-        final nextWeekEnd = nextWeekStart.add(const Duration(days: 4));
-
-        // timetable_screen.dart와 동일한 방식으로 API 호출
-        // 이번주 시간표 프리로딩
+    unawaited(
+      Future.microtask(() async {
         try {
-          final thisWeekUrl = Uri.parse(
-            'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=${grade.toString()}&CLASS_NM=${classNum.toString()}&TI_FROM_YMD=${formatter.format(thisWeekStart)}&TI_TO_YMD=${formatter.format(thisWeekEnd)}',
-          );
-          final thisWeekResponse = await http.get(thisWeekUrl);
-          if (thisWeekResponse.statusCode == 200) {
-            final data = json.decode(thisWeekResponse.body);
-            if (data['hisTimetable'] != null) {
-              // 캐시는 ApiService의 인터셉터가 처리하므로 여기서는 별도로 저장하지 않음
-            }
-          }
-        } catch (_) {}
+          final apiKey = dotenv.env['NEIS_API_KEY_TIMETABLE'] ?? '';
+          const eduOfficeCode = 'J10';
+          const schoolCode = '7531375';
 
-        // 다음주 시간표 프리로딩
-        try {
-          final nextWeekUrl = Uri.parse(
-            'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=${grade.toString()}&CLASS_NM=${classNum.toString()}&TI_FROM_YMD=${formatter.format(nextWeekStart)}&TI_TO_YMD=${formatter.format(nextWeekEnd)}',
-          );
-          final nextWeekResponse = await http.get(nextWeekUrl);
-          if (nextWeekResponse.statusCode == 200) {
-            final data = json.decode(nextWeekResponse.body);
-            if (data['hisTimetable'] != null) {}
+          final now = DateTime.now().toUtc().add(const Duration(hours: 9));
+          final weekday = now.weekday;
+
+          DateTime thisWeekStart;
+          if (weekday >= 6) {
+            thisWeekStart = now.add(Duration(days: 8 - weekday));
+          } else {
+            thisWeekStart = now.subtract(Duration(days: weekday - 1));
           }
+
+          final nextWeekStart = thisWeekStart.add(const Duration(days: 7));
+
+          final formatter = DateFormat('yyyyMMdd');
+          final thisWeekEnd = thisWeekStart.add(const Duration(days: 4));
+          final nextWeekEnd = nextWeekStart.add(const Duration(days: 4));
+
+          final urls = [
+            Uri.parse(
+              'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=${grade.toString()}&CLASS_NM=${classNum.toString()}&TI_FROM_YMD=${formatter.format(thisWeekStart)}&TI_TO_YMD=${formatter.format(thisWeekEnd)}',
+            ),
+            Uri.parse(
+              'https://open.neis.go.kr/hub/hisTimetable?KEY=$apiKey&Type=json&ATPT_OFCDC_SC_CODE=$eduOfficeCode&SD_SCHUL_CODE=$schoolCode&GRADE=${grade.toString()}&CLASS_NM=${classNum.toString()}&TI_FROM_YMD=${formatter.format(nextWeekStart)}&TI_TO_YMD=${formatter.format(nextWeekEnd)}',
+            ),
+          ];
+
+          await Future.wait(
+            urls.map((url) async {
+              try {
+                await http.get(url).timeout(const Duration(seconds: 10));
+              } catch (_) {}
+            }),
+            eagerError: false,
+          );
         } catch (_) {}
-      } catch (_) {}
-    });
+      }),
+    );
   }
 
   @override

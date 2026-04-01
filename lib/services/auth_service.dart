@@ -64,6 +64,12 @@ class AuthService {
       );
 
       final userCredential = await _auth.signInWithCredential(credential);
+      if (userCredential.user == null) {
+        try {
+          await _auth.signOut();
+        } catch (_) {}
+        throw Exception('Apple 로그인 사용자 정보를 불러오지 못했습니다.');
+      }
 
       if (userCredential.additionalUserInfo?.isNewUser ?? false) {
         String? displayName;
@@ -95,11 +101,15 @@ class AuthService {
 
   Future<UserCredential?> signInWithGoogle() async {
     try {
-      final isSignedIn = await _googleSignIn.isSignedIn();
-
-      if (isSignedIn) {
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {}
+      try {
         await _googleSignIn.signOut();
-      }
+      } catch (_) {}
+      try {
+        await _auth.signOut();
+      } catch (_) {}
 
       GoogleSignInAccount? googleUser;
       try {
@@ -125,6 +135,12 @@ class AuthService {
       );
 
       final userCredential = await _auth.signInWithCredential(credential);
+      if (userCredential.user == null) {
+        try {
+          await _auth.signOut();
+        } catch (_) {}
+        throw Exception('Google 로그인 사용자 정보를 불러오지 못했습니다.');
+      }
       return userCredential;
     } catch (e) {
       if (Platform.isIOS &&
@@ -160,12 +176,25 @@ class AuthService {
   }
 
   Future<void> signOut() async {
+    Object? lastError;
     try {
-      await Future.wait([
-        _auth.signOut(),
-        _googleSignIn.signOut(),
-      ]);
+      try {
+        await _googleSignIn.disconnect();
+      } catch (_) {}
+      try {
+        await _googleSignIn.signOut();
+      } catch (e) {
+        lastError = e;
+      }
+      try {
+        await _auth.signOut();
+      } catch (e) {
+        lastError = e;
+      }
       await UserService.instance.clearUserInfo();
+      if (lastError != null) {
+        throw lastError;
+      }
     } catch (e) {
       throw Exception('로그아웃 실패: $e');
     }

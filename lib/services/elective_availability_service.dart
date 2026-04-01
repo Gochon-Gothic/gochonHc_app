@@ -38,6 +38,23 @@ class ElectiveAvailabilityService {
         : now.subtract(Duration(days: weekday - 1));
   }
 
+  static String _normalizeSubject(String? value) {
+    if (value == null || value.isEmpty) return '';
+    return value
+        .replaceAll(RegExp(r'[\s·\-\[\]()]'), '')
+        .replaceAll('Ⅰ', '1')
+        .replaceAll('Ⅱ', '2');
+  }
+
+  static bool _safeContains(String? source, String? target) {
+    final normalizedSource = _normalizeSubject(source);
+    final normalizedTarget = _normalizeSubject(target);
+    if (normalizedSource.isEmpty || normalizedTarget.isEmpty) {
+      return false;
+    }
+    return normalizedSource.contains(normalizedTarget);
+  }
+
   /// 선택과목 정보가 존재하는지 확인. true면 설정 화면으로 이동 가능, false면 모달만 표시
   static Future<bool> hasElectiveData(int grade, int classNum) async {
     try {
@@ -106,17 +123,22 @@ class ElectiveAvailabilityService {
         ),
       ]);
 
+      if (gsheetElectiveSubjects == null || gsheetElectiveSubjects.isEmpty) {
+        return false;
+      }
+      final electiveSubjectsBySet = gsheetElectiveSubjects;
+
       final slotsBySet = <int, Set<String>>{};
-      final targetSetNumbers = (gsheetElectiveSubjects!.keys.toList()..sort());
+      final targetSetNumbers = (electiveSubjectsBySet.keys.toList()..sort());
 
       for (final setNum in targetSetNumbers) {
         slotsBySet[setNum] = {};
       }
 
       int? getSetNumber(String subject) {
-        for (var setEntry in gsheetElectiveSubjects!.entries) {
+        for (var setEntry in electiveSubjectsBySet.entries) {
           for (var subEntry in setEntry.value.entries) {
-            if (subject.contains(subEntry.key)) return setEntry.key;
+            if (_safeContains(subject, subEntry.key)) return setEntry.key;
           }
         }
         return null;
@@ -134,8 +156,8 @@ class ElectiveAvailabilityService {
           int? subjectSetNum = getSetNumber(subject);
           if (subjectSetNum == null || dateStr.isEmpty || periodStr.isEmpty) continue;
 
-          final clean = gsheetElectiveSubjects[subjectSetNum]?.keys.firstWhere(
-            (name) => subject.contains(name),
+          final clean = electiveSubjectsBySet[subjectSetNum]?.keys.firstWhere(
+            (name) => _safeContains(subject, name),
             orElse: () => '',
           ) ?? '';
           if (clean.isEmpty) continue;

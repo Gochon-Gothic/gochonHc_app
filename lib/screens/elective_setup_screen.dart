@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:intl/intl.dart';
 
 import '../services/api_service.dart';
@@ -49,7 +50,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
   final Map<int, List<String>> _sheetSubjectsBySet = {}; // 세트 번호 -> 시트에서 온 과목 리스트
   String? _error;
 
-  static const _apiKey = '2cf24c119b434f93b2f916280097454a';
+  static String get _apiKey => dotenv.env['NEIS_API_KEY_TIMETABLE'] ?? '';
   static const _eduOfficeCode = 'J10';
   static const _schoolCode = '7531375';
   static const _days = ['월', '화', '수', '목', '금'];
@@ -83,6 +84,23 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
     return weekday >= 6 
         ? now.add(Duration(days: 8 - weekday))
         : now.subtract(Duration(days: weekday - 1));
+  }
+
+  String _normalizeSubject(String? value) {
+    if (value == null || value.isEmpty) return '';
+    return value
+        .replaceAll(RegExp(r'[\s·\-\[\]()]'), '')
+        .replaceAll('Ⅰ', '1')
+        .replaceAll('Ⅱ', '2');
+  }
+
+  bool _safeContains(String? source, String? target) {
+    final normalizedSource = _normalizeSubject(source);
+    final normalizedTarget = _normalizeSubject(target);
+    if (normalizedSource.isEmpty || normalizedTarget.isEmpty) {
+      return false;
+    }
+    return normalizedSource.contains(normalizedTarget);
   }
 
   Future<void> _loadSlots() async {
@@ -201,7 +219,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
             if (gsheetElectiveSubjects != null) {
               for (var setEntry in gsheetElectiveSubjects.entries) {
                 for (var subEntry in setEntry.value.entries) {
-                  if (subject.contains(subEntry.key)) {
+                  if (_safeContains(subject, subEntry.key)) {
                     subjectSetNum = setEntry.key;
                     break;
                   }
@@ -221,7 +239,7 @@ class _ElectiveSetupScreenState extends State<ElectiveSetupScreen> {
               
               // 과목명 정리 (구글 시트 과목명 사용)
               final clean = gsheetElectiveSubjects?[setNum]?.keys.firstWhere(
-                (name) => subject.contains(name),
+                (name) => _safeContains(subject, name),
                 orElse: () => '',
               ) ?? '';
               

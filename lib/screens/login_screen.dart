@@ -31,11 +31,19 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   bool isLoading = false;
   String? error;
+
+  int? _readInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
   bool _hasCompleteSetup(Map<String, dynamic>? userData) {
     if (userData == null) return false;
-    final grade = userData['grade'] as int?;
-    final classNum = userData['classNum'] as int?;
-    final number = userData['number'] as int?;
+    final grade = _readInt(userData['grade']);
+    final classNum = _readInt(userData['classNum']);
+    final number = _readInt(userData['number']);
     final nickname =
         (userData['nickname'] as String?) ?? (userData['name'] as String?) ?? '';
     return grade != null &&
@@ -54,16 +62,20 @@ class _LoginScreenState extends State<LoginScreen> {
       final userCredential = await AuthService.instance.signInWithGoogle();
 
       if (userCredential != null && mounted) {
-        final user = userCredential.user!;
+        final user = userCredential.user;
+        if (user == null) {
+          throw Exception('Google 로그인 사용자 정보를 불러오지 못했습니다.');
+        }
         final userData = await AuthService.instance.getUserFromFirestore(user.uid);
 
         if (_hasCompleteSetup(userData)) {
           final userInfo = UserInfo.fromJson(userData!);
           await UserService.instance.saveUserInfo(userInfo);
           if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/main');
+            Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
           }
         } else {
+          await UserService.instance.clearUserInfo();
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(
@@ -101,16 +113,20 @@ class _LoginScreenState extends State<LoginScreen> {
       final userCredential = await AuthService.instance.signInWithApple();
 
       if (userCredential != null && mounted) {
-        final user = userCredential.user!;
+        final user = userCredential.user;
+        if (user == null) {
+          throw Exception('Apple 로그인 사용자 정보를 불러오지 못했습니다.');
+        }
         final userData = await AuthService.instance.getUserFromFirestore(user.uid);
 
         if (_hasCompleteSetup(userData)) {
           final userInfo = UserInfo.fromJson(userData!);
           await UserService.instance.saveUserInfo(userInfo);
           if (mounted) {
-            Navigator.of(context).pushReplacementNamed('/main');
+            Navigator.of(context).pushNamedAndRemoveUntil('/main', (route) => false);
           }
         } else {
+          await UserService.instance.clearUserInfo();
           if (mounted) {
             Navigator.of(context).pushReplacement(
               MaterialPageRoute(

@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'login_screen.dart';
-
 /// 마이 탭: 사용자 정보 표시, 설정·로그아웃·계정 삭제
 ///
 /// [로직 흐름]
@@ -19,7 +17,14 @@ import 'settings_screen.dart';
 import '../utils/responsive_helper.dart';
 
 class MyScreen extends StatefulWidget {
-  const MyScreen({super.key});
+  final VoidCallback? onUserInfoChanged;
+  final VoidCallback? onLoggedOut;
+
+  const MyScreen({
+    super.key,
+    this.onUserInfoChanged,
+    this.onLoggedOut,
+  });
 
   @override
   State<MyScreen> createState() => _MyScreenState();
@@ -119,13 +124,15 @@ class _MyScreenState extends State<MyScreen> {
                       size: ResponsiveHelper.width(context, 16),
                       color: textColor,
                     ),
-                    onTap: () {
-                      Navigator.push(
+                    onTap: () async {
+                      await Navigator.push(
                         context,
                         MaterialPageRoute(
                           builder: (context) => const SettingsScreen(),
                         ),
                       );
+                      await _loadUserInfo();
+                      widget.onUserInfoChanged?.call();
                     },
                   ),
                 ),
@@ -208,7 +215,9 @@ class _MyScreenState extends State<MyScreen> {
                             color: textColor,
                           ),
                           onTap: () {
-                            Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const LoginScreen()));
+                            Navigator.of(
+                              context,
+                            ).pushNamedAndRemoveUntil('/login', (route) => false);
                           },
                         ),
                       );
@@ -302,7 +311,14 @@ class _MyScreenState extends State<MyScreen> {
 
     try {
       await AuthService.instance.signOut();
-      // AuthWrapper가 로그인 상태 변화를 감지하여 자동으로 화면 전환을 처리
+      if (mounted) {
+        setState(() {
+          userInfo = null;
+        });
+      }
+      widget.onLoggedOut?.call();
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
     } catch (e) {
       if (!mounted) return;
       final isDark = Provider.of<ThemeProvider>(context, listen: false).isDarkMode;
