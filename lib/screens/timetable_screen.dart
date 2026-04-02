@@ -18,9 +18,11 @@ import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../theme_provider.dart';
 import '../theme_colors.dart';
+import '../utils/preference_manager.dart';
 import '../services/user_service.dart';
 import '../services/auth_service.dart';
 import '../services/gsheet_service.dart';
+import '../services/movement_class_service.dart';
 import '../utils/responsive_helper.dart';
 
 class TimetableScreen extends StatefulWidget {
@@ -44,6 +46,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
   int? _selectedListDayIndex; // 리스트 모드에서 선택된 요일(0:월~4:금)
   final Map<String, String> _shortenCache = {}; // 과목 축약 캐시
   final PageController _dayController = PageController();
+  Map<String, String> _movementClassBySlot = {}; // 리스트 뷰 교시별 이동반
   Map<String, String>? _electiveSubjects; // 선택과목 데이터
   bool _isMyTimetable = true; // true: 나의 시간표, false: 반별 시간표
   String? _myGrade; // 나의 시간표일 때의 학년
@@ -82,6 +85,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
     _loadClassCounts();
     _initMyClassAndLoad();
+    _loadSavedViewMode();
     // 리스트 모드 기본 선택 요일: 오늘(월~금) 아니면 월요일
     final now = DateTime.now().toUtc().add(const Duration(hours: 9));
     final todayIdx = now.weekday - 1;
@@ -94,6 +98,14 @@ class _TimetableScreenState extends State<TimetableScreen> {
       if (_dayController.hasClients) {
         _dayController.jumpToPage(_selectedListDayIndex ?? 0);
       }
+    });
+  }
+
+  Future<void> _loadSavedViewMode() async {
+    final savedMode = await PreferenceManager.instance.getTimetableViewMode();
+    if (!mounted) return;
+    setState(() {
+      _isTableView = savedMode == 1;
     });
   }
 
@@ -345,9 +357,11 @@ class _TimetableScreenState extends State<TimetableScreen> {
   }
 
   void _toggleView() {
+    final nextValue = !_isTableView;
     setState(() {
-      _isTableView = !_isTableView;
+      _isTableView = nextValue;
     });
+    PreferenceManager.instance.setTimetableViewMode(nextValue ? 1 : 0);
   }
 
   void _onPageControllerChanged() {
@@ -806,8 +820,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     if (mounted) {
       setState(() {
         timetable = newTimetable;
+        _movementClassBySlot = {};
       });
     }
+    _refreshMovementClasses();
   }
 
   // 리스트 뷰용: 원본 데이터에서 특정 요일/교시의 과목명 가져오기
@@ -828,12 +844,26 @@ class _TimetableScreenState extends State<TimetableScreen> {
 
   // 나의 시간표(2·3학년) 리스트에서도 사용자 선택과목 오버랩 적용
   String _applyMyElectiveOverlayForList(String subject) {
-    if (!_isMyTimetable) return subject;
-    if (selectedGrade != '2' && selectedGrade != '3') return subject;
-    if (_electiveSubjects == null || _electiveSubjects!.isEmpty) return subject;
+    return _applyElectiveOverlayForList(
+      subject: subject,
+      isMyTimetable: _isMyTimetable,
+      grade: selectedGrade,
+      electiveSubjects: _electiveSubjects,
+    );
+  }
+
+  String _applyElectiveOverlayForList({
+    required String subject,
+    required bool isMyTimetable,
+    required String? grade,
+    required Map<String, String>? electiveSubjects,
+  }) {
+    if (!isMyTimetable) return subject;
+    if (grade != '2' && grade != '3') return subject;
+    if (electiveSubjects == null || electiveSubjects.isEmpty) return subject;
     if (subject.contains('지필평가')) return subject;
 
-    for (final entry in _electiveSubjects!.entries) {
+    for (final entry in electiveSubjects.entries) {
       final originalSubjectName = entry.key.split('-').last;
       if (_safeContainsForOverlay(subject, originalSubjectName)) {
         return entry.value; // 사용자가 선택한 과목명(풀네임)으로 오버랩
@@ -857,6 +887,181 @@ class _TimetableScreenState extends State<TimetableScreen> {
       }
     }
     return null;
+  }
+
+  String _movementSlotKey(int dayIdx, int periodIndex) => '${dayIdx}_$periodIndex';
+
+  String _buildDefaultMovementClassLabel() {
+    final grade = int.tryParse(selectedGrade ?? '') ?? 1;
+    final classNum =
+        int.tryParse(
+          _isMyTimetable ? (_myClass ?? selectedClass ?? '1') : (selectedClass ?? '1'),
+        ) ??
+        1;
+    return '$grade학년 $classNum반';
+  }
+
+  Set<String> _getElectiveSubjectNames() {
+    final result = <String>{};
+    final gradeData =
+        selectedGrade == '2'
+            ? _grade2SubjectData
+            : selectedGrade == '3'
+            ? _grade3SubjectData
+            : null;
+    if (gradeData == null) return result;
+
+    final electiveSets = gradeData['elective'];
+    if (electiveSets is Map) {
+      for (final setEntry in electiveSets.values) {
+        if (setEntry is Map && setEntry['subjects'] is Map) {
+          for (final subjectName in (setEntry['subjects'] as Map).keys) {
+            final name = subjectName.toString().trim();
+            if (name.isNotEmpty) {
+              result.add(name);
+            }
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  bool _isElectiveMovementSubject(
+    String rawSubject,
+    String resolvedSubject,
+    String? grade,
+    Set<String> electiveNames,
+  ) {
+    if (grade != '2' && grade != '3') return false;
+    if (electiveNames.isEmpty) return false;
+
+    for (final electiveName in electiveNames) {
+      if (_safeContainsForOverlay(resolvedSubject, electiveName) ||
+          _safeContainsForOverlay(rawSubject, electiveName)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  int? _findMovementClassNumber(
+    Map<String, String>? classSubjects,
+    String resolvedSubject,
+  ) {
+    if (classSubjects == null || classSubjects.isEmpty) return null;
+
+    final sortedEntries =
+        classSubjects.entries.toList()
+          ..sort((a, b) {
+            final left = int.tryParse(a.key) ?? 999;
+            final right = int.tryParse(b.key) ?? 999;
+            return left.compareTo(right);
+          });
+
+    for (final entry in sortedEntries) {
+      if (_safeContainsForOverlay(entry.value, resolvedSubject) ||
+          _safeContainsForOverlay(resolvedSubject, entry.value)) {
+        return int.tryParse(entry.key);
+      }
+    }
+    return null;
+  }
+
+  Future<void> _refreshMovementClasses() async {
+    if (_rawTimetableData == null || selectedGrade == null) {
+      if (!mounted) return;
+      setState(() {
+        _movementClassBySlot = {};
+      });
+      return;
+    }
+
+    final capturedRawData = List<dynamic>.from(_rawTimetableData!);
+    final capturedGrade = selectedGrade!;
+    final capturedSelectedClass = selectedClass;
+    final capturedMyClass = _myClass;
+    final capturedIsMyTimetable = _isMyTimetable;
+    final capturedElectiveSubjects =
+        _electiveSubjects == null ? null : Map<String, String>.from(_electiveSubjects!);
+    final capturedElectiveNames = _getElectiveSubjectNames();
+    final defaultClassNum =
+        int.tryParse(
+          capturedIsMyTimetable
+              ? (capturedMyClass ?? capturedSelectedClass ?? '1')
+              : (capturedSelectedClass ?? '1'),
+        ) ??
+        1;
+    final defaultLabel = '$capturedGrade학년 ${defaultClassNum}반';
+    final gradeNum = int.tryParse(capturedGrade);
+    if (gradeNum == null) return;
+
+    Map<String, Map<String, String>> movementSlots;
+    try {
+      movementSlots = await MovementClassService.getGradeMovementSlots(
+        grade: gradeNum,
+      );
+    } catch (_) {
+      movementSlots = {};
+    }
+
+    final nextMovementClasses = <String, String>{};
+    for (final item in capturedRawData) {
+      final date = item['ALL_TI_YMD']?.toString() ?? '';
+      final periodText = item['PERIO']?.toString() ?? '';
+      final rawSubject = item['ITRT_CNTNT']?.toString() ?? '';
+      if (date.isEmpty || periodText.isEmpty || rawSubject.trim().isEmpty) continue;
+
+      final dateTime = DateTime.tryParse(date);
+      final period = int.tryParse(periodText);
+      if (dateTime == null || period == null) continue;
+
+      final dayIdx = dateTime.weekday - 1;
+      final periodIndex = period - 1;
+      if (dayIdx < 0 || dayIdx >= 5 || periodIndex < 0 || periodIndex >= 7) {
+        continue;
+      }
+
+      final resolvedSubject = _applyElectiveOverlayForList(
+        subject: rawSubject,
+        isMyTimetable: capturedIsMyTimetable,
+        grade: capturedGrade,
+        electiveSubjects: capturedElectiveSubjects,
+      );
+      final slotKey = _movementSlotKey(dayIdx, periodIndex);
+
+      if (!_isElectiveMovementSubject(
+        rawSubject,
+        resolvedSubject,
+        capturedGrade,
+        capturedElectiveNames,
+      )) {
+        nextMovementClasses[slotKey] = defaultLabel;
+        continue;
+      }
+
+      final classSubjects = movementSlots['$date-$periodText'];
+      final movementClassNum = _findMovementClassNumber(
+        classSubjects,
+        resolvedSubject,
+      );
+      nextMovementClasses[slotKey] =
+          movementClassNum == null
+              ? defaultLabel
+              : '$capturedGrade학년 ${movementClassNum}반';
+    }
+
+    if (!mounted ||
+        selectedGrade != capturedGrade ||
+        selectedClass != capturedSelectedClass ||
+        _myClass != capturedMyClass ||
+        _isMyTimetable != capturedIsMyTimetable) {
+      return;
+    }
+
+    setState(() {
+      _movementClassBySlot = nextMovementClasses;
+    });
   }
 
   // 줄임말에 포함되지 않는 과목을 3글자로 줄이는 함수
@@ -1547,7 +1752,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  '${info.label} | ${_formatAmPm(info.start)} ${_formatAmPm(info.end)}',
+                                  '${info.label} | ${_movementClassBySlot[_movementSlotKey(dayIdx, info.periodIndex)] ?? _buildDefaultMovementClassLabel()}',
                                   style: ResponsiveHelper.textStyle(
                                     context,
                                     fontSize: 13,
@@ -1588,54 +1793,33 @@ class _TimetableScreenState extends State<TimetableScreen> {
       _PeriodInfo(
         periodIndex: 0,
         label: '1교시',
-        start: const TimeOfDay(hour: 9, minute: 0),
-        end: const TimeOfDay(hour: 9, minute: 50),
       ),
       _PeriodInfo(
         periodIndex: 1,
         label: '2교시',
-        start: const TimeOfDay(hour: 10, minute: 0),
-        end: const TimeOfDay(hour: 10, minute: 50),
       ),
       _PeriodInfo(
         periodIndex: 2,
         label: '3교시',
-        start: const TimeOfDay(hour: 11, minute: 0),
-        end: const TimeOfDay(hour: 11, minute: 50),
       ),
       _PeriodInfo(
         periodIndex: 3,
         label: '4교시',
-        start: const TimeOfDay(hour: 12, minute: 0),
-        end: const TimeOfDay(hour: 12, minute: 50),
       ),
       _PeriodInfo(
         periodIndex: 4,
         label: '5교시',
-        start: const TimeOfDay(hour: 14, minute: 0),
-        end: const TimeOfDay(hour: 14, minute: 50),
       ),
       _PeriodInfo(
         periodIndex: 5,
         label: '6교시',
-        start: const TimeOfDay(hour: 15, minute: 0),
-        end: const TimeOfDay(hour: 15, minute: 50),
       ),
       _PeriodInfo(
         periodIndex: 6,
         label: '7교시',
-        start: const TimeOfDay(hour: 16, minute: 0),
-        end: const TimeOfDay(hour: 16, minute: 50),
       ),
     ];
     return base.take(count).toList(growable: false);
-  }
-
-  String _formatAmPm(TimeOfDay t) {
-    final int hour12 = (t.hour % 12 == 0) ? 12 : (t.hour % 12);
-    final String ampm = t.hour < 12 ? 'AM' : 'PM';
-    final String mm = t.minute.toString().padLeft(2, '0');
-    return '$hour12:$mm $ampm';
   }
 
   String _formatSubjectName(String subject) {
@@ -1800,13 +1984,9 @@ class _WeekHeader extends StatelessWidget {
 class _PeriodInfo {
   final int periodIndex; // 0-based
   final String label; // '1교시' 등
-  final TimeOfDay start;
-  final TimeOfDay end;
   const _PeriodInfo({
     required this.periodIndex,
     required this.label,
-    required this.start,
-    required this.end,
   });
 }
 

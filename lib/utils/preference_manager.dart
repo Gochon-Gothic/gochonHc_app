@@ -60,6 +60,18 @@ class PreferenceManager {
     await _prefs!.setBool(_themeKey, isDark);
   }
 
+  static const String _timetableViewModeKey = 'timetable_view_mode';
+
+  Future<int> getTimetableViewMode() async {
+    await initialize();
+    return _prefs!.getInt(_timetableViewModeKey) ?? 1;
+  }
+
+  Future<void> setTimetableViewMode(int viewMode) async {
+    await initialize();
+    await _prefs!.setInt(_timetableViewModeKey, viewMode);
+  }
+
   static const String _timetableCacheKey = 'timetable_cache';
   static const String _timetableCacheTimeKey = 'timetable_cache_time';
 
@@ -224,6 +236,25 @@ class PreferenceManager {
     );
   }
 
+  Future<Map<String, dynamic>?> getMovementClassCache(int grade) async {
+    await initialize();
+    final cacheData = _prefs!.getString('movement_class_cache_$grade');
+    if (cacheData == null || cacheData.isEmpty) return null;
+
+    try {
+      return Map<String, dynamic>.from(
+        jsonDecode(cacheData) as Map<String, dynamic>,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<void> setMovementClassCache(int grade, Map<String, dynamic> data) async {
+    await initialize();
+    await _prefs!.setString('movement_class_cache_$grade', jsonEncode(data));
+  }
+
   static const String _scheduleCacheKey = 'schedule_cache';
   static const String _scheduleCacheTimeKey = 'schedule_cache_time';
 
@@ -288,6 +319,30 @@ class PreferenceManager {
     await _prefs!.setInt(_gradeRefreshYearKey, year);
   }
 
+  static const String _personalScheduleKey = 'personal_schedule_events';
+
+  Future<Map<String, List<String>>> getPersonalSchedules() async {
+    await initialize();
+    final raw = _prefs!.getString(_personalScheduleKey);
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw) as Map<String, dynamic>;
+      return decoded.map(
+        (k, v) => MapEntry(
+          k.toString(),
+          (v as List).map((e) => e.toString()).toList(),
+        ),
+      );
+    } catch (_) {
+      return {};
+    }
+  }
+
+  Future<void> setPersonalSchedules(Map<String, List<String>> data) async {
+    await initialize();
+    await _prefs!.setString(_personalScheduleKey, jsonEncode(data));
+  }
+
   Future<void> clearCache() async {
     await initialize();
     await _prefs!.remove(_timetableCacheKey);
@@ -296,8 +351,12 @@ class PreferenceManager {
     await _prefs!.remove(_mealCacheTimeKey);
     await _prefs!.remove(_electiveClassroomCacheKey);
     await _prefs!.remove(_electiveClassroomCacheTimeKey);
+    await _prefs!.remove('movement_class_cache_1');
+    await _prefs!.remove('movement_class_cache_2');
+    await _prefs!.remove('movement_class_cache_3');
     await _prefs!.remove(_scheduleCacheKey);
     await _prefs!.remove(_scheduleCacheTimeKey);
+    await _prefs!.remove(_personalScheduleKey);
   }
 
   Future<SharedPreferences> getSharedPreferences() async {

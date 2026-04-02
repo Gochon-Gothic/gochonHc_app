@@ -19,6 +19,28 @@ import '../utils/shadows.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/preference_manager.dart';
 
+String _scheduleYmdKey(int year, int month, int day) {
+  return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
+}
+
+List<List<int>> _subRangesExcludingPersonal(
+  List<int> consecutiveSorted,
+  Set<int> personalDays,
+) {
+  final List<List<int>> out = [];
+  List<int> cur = [];
+  for (final d in consecutiveSorted) {
+    if (personalDays.contains(d)) {
+      if (cur.length >= 2) out.add(List.from(cur));
+      cur = [];
+    } else {
+      cur.add(d);
+    }
+  }
+  if (cur.length >= 2) out.add(cur);
+  return out;
+}
+
 class ScheduleView extends StatefulWidget {
   final VoidCallback onExit;
 
@@ -36,9 +58,16 @@ class _ScheduleViewState extends State<ScheduleView> {
   bool _isLoading = true;
   String? _error;
   Map<String, List<String>> _scheduleMap = {}; // 'yyyy-MM-dd': [events]
+  Map<String, List<String>> _personalScheduleMap = {};
   int? _selectedDay;
   final ScrollController _listController = ScrollController();
   final Map<int, GlobalKey> _dayItemKeys = {};
+
+  /// 캘린더 하단을 버튼·카드가 덮는 높이(px).
+  static const double _calendarFloatOverlap = 50;
+
+  /// 겹침 구간만큼 그리드 아래 스크롤 여백 — 말일 행을 가시 영역으로 올릴 수 있게 함(겹친 줄은 스크롤로 '끝'에서 숨김 처리).
+  static const double _calendarScrollBottomPad = 12;
 
   int get _totalMonths {
     final now = DateTime.now();
@@ -57,15 +86,57 @@ class _ScheduleViewState extends State<ScheduleView> {
     }
   }
 
+  int _defaultDayForMonthIndex(int monthIndex) {
+    final ym = _getYearAndMonth(monthIndex);
+    final y = ym['year']!;
+    final m = ym['month']!;
+    final now = DateTime.now();
+    if (y == now.year && m == now.month) {
+      final daysInMonth = DateTime(y, m + 1, 0).day;
+      return now.day.clamp(1, daysInMonth);
+    }
+    return 1;
+  }
+
+  /// _MonthGrid와 동일한 그리드 규칙(6행 기준)으로 PageView 높이를 맞춤
+  double _calendarPageHeight(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    const gridHorizontalInset = 40.0;
+    const columns = 7;
+    const mainAxisSpacing = 1.0;
+    const aspect = 0.95;
+    const gridPaddingVertical = 4.0 + 2.0;
+    const rowCount = 6;
+
+    final cellW = (width - gridHorizontalInset) / columns;
+    final cellH = cellW / aspect;
+    return gridPaddingVertical +
+        rowCount * cellH +
+        (rowCount - 1) * mainAxisSpacing;
+  }
+
   @override
   void initState() {
     super.initState();
     final now = DateTime.now();
     _year = now.year;
-    _currentMonthIndex = now.month - 1; // 0~11
-    
+    _currentMonthIndex = now.month - 1;
+    _selectedDay = _defaultDayForMonthIndex(_currentMonthIndex);
+
     _monthController = PageController(initialPage: _currentMonthIndex);
+    _loadPersonalSchedules();
     _fetchSchedules();
+  }
+
+  Future<void> _loadPersonalSchedules() async {
+    final loaded = await PreferenceManager.instance.getPersonalSchedules();
+    if (mounted) {
+      setState(() => _personalScheduleMap = loaded);
+    }
+  }
+
+  Future<void> _persistPersonalSchedules() async {
+    await PreferenceManager.instance.setPersonalSchedules(_personalScheduleMap);
   }
 
   Future<void> _fetchSchedules() async {
@@ -159,11 +230,16 @@ class _ScheduleViewState extends State<ScheduleView> {
     final month = yearMonth['month']!;
     final year = yearMonth['year']!;
     final List<_DayEvents> monthlyEvents = _collectMonthlyEvents(year, month);
+    // MainScreen 하단 GlassNavigationBar(SizedBox 110) 위로 일정 카드만 띄움 — 겹침/전체 이동 아님
+    final double listBottomPad = MediaQuery.paddingOf(context).bottom +
+        ResponsiveHelper.height(context, 65) +
+        ResponsiveHelper.height(context, 8);
 
     return Container(
       color: bgColor,
       width: double.infinity,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           ResponsiveHelper.verticalSpace(context, 65),
           Padding(
@@ -180,7 +256,7 @@ class _ScheduleViewState extends State<ScheduleView> {
                     Icons.arrow_back_ios_new,
                     color: textColor,
                     size: ResponsiveHelper.width(context, 24),
-                ),
+                  ),
                 ),
                 ResponsiveHelper.horizontalSpace(context, 1),
                 Text(
@@ -210,25 +286,21 @@ class _ScheduleViewState extends State<ScheduleView> {
             controller: _monthController,
             scrollController: _tabsScrollController,
             currentIndex: _currentMonthIndex,
-            totalMonths: _totalMonths, // 12월이면 15, 아니면 12
+            totalMonths: _totalMonths,
             currentYear: _year,
             onIndexChanged: (i, deltaYear) {
               setState(() {
-                // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
                 if (i >= 12) {
-                  // 다음 년도 1,2,3월을 선택했지만 연도 전환하지 않고 인덱스만 유지
                   _currentMonthIndex = i;
                 } else {
-                  // 현재 년도의 월
                   if (deltaYear != 0) {
                     _year += deltaYear;
                   }
                   _currentMonthIndex = i;
                 }
-                _selectedDay = null;
+                _selectedDay = _defaultDayForMonthIndex(_currentMonthIndex);
               });
-              
-              // 년도가 변경되었을 때만 데이터 다시 가져오기
+
               if (deltaYear != 0) {
                 _fetchSchedules();
               }
@@ -237,123 +309,244 @@ class _ScheduleViewState extends State<ScheduleView> {
           ResponsiveHelper.verticalSpace(context, 2),
           _WeekdaysRow(textColor: textColor),
           ResponsiveHelper.verticalSpace(context, 0),
-          Flexible(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(
-                maxHeight: ResponsiveHelper.height(context, 400),
-              ),
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _error != null
-                      ? Center(
-                          child: Text(
-                            _error!,
-                            style: ResponsiveHelper.textStyle(
-                              context,
-                              fontSize: 16,
-                              color: textColor,
-                            ),
-                          ),
-                        )
-                    : PageView.builder(
-                        controller: _monthController,
-                        onPageChanged: (i) {
-                          // 인덱스 12~14는 다음 년도 1~3월이지만 연도 전환하지 않고 그냥 인덱스만 유지
-                          setState(() {
-                            _currentMonthIndex = i;
-                            _selectedDay = null;
-                          });
-                        },
-                        itemCount: _totalMonths,
-                        itemBuilder: (context, index) {
-                          final yearMonth = _getYearAndMonth(index);
-                          final month = yearMonth['month']!;
-                          final year = yearMonth['year']!;
-                          return _MonthGrid(
-                            year: year,
-                            month: month,
-                            scheduleMap: _scheduleMap,
-                            selectedDay: _selectedDay,
-                            onDaySelected: (d) {
-                              setState(() => _selectedDay = d);
-                              WidgetsBinding.instance.addPostFrameCallback((_) {
-                                _scrollToDay(d);
-                              });
-                            },
-                          );
-                        },
+          Expanded(
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: _calendarPageHeight(context),
+                  child: ClipRect(
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        Positioned.fill(
+                          child:
+                              _isLoading
+                                  ? const Center(child: CircularProgressIndicator())
+                                  : _error != null
+                                  ? Center(
+                                    child: Text(
+                                      _error!,
+                                      style: ResponsiveHelper.textStyle(
+                                        context,
+                                        fontSize: 16,
+                                        color: textColor,
+                                      ),
+                                    ),
+                                  )
+                                  : PageView.builder(
+                                    controller: _monthController,
+                                    onPageChanged: (i) {
+                                      setState(() {
+                                        _currentMonthIndex = i;
+                                        _selectedDay = _defaultDayForMonthIndex(i);
+                                      });
+                                    },
+                                    itemCount: _totalMonths,
+                                    itemBuilder: (context, index) {
+                                      final yearMonth = _getYearAndMonth(index);
+                                      final m = yearMonth['month']!;
+                                      final y = yearMonth['year']!;
+                                      return SingleChildScrollView(
+                                        key: PageStorageKey<String>('schedule_cal_${y}_$m'),
+                                        physics: const BouncingScrollPhysics(
+                                          parent: AlwaysScrollableScrollPhysics(),
+                                        ),
+                                        child: Padding(
+                                          padding: EdgeInsets.only(
+                                            bottom:
+                                                _calendarFloatOverlap +
+                                                _calendarScrollBottomPad,
+                                          ),
+                                          child: _MonthGrid(
+                                            year: y,
+                                            month: m,
+                                            scheduleMap: _scheduleMap,
+                                            personalScheduleMap: _personalScheduleMap,
+                                            selectedDay: _selectedDay,
+                                            onDaySelected: (d) {
+                                              setState(() => _selectedDay = d);
+                                              WidgetsBinding.instance
+                                                  .addPostFrameCallback((_) {
+                                                _scrollToDay(d);
+                                              });
+                                            },
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
                         ),
-                      ),
-          ),
-          SizedBox(
-            height: ResponsiveHelper.height(context, 300),
-            child: Padding(
-              padding: ResponsiveHelper.padding(
-                context,
-                left: 20,
-                right: 20,
-                top: 50,
-                bottom: 80,
-              ),
-              child: Container(
-                decoration: BoxDecoration(
-                  color: isDark ? AppColors.darkCard : AppColors.lightCard,
-                  borderRadius: ResponsiveHelper.borderRadius(context, 16),
-                  boxShadow: AppShadows.card(isDark),
-                ),
-                padding: ResponsiveHelper.padding(
-                  context,
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: NotificationListener<ScrollNotification>(
-                  onNotification: (notification) {
-                    return true;
-                  },
-                  child: ListView.builder(
-                    controller: _listController,
-                    padding: EdgeInsets.zero,
-                    primary: false,
-                    physics: const ClampingScrollPhysics(),
-                    itemCount: monthlyEvents.length,
-                    itemBuilder: (context, idx) {
-                      final e = monthlyEvents[idx];
-                      final key = _dayItemKeys.putIfAbsent(e.day, () => GlobalKey());
-                      return Container(
-                        key: key,
-                        margin: ResponsiveHelper.padding(context, bottom: 10),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              '$month월 ${e.day}일',
-                              style: ResponsiveHelper.textStyle(
-                                context,
-                                fontSize: 16,
-                                color: textColor,
-                                fontWeight: FontWeight.w600,
+                        Positioned(
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          height: 32,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.topCenter,
+                                  end: Alignment.bottomCenter,
+                                  colors: [
+                                    bgColor.withValues(alpha: 0.55),
+                                    bgColor.withValues(alpha: 0),
+                                  ],
+                                ),
                               ),
                             ),
-                            ResponsiveHelper.verticalSpace(context, 6),
-                            Text(
-                              e.events.join(', '),
-                              style: ResponsiveHelper.textStyle(
-                                context,
-                                fontSize: 14,
-                                color: textColor,
-                                height: 1.5,
+                          ),
+                        ),
+                        Positioned(
+                          bottom: 0,
+                          left: 0,
+                          right: 0,
+                          height: 40,
+                          child: IgnorePointer(
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.bottomCenter,
+                                  end: Alignment.topCenter,
+                                  colors: [
+                                    bgColor.withValues(alpha: 0.65),
+                                    bgColor.withValues(alpha: 0),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                Positioned(
+                  top: _calendarPageHeight(context) - _calendarFloatOverlap,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Padding(
+                        padding: ResponsiveHelper.padding(
+                          context,
+                          left: 20,
+                          right: 20,
+                          top: 2,
+                          bottom: 8,
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _ScheduleChipButton(
+                                label: '일정 추가',
+                                isDark: isDark,
+                                enabled: _selectedDay != null,
+                                onTap:
+                                    _selectedDay == null
+                                        ? null
+                                        : () => _openAddPersonalSchedule(context, isDark),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: _ScheduleChipButton(
+                                label: '일정 삭제',
+                                isDark: isDark,
+                                enabled:
+                                    _selectedDay != null &&
+                                    (_personalScheduleMap[_scheduleYmdKey(
+                                              year,
+                                              month,
+                                              _selectedDay!,
+                                            )]?.isNotEmpty ??
+                                        false),
+                                onTap:
+                                    _selectedDay == null
+                                        ? null
+                                        : () => _openDeletePersonalSchedule(context, isDark),
                               ),
                             ),
                           ],
                         ),
-                      );
-                    },
+                      ),
+                      Expanded(
+                        child: Padding(
+                          padding: ResponsiveHelper.padding(
+                            context,
+                            left: 20,
+                            right: 20,
+                            top: 0,
+                          ).copyWith(bottom: listBottomPad),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: isDark ? AppColors.darkCard : AppColors.lightCard,
+                              borderRadius: ResponsiveHelper.borderRadius(context, 16),
+                              boxShadow: AppShadows.card(isDark),
+                            ),
+                            padding: ResponsiveHelper.padding(
+                              context,
+                              horizontal: 16,
+                              vertical: 12,
+                            ),
+                            child: NotificationListener<ScrollNotification>(
+                              onNotification: (notification) {
+                                return true;
+                              },
+                              child: ListView.builder(
+                                controller: _listController,
+                                padding: EdgeInsets.zero,
+                                primary: false,
+                                physics: const ClampingScrollPhysics(),
+                                itemCount: monthlyEvents.length,
+                                itemBuilder: (context, idx) {
+                                  final e = monthlyEvents[idx];
+                                  final key = _dayItemKeys.putIfAbsent(e.day, () => GlobalKey());
+                                  return Container(
+                                    key: key,
+                                    margin: ResponsiveHelper.padding(context, bottom: 10),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '$month월 ${e.day}일',
+                                          style: ResponsiveHelper.textStyle(
+                                            context,
+                                            fontSize: 16,
+                                            color: textColor,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        ResponsiveHelper.verticalSpace(context, 6),
+                                        Text(
+                                          e.events.join(', '),
+                                          style: ResponsiveHelper.textStyle(
+                                            context,
+                                            fontSize: 14,
+                                            color: textColor,
+                                            height: 1.5,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+              ],
             ),
           ),
-          ResponsiveHelper.verticalSpace(context, 24),
         ],
       ),
     );
@@ -361,17 +554,70 @@ class _ScheduleViewState extends State<ScheduleView> {
 
   List<_DayEvents> _collectMonthlyEvents(int year, int month) {
     final Map<int, List<String>> dayToEvents = {};
-    _scheduleMap.forEach((date, events) {
-      final parts = date.split('-');
-      final y = int.parse(parts[0]);
-      final m = int.parse(parts[1]);
-      final d = int.parse(parts[2]);
-      if (y == year && m == month) {
-        dayToEvents.putIfAbsent(d, () => []).addAll(events);
-      }
-    });
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    for (int d = 1; d <= daysInMonth; d++) {
+      final key = _scheduleYmdKey(year, month, d);
+      final school = _scheduleMap[key] ?? const <String>[];
+      final personal = _personalScheduleMap[key] ?? const <String>[];
+      if (school.isEmpty && personal.isEmpty) continue;
+      dayToEvents[d] = [...school, ...personal];
+    }
     final days = dayToEvents.keys.toList()..sort();
     return days.map((d) => _DayEvents(day: d, events: dayToEvents[d]!.toList())).toList();
+  }
+
+  void _openAddPersonalSchedule(BuildContext context, bool isDark) {
+    final ym = _getYearAndMonth(_currentMonthIndex);
+    final y = ym['year']!;
+    final m = ym['month']!;
+    final d = _selectedDay!;
+    final dateKey = _scheduleYmdKey(y, m, d);
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder:
+          (ctx) => _AddPersonalScheduleDialog(
+            isDark: isDark,
+            initialItems: List<String>.from(_personalScheduleMap[dateKey] ?? []),
+            onCommit: (list) {
+              setState(() {
+                if (list.isEmpty) {
+                  _personalScheduleMap.remove(dateKey);
+                } else {
+                  _personalScheduleMap[dateKey] = list;
+                }
+              });
+              _persistPersonalSchedules();
+            },
+          ),
+    );
+  }
+
+  void _openDeletePersonalSchedule(BuildContext context, bool isDark) {
+    final ym = _getYearAndMonth(_currentMonthIndex);
+    final y = ym['year']!;
+    final m = ym['month']!;
+    final d = _selectedDay!;
+    final dateKey = _scheduleYmdKey(y, m, d);
+    showDialog<void>(
+      context: context,
+      barrierColor: Colors.black54,
+      builder:
+          (ctx) => _DeletePersonalScheduleDialog(
+            isDark: isDark,
+            initialItems: List<String>.from(_personalScheduleMap[dateKey] ?? []),
+            onCommit: (list) {
+              setState(() {
+                if (list.isEmpty) {
+                  _personalScheduleMap.remove(dateKey);
+                } else {
+                  _personalScheduleMap[dateKey] = list;
+                }
+              });
+              _persistPersonalSchedules();
+            },
+          ),
+    );
   }
 
   void _scrollToDay(int day) {
@@ -581,6 +827,7 @@ class _MonthGrid extends StatelessWidget {
   final int year;
   final int month;
   final Map<String, List<String>> scheduleMap;
+  final Map<String, List<String>> personalScheduleMap;
   final int? selectedDay;
   final ValueChanged<int> onDaySelected;
 
@@ -588,6 +835,7 @@ class _MonthGrid extends StatelessWidget {
     required this.year,
     required this.month,
     required this.scheduleMap,
+    required this.personalScheduleMap,
     required this.selectedDay,
     required this.onDaySelected,
   });
@@ -610,54 +858,74 @@ class _MonthGrid extends StatelessWidget {
       cells.add(const SizedBox());
     }
     for (int d = 1; d <= daysInMonth; d++) {
-      final dateStr = '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
-      final events = scheduleMap[dateStr] ?? const <String>[];
-      final hasEvent = events.isNotEmpty;
-      final firstEvent = hasEvent ? events.first : null;
+      final dateStr = _scheduleYmdKey(year, month, d);
+      final schoolEvents = scheduleMap[dateStr] ?? const <String>[];
+      final personalEvents = personalScheduleMap[dateStr] ?? const <String>[];
+      final hasEvent = schoolEvents.isNotEmpty || personalEvents.isNotEmpty;
+      final capsuleLabel =
+          personalEvents.isNotEmpty
+              ? personalEvents.first
+              : (schoolEvents.isNotEmpty ? schoolEvents.first : null);
       final isToday = today.year == year && today.month == month && today.day == d;
       final isSelected = selectedDay == d;
 
       // 연속 일정 정보 확인
       final continuousInfo = continuousEvents[d];
 
+      const double dayCircleSize = 32;
       cells.add(
         GestureDetector(
+          behavior: HitTestBehavior.opaque,
           onTap: () => onDaySelected(d),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.start,
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              const SizedBox(height: 3), // 상단 여백 더 줄임 (4 -> 3)
-              Container(
-                width: 32,
-                height: 32,
-                decoration: isToday
-                    ? const BoxDecoration(color: Color(0xFFFFC51D), shape: BoxShape.circle)
-                    : isSelected
-                        ? BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: const Color(0xFFFFC51D), width: 2),
-                          )
-                        : null,
-                child: Center(
-                  child: Text(
-                    '$d',
-                    style: TextStyle(
-                      color: isToday ? Colors.black : (isDark ? Colors.white : Colors.black),
-                      fontWeight: hasEvent ? FontWeight.w600 : (isToday || isSelected ? FontWeight.bold : FontWeight.normal),
-                      fontSize: 16,
+          child: SizedBox.expand(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const SizedBox(height: 3),
+                Container(
+                  width: dayCircleSize,
+                  height: dayCircleSize,
+                  decoration: isToday
+                      ? const BoxDecoration(
+                          color: Color(0xFFFFC51D),
+                          shape: BoxShape.circle,
+                        )
+                      : isSelected
+                      ? BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFFFFC51D),
+                            width: 2,
+                          ),
+                        )
+                      : null,
+                  child: Center(
+                    child: Text(
+                      '$d',
+                      style: TextStyle(
+                        color: isToday
+                            ? Colors.black
+                            : (isDark ? Colors.white : Colors.black),
+                        fontWeight: hasEvent
+                            ? FontWeight.w600
+                            : (isToday || isSelected
+                                ? FontWeight.bold
+                                : FontWeight.normal),
+                        fontSize: 16,
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(height: 1), // 날짜와 캡슐 사이 간격 유지
-              if (continuousInfo == null && firstEvent != null)
-                _DayCapsule(
-                  text: firstEvent,
-                  isDark: isDark,
-                ),
-            ],
+                const SizedBox(height: 1),
+                if (continuousInfo == null && capsuleLabel != null)
+                  _DayCapsule(
+                    text: capsuleLabel,
+                    isDark: isDark,
+                  ),
+              ],
+            ),
           ),
         ),
       );
@@ -665,12 +933,29 @@ class _MonthGrid extends StatelessWidget {
 
     final eventRanges = _analyzeEventRanges();
 
+    // GridView가 먼저 높이를 정한 뒤 Positioned.fill로 막대 레이어에 유한 제약을 준다.
+    // (ScrollView 안에서 LayoutBuilder를 GridView와 형제로 두면 세로 무한 제약으로 레이아웃 실패)
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          // 연속 이벤트를 한 줄 캡슐로 오버레이 (합쳐진 폭 중앙 정렬)
-          ...eventRanges.map((range) => _buildRangeBackground(range, isDark, startWeekday)),
+          Positioned.fill(
+            child: IgnorePointer(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final w = constraints.maxWidth;
+                  return Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      for (final range in eventRanges)
+                        ..._rangeBarWidgets(range, isDark, startWeekday, w),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
           GridView.count(
             crossAxisCount: 7,
             shrinkWrap: true,
@@ -688,48 +973,61 @@ class _MonthGrid extends StatelessWidget {
 
   Map<int, _ContinuousEventInfo> _analyzeContinuousEvents() {
     final Map<int, _ContinuousEventInfo> result = {};
-    final Map<String, List<int>> eventToDays = {};
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final Set<int> personalDays = {};
+    for (int d = 1; d <= daysInMonth; d++) {
+      final dateStr = _scheduleYmdKey(year, month, d);
+      if ((personalScheduleMap[dateStr] ?? []).isNotEmpty) {
+        personalDays.add(d);
+      }
+    }
 
-    // 각 날짜의 첫 번째 이벤트만 사용 (캘린더에 하루 한 개만 표시)
-    for (int d = 1; d <= DateTime(year, month + 1, 0).day; d++) {
-      final dateStr = '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
+    final Map<String, List<int>> eventToDays = {};
+    for (int d = 1; d <= daysInMonth; d++) {
+      final dateStr = _scheduleYmdKey(year, month, d);
       final events = scheduleMap[dateStr] ?? const <String>[];
       if (events.isNotEmpty) {
         eventToDays.putIfAbsent(events.first, () => []).add(d);
       }
     }
 
-    // 연속된 날짜 범위 찾기 (2일 이상)
     eventToDays.forEach((eventName, days) {
       if (days.length < 2) return;
       days.sort();
-      
-      List<List<int>> ranges = [];
+
+      final List<List<int>> mergedRanges = [];
       List<int> currentRange = [days.first];
-      
+
       for (int i = 1; i < days.length; i++) {
-        if (days[i] == days[i-1] + 1) {
+        if (days[i] == days[i - 1] + 1) {
           currentRange.add(days[i]);
         } else {
-          if (currentRange.length >= 2) ranges.add(List.from(currentRange));
+          mergedRanges.addAll(
+            _subRangesExcludingPersonal(currentRange, personalDays),
+          );
           currentRange = [days[i]];
         }
       }
-      if (currentRange.length >= 2) ranges.add(currentRange);
-      
-      // 각 범위에 대해 위치 정보 설정
-      for (final range in ranges) {
+      mergedRanges.addAll(
+        _subRangesExcludingPersonal(currentRange, personalDays),
+      );
+
+      for (final range in mergedRanges) {
+        if (range.length < 2) continue;
         for (int i = 0; i < range.length; i++) {
           final day = range[i];
-          _CapsulePosition position;
+          final _CapsulePosition position;
           if (i == 0) {
-            position = range.length == 1 ? _CapsulePosition.single : _CapsulePosition.start;
+            position =
+                range.length == 1
+                    ? _CapsulePosition.single
+                    : _CapsulePosition.start;
           } else if (i == range.length - 1) {
             position = _CapsulePosition.end;
           } else {
             position = _CapsulePosition.middle;
           }
-          
+
           result[day] = _ContinuousEventInfo(
             eventName: eventName,
             position: position,
@@ -744,16 +1042,24 @@ class _MonthGrid extends StatelessWidget {
   List<_EventRange> _analyzeEventRanges() {
     final Map<String, List<int>> eventToDays = {};
     final daysInMonth = DateTime(year, month + 1, 0).day;
+    final Set<int> personalDays = {};
 
     for (int d = 1; d <= daysInMonth; d++) {
-      final dateStr = '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${d.toString().padLeft(2, '0')}';
+      final dateStr = _scheduleYmdKey(year, month, d);
+      if ((personalScheduleMap[dateStr] ?? []).isNotEmpty) {
+        personalDays.add(d);
+      }
+    }
+
+    for (int d = 1; d <= daysInMonth; d++) {
+      final dateStr = _scheduleYmdKey(year, month, d);
       final events = scheduleMap[dateStr] ?? const <String>[];
       if (events.isNotEmpty) {
         eventToDays.putIfAbsent(events.first, () => []).add(d);
       }
     }
 
-    List<_EventRange> ranges = [];
+    final List<_EventRange> ranges = [];
     eventToDays.forEach((eventName, days) {
       if (days.length < 2) return;
       days.sort();
@@ -763,80 +1069,88 @@ class _MonthGrid extends StatelessWidget {
         if (days[i] == days[i - 1] + 1) {
           current.add(days[i]);
         } else {
-          if (current.length >= 2) {
-            ranges.add(_EventRange(eventName: eventName, days: List.from(current)));
+          for (final sub in _subRangesExcludingPersonal(current, personalDays)) {
+            if (sub.length >= 2) {
+              ranges.add(
+                _EventRange(eventName: eventName, days: List.from(sub)),
+              );
+            }
           }
           current = [days[i]];
         }
       }
-      if (current.length >= 2) {
-        ranges.add(_EventRange(eventName: eventName, days: current));
+      for (final sub in _subRangesExcludingPersonal(current, personalDays)) {
+        if (sub.length >= 2) {
+          ranges.add(_EventRange(eventName: eventName, days: sub));
+        }
       }
     });
 
     return ranges;
   }
 
-  Widget _buildRangeBackground(_EventRange range, bool isDark, int startWeekday) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final double gridWidth = constraints.maxWidth;
-        const int columns = 7;
-        const double crossAxisSpacing = 0;
-        const double mainAxisSpacing = 1; // GridView의 mainAxisSpacing과 일치 (2 -> 1)
-        const double aspect = 0.95; // GridView의 childAspectRatio와 일치 (0.9 -> 0.95)
-        const double gridTopPadding = 4; // GridView의 padding top과 일치
-        final double cellWidth = (gridWidth - (columns - 1) * crossAxisSpacing) / columns;
-        final double cellHeight = cellWidth / aspect;
+  List<Widget> _rangeBarWidgets(
+    _EventRange range,
+    bool isDark,
+    int startWeekday,
+    double gridWidth,
+  ) {
+    const int columns = 7;
+    const double crossAxisSpacing = 0;
+    const double mainAxisSpacing = 1;
+    const double aspect = 0.95;
+    const double gridTopPadding = 4;
+    final double cellWidth = (gridWidth - (columns - 1) * crossAxisSpacing) / columns;
+    final double cellHeight = cellWidth / aspect;
 
-        // 날짜 아래 일정이 시작되는 위치 계산 (셀 내부 오프셋만)
-        // 날짜 위쪽 여백(3) + 날짜 컨테이너 높이(32) + 날짜와 캡슐 사이 여백(1) = 36
-        // 실제 측정값에 맞게 조정
-        const double dateTopOffset = 3 + 32 + 1;
+    const double dateTopOffset = 3 + 32 + 1;
 
-        final firstDay = range.days.first;
-        final lastDay = range.days.last;
-        final firstGridIndex = startWeekday + firstDay - 1;
-        final lastGridIndex = startWeekday + lastDay - 1;
-        final firstRow = firstGridIndex ~/ columns;
-        final firstCol = firstGridIndex % columns;
-        final lastRow = lastGridIndex ~/ columns;
-        final lastCol = lastGridIndex % columns;
+    final firstDay = range.days.first;
+    final lastDay = range.days.last;
+    final firstGridIndex = startWeekday + firstDay - 1;
+    final lastGridIndex = startWeekday + lastDay - 1;
+    final firstRow = firstGridIndex ~/ columns;
+    final firstCol = firstGridIndex % columns;
+    final lastRow = lastGridIndex ~/ columns;
+    final lastCol = lastGridIndex % columns;
 
-        List<Widget> bars = [];
-        for (int row = firstRow; row <= lastRow; row++) {
-          final int startCol = (row == firstRow) ? firstCol : 0;
-          final int endCol = (row == lastRow) ? lastCol : columns - 1;
-          final double left = startCol * (cellWidth + crossAxisSpacing);
-          final double top = gridTopPadding + row * (cellHeight + mainAxisSpacing) + dateTopOffset;
-          final double width = (endCol - startCol + 1) * cellWidth + (endCol - startCol) * crossAxisSpacing;
+    final List<Widget> bars = [];
+    for (int row = firstRow; row <= lastRow; row++) {
+      final int startCol = (row == firstRow) ? firstCol : 0;
+      final int endCol = (row == lastRow) ? lastCol : columns - 1;
+      final double left = startCol * (cellWidth + crossAxisSpacing);
+      final double top = gridTopPadding + row * (cellHeight + mainAxisSpacing) + dateTopOffset;
+      final double width =
+          (endCol - startCol + 1) * cellWidth + (endCol - startCol) * crossAxisSpacing;
 
-          bars.add(Positioned(
-            left: left,
-            top: top,
-            width: width,
-            height: 14,
-            child: Container(
-              decoration: BoxDecoration(
-                color: isDark ? const Color.fromRGBO(255, 255, 255, 0.12) : const Color.fromRGBO(0, 0, 0, 0.08),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color.fromRGBO(255, 255, 255, 0.35), width: 0.5),
-              ),
-              alignment: Alignment.center,
-              child: (row == firstRow)
-                  ? Text(
-                      range.eventName,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(color: isDark ? Colors.white : Colors.black, fontSize: 8, height: 1.0),
-                    )
-                  : null,
-            ),
-          ));
-        }
+      bars.add(Positioned(
+        left: left,
+        top: top,
+        width: width,
+        height: 14,
+        child: Container(
+          decoration: BoxDecoration(
+            color: isDark ? const Color.fromRGBO(255, 255, 255, 0.12) : const Color.fromRGBO(0, 0, 0, 0.08),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color.fromRGBO(255, 255, 255, 0.35), width: 0.5),
+          ),
+          alignment: Alignment.center,
+          child: (row == firstRow)
+              ? Text(
+                  range.eventName,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black,
+                    fontSize: 8,
+                    height: 1.0,
+                  ),
+                )
+              : null,
+        ),
+      ));
+    }
 
-        return Stack(children: bars);
-      },
-    );
+    return bars;
   }
 }
 
@@ -886,4 +1200,402 @@ class _EventRange {
   final String eventName;
   final List<int> days;
   _EventRange({required this.eventName, required this.days});
+}
+
+class _ScheduleChipButton extends StatelessWidget {
+  final String label;
+  final bool isDark;
+  final bool enabled;
+  final VoidCallback? onTap;
+
+  const _ScheduleChipButton({
+    required this.label,
+    required this.isDark,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = isDark ? AppColors.darkCard : AppColors.lightCard;
+    final fg = isDark ? AppColors.darkText : AppColors.lightText;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: enabled ? onTap : null,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          width: double.infinity,
+          alignment: Alignment.center,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: AppShadows.card(isDark),
+          ),
+          child: Text(
+            label,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14.5,
+              fontWeight: FontWeight.w600,
+              color: fg.withValues(alpha: enabled ? 1.0 : 0.38),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AddPersonalScheduleDialog extends StatefulWidget {
+  final bool isDark;
+  final List<String> initialItems;
+  final void Function(List<String> items) onCommit;
+
+  const _AddPersonalScheduleDialog({
+    required this.isDark,
+    required this.initialItems,
+    required this.onCommit,
+  });
+
+  @override
+  State<_AddPersonalScheduleDialog> createState() =>
+      _AddPersonalScheduleDialogState();
+}
+
+class _AddPersonalScheduleDialogState extends State<_AddPersonalScheduleDialog> {
+  late List<String> _items;
+  final TextEditingController _controller = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List<String>.from(widget.initialItems);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _add() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    setState(() {
+      _items = [..._items, text];
+      _controller.clear();
+    });
+    widget.onCommit(List<String>.from(_items));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final card = widget.isDark ? AppColors.darkCard : AppColors.lightCard;
+    final textColor = widget.isDark ? AppColors.darkText : AppColors.lightText;
+    final fieldFill =
+        widget.isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.04);
+
+    return Dialog(
+      backgroundColor: card,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(18, 13, 18, 18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '일정 추가',
+                    style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: textColor.withValues(alpha: 0.75)),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    style: TextStyle(color: textColor, fontSize: 14),
+                    decoration: InputDecoration(
+                      isDense: true,
+                      hintText: '일정을 입력해주세요',
+                      hintStyle: TextStyle(
+                        color: textColor.withValues(alpha: 0.45),
+                        fontSize: 14,
+                      ),
+                      filled: true,
+                      fillColor: fieldFill,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: textColor.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: textColor.withValues(alpha: 0.12),
+                        ),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide(
+                          color: textColor.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                    ),
+                    onSubmitted: (_) => _add(),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Material(
+                  color: card,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    onTap: _add,
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: textColor.withValues(alpha: 0.16),
+                        ),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '추가',
+                        style: TextStyle(
+                          color: textColor,
+                          fontWeight: FontWeight.w600,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            if (_items.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 200),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _items.length,
+                  itemBuilder: (context, i) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 6),
+                      child: _PersonalScheduleItemBox(
+                        text: _items[i],
+                        textColor: textColor,
+                        fillColor: fieldFill,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DeletePersonalScheduleDialog extends StatefulWidget {
+  final bool isDark;
+  final List<String> initialItems;
+  final void Function(List<String> items) onCommit;
+
+  const _DeletePersonalScheduleDialog({
+    required this.isDark,
+    required this.initialItems,
+    required this.onCommit,
+  });
+
+  @override
+  State<_DeletePersonalScheduleDialog> createState() =>
+      _DeletePersonalScheduleDialogState();
+}
+
+class _DeletePersonalScheduleDialogState
+    extends State<_DeletePersonalScheduleDialog> {
+  late List<String> _items;
+
+  @override
+  void initState() {
+    super.initState();
+    _items = List<String>.from(widget.initialItems);
+  }
+
+  void _removeAt(int index) {
+    setState(() {
+      _items.removeAt(index);
+    });
+    widget.onCommit(List<String>.from(_items));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final card = widget.isDark ? AppColors.darkCard : AppColors.lightCard;
+    final textColor = widget.isDark ? AppColors.darkText : AppColors.lightText;
+    final fieldFill =
+        widget.isDark
+            ? Colors.white.withValues(alpha: 0.06)
+            : Colors.black.withValues(alpha: 0.04);
+
+    return Dialog(
+      backgroundColor: card,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 11, 16, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '일정 삭제',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: textColor,
+                      height: 1.2,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.close, color: textColor.withValues(alpha: 0.75)),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (_items.isEmpty)
+              Text(
+                '삭제할 일정이 없습니다.',
+                style: TextStyle(
+                  color: textColor.withValues(alpha: 0.65),
+                  fontSize: 14,
+                ),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 260),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _items.length,
+                  itemBuilder: (context, i) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Expanded(
+                            child: _PersonalScheduleItemBox(
+                              text: _items[i],
+                              textColor: textColor,
+                              fillColor: fieldFill,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () => _removeAt(i),
+                              borderRadius: BorderRadius.circular(6),
+                              child: Container(
+                                width: 24,
+                                height: 24,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFE53935),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                alignment: Alignment.center,
+                                child: const Icon(
+                                  Icons.remove,
+                                  color: Colors.white,
+                                  size: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PersonalScheduleItemBox extends StatelessWidget {
+  final String text;
+  final Color textColor;
+  final Color fillColor;
+
+  const _PersonalScheduleItemBox({
+    required this.text,
+    required this.textColor,
+    required this.fillColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: fillColor,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: textColor.withValues(alpha: 0.12),
+        ),
+      ),
+      alignment: Alignment.centerLeft,
+      child: Text(
+        '· $text',
+        style: TextStyle(
+          color: textColor,
+          fontSize: 14,
+          height: 1.35,
+        ),
+      ),
+    );
+  }
 }
