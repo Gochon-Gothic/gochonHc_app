@@ -701,7 +701,9 @@ class _MonthTabsScrollable extends StatelessWidget {
                   child: ListView.builder(
                     controller: scrollController,
                     scrollDirection: Axis.horizontal,
-                    physics: const ClampingScrollPhysics(),
+                    // 손가락 직접 스크롤 금지: 선택(탭)·달력 스와이프에 따라서만 자동 정렬되어
+                    // 캡슐/선택 상태와 항상 동기화되도록 함 (드래그 시 자유분방하게 튀는 버그 방지)
+                    physics: const NeverScrollableScrollPhysics(),
                     itemCount: totalMonths,
                     itemBuilder: (context, i) {
                       final selected = i == currentIndex;
