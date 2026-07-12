@@ -67,6 +67,25 @@ class _TimetableScreenState extends State<TimetableScreen> {
       return now.subtract(Duration(days: weekday - 1));
     }
   }
+
+  /// 리스트 모드 기본 요일: 평일(월~금)이면 오늘, 토·일이면 월요일(0)
+  int _defaultListDayIndex() {
+    final now = DateTime.now().toUtc().add(const Duration(hours: 9));
+    final todayIdx = now.weekday - 1; // 0=월 … 6=일
+    return (todayIdx >= 0 && todayIdx < 5) ? todayIdx : 0;
+  }
+
+  void _jumpListToDefaultDay() {
+    final idx = _defaultListDayIndex();
+    _selectedListDayIndex = idx;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_dayController.hasClients) {
+        _dayController.jumpToPage(idx);
+      }
+    });
+  }
+
   // 학년/반은 API 요청에만 사용. 최대 반/학년 정보는 사용하지 않음(레이아웃 단순화)
 
   @override
@@ -86,10 +105,7 @@ class _TimetableScreenState extends State<TimetableScreen> {
     _loadClassCounts();
     _initMyClassAndLoad();
     _loadSavedViewMode();
-    // 리스트 모드 기본 선택 요일: 오늘(월~금) 아니면 월요일
-    final now = DateTime.now().toUtc().add(const Duration(hours: 9));
-    final todayIdx = now.weekday - 1;
-    _selectedListDayIndex = (todayIdx >= 0 && todayIdx < 5) ? todayIdx : 0;
+    _selectedListDayIndex = _defaultListDayIndex();
 
     // PageController 리스너 추가 (캡슐 애니메이션을 위해)
     _dayController.addListener(_onPageControllerChanged);
@@ -107,6 +123,10 @@ class _TimetableScreenState extends State<TimetableScreen> {
     setState(() {
       _isTableView = savedMode == 1;
     });
+    // 저장된 모드가 리스트면 현재 요일(또는 월요일)로 맞춤
+    if (savedMode == 0) {
+      _jumpListToDefaultDay();
+    }
   }
 
   // 마지막 선택한 반 정보 불러오기
@@ -360,8 +380,20 @@ class _TimetableScreenState extends State<TimetableScreen> {
     final nextValue = !_isTableView;
     setState(() {
       _isTableView = nextValue;
+      // 리스트로 전환 시: 평일이면 오늘, 토·일이면 월요일
+      if (!nextValue) {
+        _selectedListDayIndex = _defaultListDayIndex();
+      }
     });
     PreferenceManager.instance.setTimetableViewMode(nextValue ? 1 : 0);
+    if (!nextValue) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (_dayController.hasClients) {
+          _dayController.jumpToPage(_selectedListDayIndex ?? 0);
+        }
+      });
+    }
   }
 
   void _onPageControllerChanged() {

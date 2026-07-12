@@ -11,6 +11,7 @@ import 'package:firebase_core/firebase_core.dart';
 /// 4. _MainHomeContent: 공지 2건(GSheet), 학사일정 3건 표시, "더보기"로 ScheduleView/NoticeListScreen 이동
 /// 5. 홈 탭 이탈 시 _homeKey 갱신으로 홈 위젯 재생성
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
@@ -34,6 +35,7 @@ import 'theme_provider.dart';
 import 'utils/dialogs.dart';
 import 'utils/preference_manager.dart';
 import 'utils/responsive_helper.dart';
+import 'utils/schedule_filter.dart';
 import 'widgets/glass_navigation_bar.dart';
 
 class MainScreen extends StatefulWidget {
@@ -43,7 +45,7 @@ class MainScreen extends StatefulWidget {
   State<MainScreen> createState() => _MainScreenState();
 }
 
-class _MainScreenState extends State<MainScreen> {
+class _MainScreenState extends State<MainScreen> with WidgetsBindingObserver {
   final PageController _pageController = PageController(initialPage: 2);
   int _selectedIndex = 2;
   Key _homeKey = UniqueKey();
@@ -56,6 +58,20 @@ class _MainScreenState extends State<MainScreen> {
   final String _apiKey = dotenv.env['NEIS_API_KEY_LUNCH'] ?? '';
   static const String _eduOfficeCode = 'J10';
   static const String _schoolCode = '7531375';
+
+  void _hideSystemNavBar() {
+    SystemChrome.setEnabledSystemUIMode(
+      SystemUiMode.manual,
+      overlays: [SystemUiOverlay.top],
+    );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _hideSystemNavBar();
+    }
+  }
 
   List<Widget> get _pages => [
     const BusSearchScreen(),
@@ -114,9 +130,18 @@ class _MainScreenState extends State<MainScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _hideSystemNavBar();
     _loadUserInfo();
     fetchSchedule();
     WidgetsBinding.instance.addPostFrameCallback((_) => _checkElectiveUnavailableMessage());
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _pageController.dispose();
+    super.dispose();
   }
 
   Future<void> _checkElectiveUnavailableMessage() async {
@@ -225,8 +250,8 @@ class _MainScreenState extends State<MainScreen> {
       final filteredRows = rows
           .map((row) => row as Map<String, dynamic>)
           .where((row) {
-            final name = (row['EVENT_NM'] as String).replaceAll(' ', '');
-            return !name.contains('토요휴업일') && !name.contains('방학');
+            final name = (row['EVENT_NM'] as String?) ?? '';
+            return keepSchoolScheduleEvent(name);
           })
           .toList()
         ..sort((a, b) => (a['AA_YMD'] as String).compareTo(b['AA_YMD'] as String));
@@ -237,7 +262,10 @@ class _MainScreenState extends State<MainScreen> {
       });
     } catch (e) {
       setState(() {
-        error = '학사일정을 불러오는데 실패했습니다: ${e.toString()}';
+        error = friendlyFetchError(
+          e,
+          fallback: '학사일정을 불러오지 못했습니다.',
+        );
         isLoading = false;
       });
     }
@@ -256,11 +284,17 @@ class _MainScreenState extends State<MainScreen> {
             children: [
               Container(
                 color: bgColor,
-                child: PageView(
-                  controller: _pageController,
-                  onPageChanged: _onPageChanged,
-                  physics: const ClampingScrollPhysics(),
-                  children: _pages,
+                // Android 끝 탭 스트레치 오버스크롤이 LiquidGlass와 겹치면 가로 찢김처럼 보임
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(context).copyWith(
+                    overscroll: false,
+                  ),
+                  child: PageView(
+                    controller: _pageController,
+                    onPageChanged: _onPageChanged,
+                    physics: const ClampingScrollPhysics(),
+                    children: _pages,
+                  ),
                 ),
               ),
               Positioned(

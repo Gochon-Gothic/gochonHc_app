@@ -18,6 +18,7 @@ import '../theme_provider.dart';
 import '../utils/shadows.dart';
 import '../utils/responsive_helper.dart';
 import '../utils/preference_manager.dart';
+import '../utils/schedule_filter.dart';
 
 String _scheduleYmdKey(int year, int month, int day) {
   return '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}-${day.toString().padLeft(2, '0')}';
@@ -203,7 +204,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       
       final Map<String, List<String>> filtered = {};
       map.forEach((k, v) {
-        final f = v.where((e) => !e.contains('방학') && !e.contains('토요휴업일')).toList();
+        final f = v.where(keepSchoolScheduleEvent).toList();
         if (f.isNotEmpty) filtered[k] = f;
       });
       await PreferenceManager.instance.setScheduleCache(filtered);
@@ -215,7 +216,7 @@ class _ScheduleViewState extends State<ScheduleView> {
       }
     } catch (e) {
       setState(() {
-        _error = '데이터를 불러오지 못했습니다.';
+        _error = friendlyFetchError(e);
         _isLoading = false;
       });
     }

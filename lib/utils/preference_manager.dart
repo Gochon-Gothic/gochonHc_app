@@ -255,8 +255,9 @@ class PreferenceManager {
     await _prefs!.setString('movement_class_cache_$grade', jsonEncode(data));
   }
 
-  static const String _scheduleCacheKey = 'schedule_cache';
-  static const String _scheduleCacheTimeKey = 'schedule_cache_time';
+  // v2: 방학식 유지 필터 적용 후 캐시 무효화
+  static const String _scheduleCacheKey = 'schedule_cache_v2';
+  static const String _scheduleCacheTimeKey = 'schedule_cache_time_v2';
 
   /// 학사일정 캐시: 7일 경과 또는 3/2·9/1이면 null 반환 → API 재요청 유도
   Future<Map<String, List<String>>?> getScheduleCache() async {

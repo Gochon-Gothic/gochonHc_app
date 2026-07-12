@@ -9,7 +9,7 @@ import 'package:flutter/material.dart';
 /// 1. initState: initializeDateFormatting(ko) → _skipWeekend(주말 제외) → fetchMeal
 /// 2. fetchMeal: 매월 1일이면 캐시 무시 → SharedPreferences lunch_{yyyyMMdd} 3일 캐시 확인 → 없으면 API 호출
 /// 3. _parseMealData: mealServiceDietInfo.row → DDISH_NM(메뉴), NTR_INFO(알레르기 숫자) 파싱
-/// 4. _cleanMenuName: 괄호·별표·숫자 제거, 한글만 유지
+/// 4. _cleanMenuName: 알레르기 숫자·*만 제거, /, ,(설명) 등 메뉴 표기는 유지
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/date_symbol_data_local.dart';
@@ -182,40 +182,35 @@ class _LunchScreenState extends State<LunchScreen> {
     }
   }
 
+  /// NEIS 급식명 정리.
+  /// - 알레르기 숫자 코드 `(1.2.5)`, `*`, 끝자리 숫자만 제거
+  /// - `/`, `,`, `(설명)` 등 메뉴에 의미 있는 표기는 유지
   String _cleanMenuName(String menuName) {
-    menuName = menuName.replaceAll(RegExp(r'\([\d.]+\)'), '');
-    menuName = menuName.replaceAll(RegExp(r'\*+\d*'), '');
-    menuName = menuName.replaceAll(RegExp(r'\d+$'), '');
+    var s = menuName;
+    // 알레르기 코드 괄호만 제거: (1), (1.2.5.13)
+    s = s.replaceAll(RegExp(r'\(\s*\d+(?:\.\d+)*\s*\)'), '');
+    // * / ＃ 마커
+    s = s.replaceAll(RegExp(r'[*＃#]+'), '');
+    // 메뉴명 끝에 붙은 알레르기 숫자 (예: 김치1.2.5, 밥13)
+    s = s.replaceAll(RegExp(r'(?<=[\uAC00-\uD7A3a-zA-Z)])\d+(?:\.\d+)*\s*$'), '');
+    s = s.replaceAll(RegExp(r'\d+(?:\.\d+)+\s*$'), '');
 
-    String cleaned = '';
-    bool inParentheses = false;
-    String parenthesesContent = '';
-
-    for (int i = 0; i < menuName.length; i++) {
-      final char = menuName[i];
-
-      if (char == '(') {
-        inParentheses = true;
-        parenthesesContent = '';
-        cleaned += char;
-      } else if (char == ')') {
-        if (inParentheses) {
-          if (RegExp(r'^[\uAC00-\uD7A3\s]*$').hasMatch(parenthesesContent)) {
-            cleaned += parenthesesContent + char;
-          }
-          inParentheses = false;
-          parenthesesContent = '';
-        }
-      } else if (inParentheses) {
-        parenthesesContent += char;
-      } else {
-        if (RegExp(r'[\uAC00-\uD7A3\s]').hasMatch(char)) {
-          cleaned += char;
-        }
+    final buffer = StringBuffer();
+    for (final rune in s.runes) {
+      final char = String.fromCharCode(rune);
+      // 한글·영문·숫자·공백 + 메뉴에 자주 쓰는 기호 유지
+      if (RegExp(
+        r'[\uAC00-\uD7A3a-zA-Z0-9\s/\-,.&·+()%~\u00B7]',
+      ).hasMatch(char)) {
+        buffer.write(char);
       }
     }
 
-    return cleaned.trim();
+    return buffer
+        .toString()
+        .replaceAll(RegExp(r'\(\s*\)'), '')
+        .replaceAll(RegExp(r'\s{2,}'), ' ')
+        .trim();
   }
 
   void _parseMealData(Map<String, dynamic> data) {
@@ -240,6 +235,7 @@ class _LunchScreenState extends State<LunchScreen> {
               .replaceAll(RegExp(r'＃ ?\([\d.]+\)'), '')
               .replaceAll('<br/>', '\n')
               .replaceAll('<br />', '\n')
+              .replaceAll('&amp;', '&')
               .replaceAll('＃', '')
               .replaceAll('\n\n', '\n')
               .trim();

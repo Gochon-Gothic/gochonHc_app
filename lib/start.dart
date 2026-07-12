@@ -42,9 +42,10 @@ void main() async {
 
   await PreferenceManager.initialize();
   _setDeviceOrientation();
+  // 상태바만 표시, 안드로이드 시스템 네비게이션 바(홈/뒤로)는 숨김 → 커스텀 글래스 바와 겹치지 않음
   SystemChrome.setEnabledSystemUIMode(
     SystemUiMode.manual,
-    overlays: SystemUiOverlay.values,
+    overlays: [SystemUiOverlay.top],
   );
 
   runApp(
@@ -85,7 +86,9 @@ class MyApp extends StatelessWidget {
     final statusBarStyle = SystemUiOverlayStyle(
       systemNavigationBarColor: Colors.transparent,
       systemNavigationBarDividerColor: Colors.transparent,
-      systemNavigationBarIconBrightness: Brightness.dark,
+      systemNavigationBarContrastEnforced: false,
+      systemNavigationBarIconBrightness:
+          isDark ? Brightness.light : Brightness.dark,
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
       statusBarBrightness: isDark ? Brightness.dark : Brightness.light,
